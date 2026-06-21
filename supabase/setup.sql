@@ -190,6 +190,37 @@ create index if not exists interest_created_idx     on public.interest_form_subm
 create index if not exists contact_created_idx      on public.contact_submissions (created_at desc);
 
 
+-- ── program_stats (all-time records / leaders / milestones / honors) ──────────
+create table if not exists public.program_stats (
+  id           uuid primary key default gen_random_uuid(),
+  section      text        not null default 'records',  -- records | leaders | milestones | honors
+  gender       program_gender,
+  label        text        not null,
+  value        text,
+  detail       text,
+  season       text,
+  sort_order   int         not null default 0,
+  is_published boolean     not null default true,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.program_stats enable row level security;
+
+drop policy if exists "public read program_stats" on public.program_stats;
+create policy "public read program_stats" on public.program_stats
+  for select to anon using (is_published = true);
+
+drop policy if exists "admin read program_stats" on public.program_stats;
+create policy "admin read program_stats" on public.program_stats
+  for select to authenticated using (true);
+
+drop policy if exists "admin all program_stats" on public.program_stats;
+create policy "admin all program_stats" on public.program_stats
+  for all to authenticated using (true) with check (true);
+
+create index if not exists program_stats_section_idx on public.program_stats (section, sort_order);
+
+
 -- ════════════════════════════════════════════════════════════════════════════
 -- Green Hope Falcons — seed / sample data
 -- Safe to re-run: it clears the content tables first, then re-inserts.
@@ -197,7 +228,7 @@ create index if not exists contact_created_idx      on public.contact_submission
 -- Run after 0001_init.sql in the Supabase SQL Editor.
 -- ════════════════════════════════════════════════════════════════════════════
 
-truncate table public.players, public.games, public.coaches, public.news_posts restart identity;
+truncate table public.players, public.games, public.coaches, public.news_posts, public.program_stats restart identity;
 
 -- ── Games ────────────────────────────────────────────────────────────────────
 -- A few finished 2026 results + upcoming 2027 (Southwest Wake 4A) games so the
@@ -249,3 +280,17 @@ insert into public.news_posts (title, slug, body, published, published_at) value
    'offseason-workouts-summer-info',
    E'Summer is the time to get better. We''ll post open-field dates, conditioning sessions, and recommended camps here.\n\nGear questions? Reach out through the Contact page.',
    true, '2026-06-18 08:00-04');
+
+-- ── Program / all-time stats (examples) ────────────────────────────────────────
+-- EXAMPLE rows so the /stats page shows its layout. Edit or delete them in
+-- /admin → Stats and add your real records, leaders, milestones, and honors.
+-- (Per-season win/loss records are computed automatically from the games table.)
+insert into public.program_stats (section, gender, label, value, detail, season, sort_order) values
+  ('records',    'boys',  'Most Goals (Season)',    'Add player — 00',  'Replace with your record holder', null, 1),
+  ('records',    'boys',  'Most Assists (Game)',    'Add player — 0',   'Replace with your record holder', null, 2),
+  ('records',    'girls', 'Most Saves (Season)',    'Add player — 000', 'Replace with your record holder', null, 3),
+  ('leaders',    null,    'Career Points Leader',   'Add player',       'All-time program leader',         null, 1),
+  ('leaders',    null,    'Career Goals Leader',    'Add player',       'All-time program leader',         null, 2),
+  ('milestones', null,    'First Falcons Lacrosse Season', 'Add year', 'When the program began',           null, 1),
+  ('honors',     null,    'Conference Championships', 'Add years',      'e.g. 2018, 2021, 2024',           null, 1),
+  ('honors',     null,    'State Playoff Appearances','Add count',      'NCHSAA postseason berths',         null, 2);

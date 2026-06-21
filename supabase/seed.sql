@@ -57,3 +57,25 @@ insert into public.news_posts (title, slug, body, published, published_at) value
    'offseason-workouts-summer-info',
    E'Summer is the time to get better. We''ll post open-field dates, conditioning sessions, and recommended camps here.\n\nGear questions? Reach out through the Contact page.',
    true, '2026-06-18 08:00-04');
+
+-- ── Program / all-time stats (examples) ────────────────────────────────────────
+-- These are EXAMPLE rows so the /stats page shows its layout. Edit or delete them
+-- in /admin → Stats and add your real records, leaders, milestones, and honors.
+-- (Season win/loss records are computed automatically from the games table, so
+--  they are NOT entered here.) Guarded so this seed still runs if 0004 hasn't been
+-- applied yet — run supabase/migrations/0004_stats.sql first to enable the table.
+do $$ begin
+  if exists (select 1 from information_schema.tables
+             where table_schema = 'public' and table_name = 'program_stats') then
+    delete from public.program_stats;
+    insert into public.program_stats (section, gender, label, value, detail, season, sort_order) values
+      ('records',    'boys',  'Most Goals (Season)',    'Add player — 00',  'Replace with your record holder', null, 1),
+      ('records',    'boys',  'Most Assists (Game)',    'Add player — 0',   'Replace with your record holder', null, 2),
+      ('records',    'girls', 'Most Saves (Season)',    'Add player — 000', 'Replace with your record holder', null, 3),
+      ('leaders',    null,    'Career Points Leader',   'Add player',       'All-time program leader',         null, 1),
+      ('leaders',    null,    'Career Goals Leader',    'Add player',       'All-time program leader',         null, 2),
+      ('milestones', null,    'First Falcons Lacrosse Season', 'Add year', 'When the program began',           null, 1),
+      ('honors',     null,    'Conference Championships', 'Add years',      'e.g. 2018, 2021, 2024',           null, 1),
+      ('honors',     null,    'State Playoff Appearances','Add count',      'NCHSAA postseason berths',         null, 2);
+  end if;
+end $$;

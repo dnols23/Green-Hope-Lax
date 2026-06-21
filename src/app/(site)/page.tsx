@@ -41,9 +41,9 @@ export default async function HomePage() {
       <section className="max-w-screen-xl mx-auto px-4 mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { href: '/schedule', title: 'Schedule & Results', desc: 'Games, scores, and locations.' },
+          { href: '/stats', title: 'Stats', desc: 'Season records & all-time program stats.' },
           { href: '/roster', title: 'Roster', desc: 'Varsity and JV rosters.' },
           { href: '/join', title: 'Join the Team', desc: 'New or experienced — start here.' },
-          { href: '/resources', title: 'Resources', desc: 'Forms, fees, practice info & more.' },
         ].map((c) => (
           <Link key={c.href} href={c.href} className="card p-5 hover:shadow-md transition-shadow group">
             <div className="font-black text-lg group-hover:text-[var(--gh-green)] transition-colors">{c.title}</div>

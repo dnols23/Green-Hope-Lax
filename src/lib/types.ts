@@ -61,6 +61,28 @@ export interface NewsPost {
   created_at: string
 }
 
+export type StatSection = 'records' | 'leaders' | 'milestones' | 'honors'
+
+export interface ProgramStat {
+  id: string
+  section: StatSection
+  gender: ProgramGender | null
+  label: string
+  value: string | null
+  detail: string | null
+  season: string | null
+  sort_order: number
+  is_published: boolean
+  created_at: string
+}
+
+export const STAT_SECTION_META: Record<StatSection, { label: string; emoji: string; blurb: string }> = {
+  records:    { label: 'Program Records',  emoji: '🏅', blurb: 'Single-game and single-season bests in Falcons history.' },
+  leaders:    { label: 'Career Leaders',   emoji: '📈', blurb: 'All-time leaders across the program.' },
+  milestones: { label: 'Program Milestones', emoji: '📅', blurb: 'Notable moments in Green Hope lacrosse history.' },
+  honors:     { label: 'Team Honors',      emoji: '🏆', blurb: 'Conference titles, playoff runs, and team awards.' },
+}
+
 export interface InterestSubmission {
   id: string
   player_first: string

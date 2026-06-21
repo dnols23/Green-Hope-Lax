@@ -7,6 +7,7 @@ import { FalconHead } from './Logo'
 const LINKS = [
   { href: '/', label: 'Home' },
   { href: '/schedule', label: 'Schedule' },
+  { href: '/stats', label: 'Stats' },
   { href: '/roster', label: 'Roster' },
   { href: '/coaches', label: 'Coaches' },
   { href: '/news', label: 'News' },
