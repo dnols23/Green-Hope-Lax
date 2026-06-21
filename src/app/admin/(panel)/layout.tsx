@@ -1,5 +1,7 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { logout } from '@/lib/actions'
+import { createClient, createServiceClient } from '@/lib/supabase-server'
 import { FalconHead } from '@/components/Logo'
 
 const ADMIN_LINKS = [
@@ -12,7 +14,20 @@ const ADMIN_LINKS = [
   { href: '/admin/news', label: 'News' },
 ]
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Force first-login password reset for coaches flagged with must_reset.
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const svc = createServiceClient()
+    const { data: flag } = await svc
+      .from('app_settings')
+      .select('key')
+      .eq('key', `must_reset:${user.id}`)
+      .maybeSingle()
+    if (flag) redirect('/admin/reset-password')
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="text-white" style={{ background: 'var(--gh-green-dk)' }}>

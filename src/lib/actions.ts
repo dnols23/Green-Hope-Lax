@@ -18,13 +18,23 @@ export type FormState = { ok: boolean; error?: string }
 
 // ═══ AUTH ═══════════════════════════════════════════════════════════════════════
 
+// Coaches sign in with a username (e.g. "HCNolan"); we map it to a synthetic
+// email behind the scenes. A real email (with "@") is also accepted.
+// (Local, non-exported — a 'use server' file may only export async functions.)
+const COACH_EMAIL_DOMAIN = 'ghfalcons.local'
+function coachEmail(idRaw: string): string {
+  const id = idRaw.trim()
+  return id.includes('@') ? id.toLowerCase() : `${id.toLowerCase()}@${COACH_EMAIL_DOMAIN}`
+}
+
 export async function login(formData: FormData) {
   const supabase = await createClient()
+  const idRaw = str(formData.get('username')) || str(formData.get('email'))
   const { error } = await supabase.auth.signInWithPassword({
-    email: str(formData.get('email')),
+    email: coachEmail(idRaw),
     password: str(formData.get('password')),
   })
-  if (error) return { error: error.message }
+  if (error) return { error: 'Incorrect username or password.' }
   redirect('/admin')
 }
 
@@ -32,6 +42,26 @@ export async function logout() {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect('/admin/login')
+}
+
+// First-login forced reset: a coach with a `must_reset:<uid>` flag in app_settings
+// is sent here by the admin layout until they choose their own password.
+export async function resetCoachPassword(_prev: FormState, formData: FormData): Promise<FormState> {
+  const pw = str(formData.get('password'))
+  const confirm = str(formData.get('confirm'))
+  if (pw.length < 8) return { ok: false, error: 'Password must be at least 8 characters.' }
+  if (pw !== confirm) return { ok: false, error: 'Passwords do not match.' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Your session expired — please sign in again.' }
+
+  const { error } = await supabase.auth.updateUser({ password: pw })
+  if (error) return { ok: false, error: error.message }
+
+  const svc = createServiceClient()
+  await svc.from('app_settings').delete().eq('key', `must_reset:${user.id}`)
+  redirect('/admin')
 }
 
 // ═══ TEAM HUB ACCESS (shared password for parents/players) ═══════════════════════
