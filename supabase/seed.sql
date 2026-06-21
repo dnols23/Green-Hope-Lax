@@ -21,19 +21,11 @@ insert into public.games (gender, game_date, opponent, home_away, location, stat
   ('boys', '2027-02-27 18:00-05', 'Green Level',     'away', 'Green Level HS', 'scheduled', null, null, true, null),
   ('boys', '2027-03-03 19:00-05', 'Apex Friendship', 'home', 'Green Hope HS', 'scheduled', null, null, true, null),
   ('boys', '2027-03-06 13:00-05', 'Broughton',       'away', 'Broughton HS', 'scheduled', null, null, false, 'Non-conference'),
-  ('boys', '2027-03-10 19:00-05', 'Wake Forest',     'home', 'Green Hope HS', 'scheduled', null, null, false, null),
-  -- Girls — finished
-  ('girls', '2026-03-11 17:30-04', 'Apex',           'home', 'Green Hope HS', 'final', 13, 9, true, null),
-  ('girls', '2026-03-18 17:30-04', 'Middle Creek',   'away', 'Middle Creek HS', 'final', 8, 8, true, 'Tie'),
-  -- Girls — upcoming
-  ('girls', '2027-02-25 17:30-05', 'Holly Springs',  'home', 'Green Hope HS', 'scheduled', null, null, true, null),
-  ('girls', '2027-03-04 17:30-05', 'Panther Creek',  'away', 'Panther Creek HS', 'scheduled', null, null, true, null),
-  ('girls', '2027-03-09 17:30-05', 'Green Level',    'home', 'Green Hope HS', 'scheduled', null, null, true, null);
+  ('boys', '2027-03-10 19:00-05', 'Wake Forest',     'home', 'Green Hope HS', 'scheduled', null, null, false, null);
 
 -- ── Coaches ──────────────────────────────────────────────────────────────────
 insert into public.coaches (name, role, program, email, phone, bio, sort_order) values
-  ('Head Coach',         'Head Coach — Boys',      'boys',  'boys.coach@greenhopelacrosse.com',  '(919) 555-0101', 'Leads the Green Hope boys lacrosse program. Replace this bio in the admin panel.', 1),
-  ('Head Coach',         'Head Coach — Girls',     'girls', 'girls.coach@greenhopelacrosse.com', '(919) 555-0102', 'Leads the Green Hope girls lacrosse program. Replace this bio in the admin panel.', 2),
+  ('Head Coach',         'Head Coach',             'boys',  'coach@greenhopelacrosse.com',  '(919) 555-0101', 'Leads the Green Hope boys lacrosse program. Replace this bio in the admin panel.', 1),
   ('Assistant Coach',    'Assistant Coach',        'boys',  null, null, 'Add your assistant coaches and their bios from /admin.', 3),
   ('Team Manager',       'Program Coordinator',    null,    'info@greenhopelacrosse.com', null, 'Handles scheduling, communications, and team logistics.', 4);
 
@@ -49,12 +41,7 @@ insert into public.players (team, name, number, position, class_year, height, ho
   -- Boys JV
   ('boys_jv', 'JV Player One', '4',  'Attack',   '2029', null, 'Cary, NC', 1),
   ('boys_jv', 'JV Player Two', '12', 'Midfield', '2029', null, 'Cary, NC', 2),
-  ('boys_jv', 'JV Player Three','9', 'Defense',  '2030', null, 'Morrisville, NC', 3),
-  -- Girls
-  ('girls', 'Girls Player One',   '2',  'Attack',   '2027', null, 'Cary, NC', 1),
-  ('girls', 'Girls Player Two',   '8',  'Midfield', '2026', null, 'Cary, NC', 2),
-  ('girls', 'Girls Player Three', '19', 'Defense',  '2028', null, 'Apex, NC', 3),
-  ('girls', 'Girls Player Four',  '30', 'Goalie',   '2027', null, 'Cary, NC', 4);
+  ('boys_jv', 'JV Player Three','9', 'Defense',  '2030', null, 'Morrisville, NC', 3);
 
 -- ── News / announcements ──────────────────────────────────────────────────────
 insert into public.news_posts (title, slug, body, published, published_at) values

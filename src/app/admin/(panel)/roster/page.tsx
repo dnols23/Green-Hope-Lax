@@ -15,7 +15,7 @@ function PlayerFields({ p }: { p?: Player }) {
       <div>
         <label className="field-label">Team *</label>
         <select name="team" defaultValue={p?.team ?? 'boys_varsity'} className="field">
-          {Object.entries(TEAM_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          {Object.entries(TEAM_LABELS).filter(([v]) => v !== 'girls').map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
       </div>
       <div>

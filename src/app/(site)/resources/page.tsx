@@ -30,7 +30,7 @@ export default function ResourcesPage() {
         <section className="card p-6">
           <h2 className="font-black text-xl mb-3">What to Bring</h2>
           <ul className="space-y-1.5 text-gray-600 text-sm list-disc list-inside">
-            <li>Stick, helmet (boys), goggles (girls), mouthguard, gloves, cleats.</li>
+            <li>Stick, helmet, shoulder pads, arm pads, gloves, mouthguard, cleats.</li>
             <li>Water bottle (label it!) and weather-appropriate layers.</li>
             <li>Any medications and a fully completed physical on file.</li>
           </ul>
@@ -66,8 +66,7 @@ export default function ResourcesPage() {
           <h2 className="font-black text-xl mb-3">Links</h2>
           <ul className="space-y-2 text-sm">
             <li><a href={SCHOOL.athleticsUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--gh-green)] font-semibold">Green Hope HS Athletics ↗</a></li>
-            <li><a href={SCHOOL.maxprepsBoys} target="_blank" rel="noopener noreferrer" className="text-[var(--gh-green)] font-semibold">MaxPreps — Boys Lacrosse ↗</a></li>
-            <li><a href={SCHOOL.maxprepsGirls} target="_blank" rel="noopener noreferrer" className="text-[var(--gh-green)] font-semibold">MaxPreps — Girls Lacrosse ↗</a></li>
+            <li><a href={SCHOOL.maxprepsBoys} target="_blank" rel="noopener noreferrer" className="text-[var(--gh-green)] font-semibold">MaxPreps — Lacrosse ↗</a></li>
           </ul>
         </section>
       </div>

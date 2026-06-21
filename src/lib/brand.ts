@@ -17,7 +17,5 @@ export const SCHOOL = {
     'https://www.google.com/maps/search/?api=1&query=Green+Hope+High+School,+2500+Carpenter+Upchurch+Rd,+Cary,+NC+27519',
   maxprepsBoys:
     'https://www.maxpreps.com/nc/cary/green-hope-falcons/lacrosse/',
-  maxprepsGirls:
-    'https://www.maxpreps.com/nc/cary/green-hope-falcons/lacrosse/girls/',
   athleticsUrl: 'https://www.wcpss.net/greenhopehs',
 } as const

@@ -4,7 +4,7 @@ import type { Player, TeamGroup } from '@/lib/types'
 import { TEAM_LABELS } from '@/lib/types'
 import { FalconHead } from './Logo'
 
-const GROUPS: (TeamGroup | 'all')[] = ['all', 'boys_varsity', 'boys_jv', 'girls']
+const GROUPS: (TeamGroup | 'all')[] = ['all', 'boys_varsity', 'boys_jv']
 
 export function RosterView({ players }: { players: Player[] }) {
   const [group, setGroup] = useState<TeamGroup | 'all'>('all')

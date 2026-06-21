@@ -38,18 +38,9 @@ export function InterestForm() {
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className="field-label">Graduation year</label>
-          <input name="grad_year" placeholder="e.g. 2028" className="field" inputMode="numeric" />
-        </div>
-        <div>
-          <label className="field-label">Program *</label>
-          <select name="program" required defaultValue="boys" className="field">
-            <option value="boys">Boys</option>
-            <option value="girls">Girls</option>
-          </select>
-        </div>
+      <div>
+        <label className="field-label">Graduation year</label>
+        <input name="grad_year" placeholder="e.g. 2028" className="field" inputMode="numeric" />
       </div>
 
       <div>

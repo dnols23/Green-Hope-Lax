@@ -16,13 +16,6 @@ function GameFields({ g }: { g?: Game }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       <div>
-        <label className="field-label">Program *</label>
-        <select name="gender" defaultValue={g?.gender ?? 'boys'} className="field" required>
-          <option value="boys">Boys</option>
-          <option value="girls">Girls</option>
-        </select>
-      </div>
-      <div>
         <label className="field-label">Date &amp; time *</label>
         <input type="datetime-local" name="game_date" required defaultValue={g ? toLocalInput(g.game_date) : ''} className="field" />
       </div>
@@ -96,7 +89,6 @@ export default async function AdminSchedulePage() {
           <details key={g.id} className="card p-4">
             <summary className="flex items-center justify-between cursor-pointer list-none gap-3">
               <span className="font-semibold">
-                <span className="text-gray-400">{g.gender === 'girls' ? 'G' : 'B'}</span>{' '}
                 {new Date(g.game_date).toLocaleDateString()} — {g.home_away === 'away' ? '@' : 'vs'} {g.opponent}
                 {g.status === 'final' && g.team_score != null && (
                   <span className="ml-2 text-gray-500">({g.team_score}–{g.opp_score})</span>

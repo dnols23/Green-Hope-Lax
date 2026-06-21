@@ -75,12 +75,11 @@ export async function submitInterest(
   }
 
   await sendCoachEmail({
-    subject: `New lacrosse interest: ${data.player_first} ${data.player_last} (${data.program})`,
+    subject: `New lacrosse interest: ${data.player_first} ${data.player_last}`,
     replyTo: data.parent_email,
     html: emailShell(
       'New Player Interest Submission',
       row('Player', `${data.player_first} ${data.player_last}`) +
-        row('Program', data.program === 'girls' ? 'Girls' : 'Boys') +
         row('Grad year', data.grad_year) +
         row('Experience', EXPERIENCE_LABELS[data.experience]) +
         row('Parent/Guardian', data.parent_name) +

@@ -40,8 +40,8 @@ export default async function HomePage() {
       {/* ── Quick links ── */}
       <section className="max-w-screen-xl mx-auto px-4 mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { href: '/schedule', title: 'Schedule & Results', desc: 'Boys & girls games, scores, and locations.' },
-          { href: '/roster', title: 'Roster', desc: 'Varsity, JV, and girls rosters.' },
+          { href: '/schedule', title: 'Schedule & Results', desc: 'Games, scores, and locations.' },
+          { href: '/roster', title: 'Roster', desc: 'Varsity and JV rosters.' },
           { href: '/join', title: 'Join the Team', desc: 'New or experienced — start here.' },
           { href: '/resources', title: 'Resources', desc: 'Forms, fees, practice info & more.' },
         ].map((c) => (

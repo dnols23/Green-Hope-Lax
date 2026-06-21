@@ -13,7 +13,7 @@ export function NextGameCard({ game }: { game: Game | null }) {
   return (
     <div className="card overflow-hidden">
       <div className="px-5 py-2 text-white text-xs font-black tracking-widest" style={{ background: 'var(--gh-maroon)' }}>
-        NEXT GAME · {game.gender === 'girls' ? 'GIRLS' : 'BOYS'}
+        NEXT GAME
       </div>
       <div className="p-6">
         <div className="text-3xl font-black tracking-tight">

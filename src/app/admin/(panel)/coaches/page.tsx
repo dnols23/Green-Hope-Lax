@@ -21,7 +21,6 @@ function CoachFields({ c }: { c?: Coach }) {
         <select name="program" defaultValue={c?.program ?? ''} className="field">
           <option value="">Whole program</option>
           <option value="boys">Boys</option>
-          <option value="girls">Girls</option>
         </select>
       </div>
       <div>
