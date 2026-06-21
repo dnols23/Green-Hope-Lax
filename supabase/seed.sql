@@ -8,20 +8,35 @@
 truncate table public.players, public.games, public.coaches, public.news_posts restart identity;
 
 -- ── Games ────────────────────────────────────────────────────────────────────
--- A few finished 2026 results + upcoming 2027 (Southwest Wake 4A) games so the
--- schedule, "Next Game" card, and results layout all have data to show.
+-- Green Hope Falcons 2026 boys lacrosse season (full results, from MaxPreps).
+-- Scores are entered Green Hope-first (team_score) regardless of W/L. Conference
+-- games carry is_conference = true (Southwest Wake + conference tournament).
+-- Times: EST (-05) before the Mar 8 2026 DST change, EDT (-04) after.
 insert into public.games (gender, game_date, opponent, home_away, location, status, team_score, opp_score, is_conference, notes) values
-  -- Boys — finished
-  ('boys', '2026-03-10 19:00-04', 'Cary',            'home', 'Green Hope HS', 'final', 14, 6,  true,  'Conference opener'),
-  ('boys', '2026-03-13 19:00-04', 'Holly Springs',   'away', 'Holly Springs HS', 'final', 9, 11, true,  null),
-  ('boys', '2026-03-20 19:00-04', 'Panther Creek',   'home', 'Green Hope HS', 'final', 12, 8,  true,  'Senior night'),
-  ('boys', '2026-03-27 19:00-04', 'Apex',            'away', 'Apex HS', 'final', 7, 10, true,  null),
-  -- Boys — upcoming (2027 season)
-  ('boys', '2027-02-24 19:00-05', 'Middle Creek',    'home', 'Green Hope HS', 'scheduled', null, null, true, null),
-  ('boys', '2027-02-27 18:00-05', 'Green Level',     'away', 'Green Level HS', 'scheduled', null, null, true, null),
-  ('boys', '2027-03-03 19:00-05', 'Apex Friendship', 'home', 'Green Hope HS', 'scheduled', null, null, true, null),
-  ('boys', '2027-03-06 13:00-05', 'Broughton',       'away', 'Broughton HS', 'scheduled', null, null, false, 'Non-conference'),
-  ('boys', '2027-03-10 19:00-05', 'Wake Forest',     'home', 'Green Hope HS', 'scheduled', null, null, false, null);
+  ('boys', '2026-02-27 17:00-05', 'Holly Springs',   'away', 'Holly Springs HS',   'final', 11, 16, false, null),
+  ('boys', '2026-03-05 18:30-05', 'Leesville Road',  'away', 'Leesville Road HS',  'final', 10, 6,  false, null),
+  ('boys', '2026-03-06 19:00-05', 'CHHS',            'away', 'CHHS',               'final', 15, 4,  false, null),
+  ('boys', '2026-03-10 18:30-04', 'Athens Drive',    'away', 'Athens Drive HS',    'final', 15, 16, false, 'Overtime'),
+  ('boys', '2026-03-11 17:00-04', 'Felton Grove',    'away', 'Felton Grove HS',    'final', 17, 16, false, null),
+  ('boys', '2026-03-13 18:30-04', 'Apex Friendship', 'home', 'Green Hope HS',      'final', 8,  13, true,  null),
+  ('boys', '2026-03-17 18:30-04', 'Apex',            'home', 'Green Hope HS',      'final', 7,  16, true,  null),
+  ('boys', '2026-03-20 19:00-04', 'Jordan',          'away', 'Jordan HS',          'final', 13, 7,  true,  null),
+  ('boys', '2026-03-24 17:00-04', 'Panther Creek',   'away', 'Panther Creek HS',   'final', 18, 4,  true,  null),
+  ('boys', '2026-03-25 18:00-04', 'Ravenscroft',     'home', 'Green Hope HS',      'final', 18, 6,  false, null),
+  ('boys', '2026-03-27 17:00-04', 'Willow Spring',   'home', 'Green Hope HS',      'final', 9,  8,  true,  null),
+  ('boys', '2026-04-07 19:00-04', 'Heritage',        'home', 'Green Hope HS',      'final', 16, 15, false, null),
+  ('boys', '2026-04-08 18:30-04', 'Fuquay-Varina',   'home', 'Green Hope HS',      'final', 20, 2,  false, null),
+  ('boys', '2026-04-10 18:30-04', 'Green Level',     'away', 'Green Level HS',     'final', 11, 19, true,  null),
+  ('boys', '2026-04-13 19:00-04', 'Cary',            'home', 'Green Hope HS',      'final', 20, 1,  false, null),
+  ('boys', '2026-04-14 18:30-04', 'Apex Friendship', 'away', 'Apex Friendship HS', 'final', 5,  20, true,  null),
+  ('boys', '2026-04-16 18:30-04', 'Apex',            'away', 'Apex HS',            'final', 9,  14, true,  null),
+  ('boys', '2026-04-20 18:30-04', 'Willow Spring',   'away', 'Willow Spring HS',   'final', 11, 10, true,  null),
+  ('boys', '2026-04-21 18:30-04', 'Jordan',          'home', 'Green Hope HS',      'final', 15, 12, true,  null),
+  ('boys', '2026-04-24 18:30-04', 'Panther Creek',   'home', 'Green Hope HS',      'final', 19, 4,  true,  null),
+  ('boys', '2026-04-30 18:30-04', 'Middle Creek',    'home', 'Green Hope HS',      'final', 8,  18, false, null),
+  ('boys', '2026-05-05 18:30-04', 'Green Level',     'home', 'Green Hope HS',      'final', 3,  11, true,  null),
+  ('boys', '2026-05-12 19:30-04', 'Jordan',          'home', 'Green Hope HS',      'final', 16, 7,  true,  'Playoffs'),
+  ('boys', '2026-05-15 19:00-04', 'Apex Friendship', 'away', 'Apex Friendship HS', 'final', 12, 19, true,  'Playoffs');
 
 -- ── Coaches ──────────────────────────────────────────────────────────────────
 insert into public.coaches (name, role, program, email, phone, bio, sort_order) values
