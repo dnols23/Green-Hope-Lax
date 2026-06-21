@@ -84,6 +84,48 @@ export interface ContactSubmission {
   created_at: string
 }
 
+export type TeamPostCategory =
+  | 'announcement' | 'practice' | 'game' | 'forms' | 'event' | 'gear' | 'general'
+
+export interface TeamPost {
+  id: string
+  title: string
+  body: string
+  category: TeamPostCategory
+  pinned: boolean
+  event_date: string | null
+  attachments: string | null
+  author: string
+  published: boolean
+  created_at: string
+  updated_at: string
+}
+
+export const TEAM_CATEGORY_META: Record<TeamPostCategory, { label: string; emoji: string; cls: string }> = {
+  announcement: { label: 'Announcement', emoji: '📣', cls: 'cat-announcement' },
+  practice:     { label: 'Practice',     emoji: '🥍', cls: 'cat-practice' },
+  game:         { label: 'Game',         emoji: '🏆', cls: 'cat-game' },
+  forms:        { label: 'Forms',        emoji: '📄', cls: 'cat-forms' },
+  event:        { label: 'Event',        emoji: '📅', cls: 'cat-event' },
+  gear:         { label: 'Gear',         emoji: '🎒', cls: 'cat-gear' },
+  general:      { label: 'General',      emoji: '💬', cls: 'cat-general' },
+}
+
+// Parse the "Label | https://url" (one per line) attachments field.
+export function parseAttachments(raw: string | null): { label: string; url: string }[] {
+  if (!raw) return []
+  return raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const i = line.indexOf('|')
+      if (i === -1) return { label: line, url: line }
+      return { label: line.slice(0, i).trim(), url: line.slice(i + 1).trim() }
+    })
+    .filter((a) => a.url)
+}
+
 // ── Display helpers ────────────────────────────────────────────────────────────
 export const TEAM_LABELS: Record<TeamGroup, string> = {
   boys_varsity: 'Boys Varsity',

@@ -4,6 +4,7 @@ import { FalconHead } from '@/components/Logo'
 
 const ADMIN_LINKS = [
   { href: '/admin', label: 'Dashboard' },
+  { href: '/admin/team', label: 'Team Hub' },
   { href: '/admin/submissions', label: 'Submissions' },
   { href: '/admin/schedule', label: 'Schedule' },
   { href: '/admin/roster', label: 'Roster' },

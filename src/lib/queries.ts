@@ -1,5 +1,5 @@
-import { createClient } from './supabase-server'
-import type { Game, Player, Coach, NewsPost, ProgramGender, TeamGroup } from './types'
+import { createClient, createServiceClient } from './supabase-server'
+import type { Game, Player, Coach, NewsPost, ProgramGender, TeamGroup, TeamPost } from './types'
 
 // All public-site reads live here. They use the anon (RLS-respecting) client, so
 // they only ever return data the public is allowed to see.
@@ -59,6 +59,21 @@ export async function getNews(limit?: number): Promise<NewsPost[]> {
   if (limit) q = q.limit(limit)
   const { data } = await q
   return (data as NewsPost[]) ?? []
+}
+
+// ── Team Hub (private) ─────────────────────────────────────────────────────────
+// team_posts is locked down (RLS, no public policies) — read via the service
+// client on the server, only after the team password gate has been passed.
+export async function getTeamPosts(includeUnpublished = false): Promise<TeamPost[]> {
+  const supabase = createServiceClient()
+  let q = supabase
+    .from('team_posts')
+    .select('*')
+    .order('pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (!includeUnpublished) q = q.eq('published', true)
+  const { data } = await q
+  return (data as TeamPost[]) ?? []
 }
 
 export async function getNewsBySlug(slug: string): Promise<NewsPost | null> {

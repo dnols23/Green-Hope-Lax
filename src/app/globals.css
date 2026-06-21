@@ -146,6 +146,15 @@ body {
   box-shadow: 0 0 0 3px rgba(0,105,62,0.15);
 }
 
+/* ── Team feed category tags ── */
+.cat-announcement { background:#ecfdf5; color:var(--gh-green-dk); }
+.cat-practice     { background:#eff6ff; color:#1d4ed8; }
+.cat-game         { background:#fef2f2; color:var(--gh-maroon); }
+.cat-forms        { background:#fffbeb; color:#b45309; }
+.cat-event        { background:#f5f3ff; color:#6d28d9; }
+.cat-gear         { background:#f0fdfa; color:#0f766e; }
+.cat-general      { background:#f3f4f6; color:#374151; }
+
 /* ── Decorative ── */
 .hero-gradient {
   background:

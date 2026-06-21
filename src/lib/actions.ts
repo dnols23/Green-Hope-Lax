@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createClient, createServiceClient } from './supabase-server'
 import { sendCoachEmail, emailShell, row } from './email'
 import { EXPERIENCE_LABELS, type ExperienceLevel } from './types'
+import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 
 // ─── validation helpers ────────────────────────────────────────────────────────
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -30,6 +32,79 @@ export async function logout() {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect('/admin/login')
+}
+
+// ═══ TEAM HUB ACCESS (shared password for parents/players) ═══════════════════════
+
+export async function teamLogin(_prev: FormState, formData: FormData): Promise<FormState> {
+  const pw = str(formData.get('password'))
+  if (!pw) return { ok: false, error: 'Please enter the team password.' }
+
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'team_password_hash')
+    .maybeSingle()
+
+  const stored = data?.value
+  const hash = await hashTeamPassword(pw)
+  if (!stored || hash !== stored) return { ok: false, error: 'Incorrect team password.' }
+
+  const jar = await cookies()
+  jar.set(TEAM_COOKIE, await teamCookieToken(), {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 60, // 60 days
+  })
+  redirect('/team')
+}
+
+export async function teamLogout() {
+  const jar = await cookies()
+  jar.delete(TEAM_COOKIE)
+  redirect('/team/login')
+}
+
+// Admin-only (reachable only from the auth-protected /admin area).
+export async function setTeamPassword(formData: FormData) {
+  const pw = str(formData.get('team_password'))
+  if (pw.length < 4) return
+  const supabase = createServiceClient()
+  await supabase
+    .from('app_settings')
+    .upsert({ key: 'team_password_hash', value: await hashTeamPassword(pw) }, { onConflict: 'key' })
+  revalidatePath('/admin/team')
+}
+
+// ── team posts (admin CRUD; team_posts is service-role only) ──
+export async function upsertTeamPost(formData: FormData) {
+  const supabase = createServiceClient()
+  const id = str(formData.get('id'))
+  const payload = {
+    title: str(formData.get('title')),
+    body: str(formData.get('body')),
+    category: str(formData.get('category')) || 'announcement',
+    pinned: str(formData.get('pinned')) === 'true',
+    event_date: str(formData.get('event_date')) || null,
+    attachments: str(formData.get('attachments')) || null,
+    author: str(formData.get('author')) || 'Coach',
+    published: str(formData.get('published')) !== 'false',
+    updated_at: new Date().toISOString(),
+  }
+  if (id) await supabase.from('team_posts').update(payload).eq('id', id)
+  else await supabase.from('team_posts').insert(payload)
+  revalidatePath('/team')
+  revalidatePath('/admin/team')
+}
+
+export async function deleteTeamPost(id: string) {
+  const supabase = createServiceClient()
+  await supabase.from('team_posts').delete().eq('id', id)
+  revalidatePath('/team')
+  revalidatePath('/admin/team')
 }
 
 // ═══ PUBLIC FORMS ════════════════════════════════════════════════════════════════

@@ -12,6 +12,7 @@ const LINKS = [
   { href: '/news', label: 'News' },
   { href: '/resources', label: 'Resources' },
   { href: '/contact', label: 'Contact' },
+  { href: '/team', label: 'Team Hub' },
 ]
 
 export default function Nav() {
