@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient, createServiceClient } from './supabase-server'
-import { sendCoachEmail, emailShell, row } from './email'
+import { sendCoachEmail, sendEmail, postEmailHtml, emailShell, row } from './email'
 import { EXPERIENCE_LABELS, type ExperienceLevel } from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 
@@ -66,28 +66,46 @@ export async function resetCoachPassword(_prev: FormState, formData: FormData): 
 
 // ═══ TEAM HUB ACCESS (shared password for parents/players) ═══════════════════════
 
-export async function teamLogin(_prev: FormState, formData: FormData): Promise<FormState> {
+// Registration = join the Team Hub. Collects parent/player contact info (for
+// current + future contact / fundraising), checks the shared team password, then
+// grants access. Re-registering with the same email updates the existing record.
+export async function registerTeamMember(_prev: FormState, formData: FormData): Promise<FormState> {
+  if (str(formData.get('company'))) return { ok: true } // honeypot
+
+  const data = {
+    parent_name: str(formData.get('parent_name')),
+    parent_email: str(formData.get('parent_email')).toLowerCase(),
+    parent_phone: str(formData.get('parent_phone')),
+    player_name: str(formData.get('player_name')),
+    player_grad_year: str(formData.get('player_grad_year')) || null,
+    player_team: str(formData.get('player_team')) || null,
+    email_opt_in: str(formData.get('email_opt_in')) === 'on' || str(formData.get('email_opt_in')) === 'true',
+    updated_at: new Date().toISOString(),
+  }
   const pw = str(formData.get('password'))
-  if (!pw) return { ok: false, error: 'Please enter the team password.' }
+
+  if (!data.parent_name) return { ok: false, error: 'Please enter a parent/guardian name.' }
+  if (!EMAIL_RE.test(data.parent_email)) return { ok: false, error: 'Please enter a valid email address.' }
+  if (data.parent_phone.replace(/\D/g, '').length < 10) return { ok: false, error: 'Please enter a valid phone number.' }
+  if (!data.player_name) return { ok: false, error: 'Please enter the player name(s).' }
 
   const supabase = createServiceClient()
-  const { data } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', 'team_password_hash')
-    .maybeSingle()
-
-  const stored = data?.value
+  const { data: setting } = await supabase
+    .from('app_settings').select('value').eq('key', 'team_password_hash').maybeSingle()
   const hash = await hashTeamPassword(pw)
-  if (!stored || hash !== stored) return { ok: false, error: 'Incorrect team password.' }
+  if (!setting?.value || hash !== setting.value) return { ok: false, error: 'Incorrect team password — ask a coach.' }
+
+  const { error } = await supabase
+    .from('team_members')
+    .upsert(data, { onConflict: 'parent_email' })
+  if (error) {
+    console.error('[registerTeamMember]', error)
+    return { ok: false, error: 'Something went wrong saving your info. Please try again.' }
+  }
 
   const jar = await cookies()
   jar.set(TEAM_COOKIE, await teamCookieToken(), {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 60, // 60 days
+    httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 60, // 60 days
   })
   redirect('/team')
 }
@@ -124,8 +142,25 @@ export async function upsertTeamPost(formData: FormData) {
     published: str(formData.get('published')) !== 'false',
     updated_at: new Date().toISOString(),
   }
-  if (id) await supabase.from('team_posts').update(payload).eq('id', id)
-  else await supabase.from('team_posts').insert(payload)
+  if (id) {
+    await supabase.from('team_posts').update(payload).eq('id', id)
+  } else {
+    await supabase.from('team_posts').insert(payload)
+    // Email opted-in members about brand-new published posts (no-op if Resend
+    // isn't configured yet). Edits don't re-notify.
+    if (payload.published) {
+      const { data: members } = await supabase
+        .from('team_members').select('parent_email').eq('email_opt_in', true)
+      const bcc = (members ?? []).map((m: { parent_email: string }) => m.parent_email)
+      if (bcc.length) {
+        await sendEmail({
+          bcc,
+          subject: `Falcons Team Hub: ${payload.title}`,
+          html: postEmailHtml(payload.title, payload.body),
+        })
+      }
+    }
+  }
   revalidatePath('/team')
   revalidatePath('/admin/team')
 }

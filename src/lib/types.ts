@@ -84,6 +84,19 @@ export interface ContactSubmission {
   created_at: string
 }
 
+export interface TeamMember {
+  id: string
+  parent_name: string
+  parent_email: string
+  parent_phone: string
+  player_name: string
+  player_grad_year: string | null
+  player_team: string | null
+  email_opt_in: boolean
+  created_at: string
+  updated_at: string
+}
+
 export type TeamPostCategory =
   | 'announcement' | 'practice' | 'game' | 'forms' | 'event' | 'gear' | 'general'
 

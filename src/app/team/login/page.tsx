@@ -1,45 +1,88 @@
 'use client'
 import Link from 'next/link'
 import { useActionState } from 'react'
-import { teamLogin, type FormState } from '@/lib/actions'
+import { registerTeamMember, type FormState } from '@/lib/actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { FalconBadge } from '@/components/Logo'
 
 const initial: FormState = { ok: false }
 
-export default function TeamLoginPage() {
-  const [state, formAction] = useActionState(teamLogin, initial)
+export default function TeamJoinPage() {
+  const [state, formAction] = useActionState(registerTeamMember, initial)
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 hero-gradient">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center px-4 py-10 hero-gradient">
+      <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <FalconBadge size={96} className="mx-auto mb-4" />
-          <h1 className="text-2xl font-black text-white">Falcons Team Hub</h1>
-          <p className="text-white/70 text-sm mt-1">Private feed for Falcons parents &amp; players</p>
+          <FalconBadge size={88} className="mx-auto mb-4" />
+          <h1 className="text-2xl font-black text-white">Join the Falcons Team Hub</h1>
+          <p className="text-white/70 text-sm mt-1">
+            Register once to access the private team feed. Already registered on this device?
+            You’ll go straight in.
+          </p>
         </div>
 
         <form action={formAction} className="bg-white rounded-xl p-6 space-y-4">
-          <div>
-            <label className="field-label">Team password</label>
-            <input
-              name="password"
-              type="password"
-              required
-              autoFocus
-              autoComplete="current-password"
-              className="field"
-              placeholder="Enter the team password"
-            />
+          <input type="text" name="company" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="field-label">Parent/guardian name *</label>
+              <input name="parent_name" required className="field" />
+            </div>
+            <div>
+              <label className="field-label">Phone *</label>
+              <input name="parent_phone" type="tel" required className="field" placeholder="(919) 555-0123" />
+            </div>
           </div>
+
+          <div>
+            <label className="field-label">Email *</label>
+            <input name="parent_email" type="email" required className="field" />
+          </div>
+
+          <div>
+            <label className="field-label">Player name(s) *</label>
+            <input name="player_name" required className="field" placeholder="Separate multiple players with commas" />
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="field-label">Player grad year</label>
+              <input name="player_grad_year" className="field" placeholder="e.g. 2028" inputMode="numeric" />
+            </div>
+            <div>
+              <label className="field-label">Team</label>
+              <select name="player_team" defaultValue="" className="field">
+                <option value="">— select —</option>
+                <option value="Boys Varsity">Boys Varsity</option>
+                <option value="Boys JV">Boys JV</option>
+                <option value="Unsure">Not sure yet</option>
+              </select>
+            </div>
+          </div>
+
+          <label className="flex items-start gap-2.5 text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
+            <input type="checkbox" name="email_opt_in" defaultChecked className="mt-0.5 h-4 w-4" />
+            <span>Email me when new posts are added to the Team Hub (practices, games, reminders).</span>
+          </label>
+
+          <hr className="border-gray-100" />
+
+          <div>
+            <label className="field-label">Team password *</label>
+            <input name="password" type="password" required autoComplete="off" className="field" placeholder="Shared password from your coach" />
+          </div>
+
           {state.error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
               {state.error}
             </div>
           )}
-          <SubmitButton pendingText="Checking…">Enter Team Hub</SubmitButton>
+
+          <SubmitButton pendingText="Joining…">Join the Team Hub</SubmitButton>
           <p className="text-xs text-gray-400 text-center">
-            Don’t have the password? Ask a coach — it’s shared with the team.
+            Your info is private to the coaching staff and used only for team communication.
           </p>
         </form>
 

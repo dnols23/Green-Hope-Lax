@@ -1,5 +1,5 @@
 import { createClient, createServiceClient } from './supabase-server'
-import type { Game, Player, Coach, NewsPost, ProgramGender, TeamGroup, TeamPost } from './types'
+import type { Game, Player, Coach, NewsPost, ProgramGender, TeamGroup, TeamPost, TeamMember } from './types'
 
 // All public-site reads live here. They use the anon (RLS-respecting) client, so
 // they only ever return data the public is allowed to see.
@@ -74,6 +74,16 @@ export async function getTeamPosts(includeUnpublished = false): Promise<TeamPost
   if (!includeUnpublished) q = q.eq('published', true)
   const { data } = await q
   return (data as TeamPost[]) ?? []
+}
+
+// Registered team members (contact list) — admin only, service-role read.
+export async function getTeamMembers(): Promise<TeamMember[]> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('team_members')
+    .select('*')
+    .order('created_at', { ascending: false })
+  return (data as TeamMember[]) ?? []
 }
 
 export async function getNewsBySlug(slug: string): Promise<NewsPost | null> {
