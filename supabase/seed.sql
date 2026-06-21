@@ -40,12 +40,12 @@ insert into public.coaches (name, role, program, email, phone, bio, sort_order) 
 -- ── Roster (sample players) ───────────────────────────────────────────────────
 insert into public.players (team, name, number, position, class_year, height, hometown, sort_order) values
   -- Boys Varsity
-  ('boys_varsity', 'Player One',   '1',  'Attack',   '2027', '5\'11"', 'Cary, NC', 1),
-  ('boys_varsity', 'Player Two',   '7',  'Midfield', '2026', '6\'0"',  'Cary, NC', 2),
-  ('boys_varsity', 'Player Three', '21', 'Defense',  '2027', '6\'2"',  'Morrisville, NC', 3),
-  ('boys_varsity', 'Player Four',  '00', 'Goalie',   '2028', '5\'10"', 'Cary, NC', 4),
-  ('boys_varsity', 'Player Five',  '15', 'FOGO',     '2026', '5\'9"',  'Apex, NC', 5),
-  ('boys_varsity', 'Player Six',   '33', 'LSM',      '2027', '6\'1"',  'Cary, NC', 6),
+  ('boys_varsity', 'Player One',   '1',  'Attack',   '2027', '5''11"', 'Cary, NC', 1),
+  ('boys_varsity', 'Player Two',   '7',  'Midfield', '2026', '6''0"',  'Cary, NC', 2),
+  ('boys_varsity', 'Player Three', '21', 'Defense',  '2027', '6''2"',  'Morrisville, NC', 3),
+  ('boys_varsity', 'Player Four',  '00', 'Goalie',   '2028', '5''10"', 'Cary, NC', 4),
+  ('boys_varsity', 'Player Five',  '15', 'FOGO',     '2026', '5''9"',  'Apex, NC', 5),
+  ('boys_varsity', 'Player Six',   '33', 'LSM',      '2027', '6''1"',  'Cary, NC', 6),
   -- Boys JV
   ('boys_jv', 'JV Player One', '4',  'Attack',   '2029', null, 'Cary, NC', 1),
   ('boys_jv', 'JV Player Two', '12', 'Midfield', '2029', null, 'Cary, NC', 2),
