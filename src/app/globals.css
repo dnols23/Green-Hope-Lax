@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+:root {
+  --gh-green:      #00693E;
+  --gh-green-dk:   #004D2E;
+  --gh-green-darker:#00351F;
+  --gh-maroon:     #7A1F2B;
+  --gh-maroon-dk:  #5C1721;
+  --surface:       #ffffff;
+  --surface-2:     #f6f7f6;
+  --border:        #e3e6e3;
+  --text-primary:  #141414;
+  --text-muted:    #6b7280;
+}
+
+@theme inline {
+  --color-background: var(--surface-2);
+  --color-foreground: var(--text-primary);
+  --color-gh-green: var(--gh-green);
+  --color-gh-maroon: var(--gh-maroon);
+  --font-sans: var(--font-geist-sans);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Typographic helpers ── */
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gh-maroon);
+}
+.page-title {
+  font-size: clamp(1.75rem, 5vw, 2.75rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--text-primary);
+}
+
+/* ── Card base ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.65rem 1.15rem;
+  border-radius: 9999px;
+  transition: background-color .15s, opacity .15s, transform .05s;
+  cursor: pointer;
+  text-align: center;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--gh-green); color: #fff; }
+.btn-primary:hover { background: var(--gh-green-dk); }
+.btn-maroon { background: var(--gh-maroon); color: #fff; }
+.btn-maroon:hover { background: var(--gh-maroon-dk); }
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid rgba(255,255,255,0.5);
+  color: #fff;
+}
+.btn-outline:hover { background: rgba(255,255,255,0.12); }
+.btn-ghost {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+.btn-ghost:hover { background: var(--surface-2); }
+
+/* ── Badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.badge-win    { background: #dcfce7; color: #15803d; }
+.badge-loss   { background: #fee2e2; color: #b91c1c; }
+.badge-tie    { background: #fef9c3; color: #a16207; }
+.badge-sched  { background: #e5e7eb; color: #374151; }
+.badge-conf   { background: #ecfdf5; color: var(--gh-green-dk); }
+
+/* ── Tables ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.data-table th {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover { background: var(--surface-2); }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ── Inputs (forms) ── */
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 0.3rem;
+}
+.field {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  background: #fff;
+}
+.field:focus {
+  outline: none;
+  border-color: var(--gh-green);
+  box-shadow: 0 0 0 3px rgba(0,105,62,0.15);
+}
+
+/* ── Decorative ── */
+.hero-gradient {
+  background:
+    radial-gradient(1200px 500px at 20% -10%, rgba(122,31,43,0.55), transparent 60%),
+    linear-gradient(160deg, var(--gh-green-dk) 0%, var(--gh-green-darker) 55%, #04130c 100%);
+}
+.prose-body { white-space: pre-wrap; line-height: 1.7; color: #374151; }
