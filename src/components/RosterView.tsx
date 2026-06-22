@@ -1,12 +1,14 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import type { Player, TeamGroup } from '@/lib/types'
 import { TEAM_LABELS } from '@/lib/types'
 import { FalconHead } from './Logo'
 
 const GROUPS: (TeamGroup | 'all')[] = ['all', 'boys_varsity', 'boys_jv']
 
-export function RosterView({ players }: { players: Player[] }) {
+// `awards` maps a lowercased player name → the award label(s) they won.
+export function RosterView({ players, awards = {} }: { players: Player[]; awards?: Record<string, string> }) {
   const [group, setGroup] = useState<TeamGroup | 'all'>('all')
   const filtered = group === 'all' ? players : players.filter((p) => p.team === group)
 
@@ -49,7 +51,19 @@ export function RosterView({ players }: { players: Player[] }) {
                 )}
               </div>
               <div className="p-3">
-                <div className="font-bold leading-tight">{p.name}</div>
+                <div className="font-bold leading-tight flex items-center gap-1">
+                  <span>{p.name}</span>
+                  {awards[p.name.toLowerCase()] && (
+                    <Link
+                      href="/awards"
+                      title={`${awards[p.name.toLowerCase()]} — view team awards`}
+                      aria-label="Team award winner"
+                      className="text-base leading-none shrink-0"
+                    >
+                      🏆
+                    </Link>
+                  )}
+                </div>
                 <div className="text-xs text-gray-500 mt-0.5">
                   {[p.position, p.class_year].filter(Boolean).join(' · ') || '—'}
                 </div>

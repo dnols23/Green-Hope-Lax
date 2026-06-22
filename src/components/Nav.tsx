@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/schedule', label: 'Schedule' },
   { href: '/roster', label: 'Roster' },
   { href: '/coaches', label: 'Coaches' },
+  { href: '/awards', label: 'Awards' },
   { href: '/news', label: 'News' },
   { href: '/resources', label: 'Resources' },
   { href: '/contact', label: 'Contact' },

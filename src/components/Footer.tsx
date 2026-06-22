@@ -33,7 +33,6 @@ export default function Footer() {
           <ul className="space-y-2 text-sm">
             <li><Link href="/join" className="hover:text-white">Join the Team</Link></li>
             <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
-            <li><a href={SCHOOL.maxprepsBoys} target="_blank" rel="noopener noreferrer" className="hover:text-white">MaxPreps ↗</a></li>
           </ul>
         </div>
 

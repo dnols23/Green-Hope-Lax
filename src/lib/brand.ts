@@ -15,7 +15,5 @@ export const SCHOOL = {
   conference: 'NCHSAA 4A — Southwest Wake',
   mapsUrl:
     'https://www.google.com/maps/search/?api=1&query=Green+Hope+High+School,+2500+Carpenter+Upchurch+Rd,+Cary,+NC+27519',
-  maxprepsBoys:
-    'https://www.maxpreps.com/nc/cary/green-hope-falcons/lacrosse/',
   athleticsUrl: 'https://www.wcpss.net/greenhopehs',
 } as const

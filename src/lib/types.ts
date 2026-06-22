@@ -97,6 +97,16 @@ export interface TeamMember {
   updated_at: string
 }
 
+export interface TeamAward {
+  id: string
+  season: string
+  award: string
+  recipient: string
+  description: string | null
+  sort_order: number
+  created_at: string
+}
+
 export type TeamPostCategory =
   | 'announcement' | 'practice' | 'game' | 'forms' | 'event' | 'gear' | 'general'
 
