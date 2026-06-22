@@ -5,30 +5,23 @@ import type { Player, TeamGroup } from '@/lib/types'
 import { TEAM_LABELS } from '@/lib/types'
 import { FalconHead } from './Logo'
 
-const GROUPS: (TeamGroup | 'all')[] = ['all', 'boys_varsity', 'boys_jv']
-
 // `awards` maps a lowercased player name → the award label(s) they won.
 export function RosterView({ players, awards = {} }: { players: Player[]; awards?: Record<string, string> }) {
-  const [group, setGroup] = useState<TeamGroup | 'all'>('all')
-  const filtered = group === 'all' ? players : players.filter((p) => p.team === group)
+  const [group, setGroup] = useState<TeamGroup>('boys_varsity')
+  const filtered = players.filter((p) => p.team === group)
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2 mb-6">
-        {GROUPS.map((g) => (
-          <button
-            key={g}
-            onClick={() => setGroup(g)}
-            className="px-4 py-1.5 rounded-full text-sm font-bold transition-colors border"
-            style={
-              group === g
-                ? { background: 'var(--gh-green)', color: '#fff', borderColor: 'var(--gh-green)' }
-                : { background: '#fff', color: '#374151', borderColor: '#e3e6e3' }
-            }
-          >
-            {g === 'all' ? 'All Teams' : TEAM_LABELS[g]}
-          </button>
-        ))}
+      <div className="mb-6">
+        <label className="field-label">Team</label>
+        <select
+          value={group}
+          onChange={(e) => setGroup(e.target.value as TeamGroup)}
+          className="field max-w-xs"
+        >
+          <option value="boys_varsity">Boys Varsity</option>
+          <option value="boys_jv">Boys JV</option>
+        </select>
       </div>
 
       {filtered.length === 0 ? (
