@@ -29,7 +29,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 space-y-4">
           <div>
             <label className="field-label">Username</label>
-            <input name="username" type="text" required autoCapitalize="none" autoComplete="username" className="field" placeholder="e.g. HCNolan" />
+            <input name="username" type="text" required autoCapitalize="none" autoComplete="username" className="field" />
           </div>
           <div>
             <label className="field-label">Password</label>
