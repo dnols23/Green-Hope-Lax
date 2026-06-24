@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { FalconHead } from './Logo'
 
 const LINKS = [
+  { href: '/team', label: 'Team Tools' },
   { href: '/schedule', label: 'Schedule' },
   { href: '/roster', label: 'Roster' },
   { href: '/coaches', label: 'Coaches' },
@@ -12,7 +13,6 @@ const LINKS = [
   { href: '/news', label: 'News' },
   { href: '/resources', label: 'Resources' },
   { href: '/contact', label: 'Contact' },
-  { href: '/team', label: 'Team Hub' },
 ]
 
 export default function Nav() {
