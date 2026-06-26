@@ -91,7 +91,7 @@ export default async function AdminTeamPage() {
         <form action={setTeamPassword} className="flex flex-wrap items-end gap-3">
           <div>
             <label className="field-label">New team password</label>
-            <input name="team_password" minLength={4} required className="field" placeholder="e.g. GoFalcons2027" />
+            <input name="team_password" type="password" minLength={4} required className="field" placeholder="Type a new team password" />
           </div>
           <button type="submit" className="btn btn-maroon">Update password</button>
         </form>
