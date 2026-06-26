@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import Link from 'next/link'
 import { InterestForm } from '@/components/InterestForm'
 
@@ -27,14 +26,6 @@ export default function JoinGreenMachinePage() {
         aria-hidden
         className="pointer-events-none fixed inset-0 -z-10 bg-no-repeat bg-center opacity-[0.06]"
         style={{ backgroundImage: "url('/logos/green-machine.png')", backgroundSize: 'min(680px, 90vw)' }}
-      />
-      <Image
-        src="/logos/green-machine.png"
-        alt="West Cary Green Machine lacrosse logo"
-        width={160}
-        height={155}
-        priority
-        className="mb-5"
       />
       <div className="section-label">West Cary Green Machine · Middle school</div>
       <h1 className="page-title mb-2">Join the Green Machine</h1>
