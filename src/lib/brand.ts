@@ -12,10 +12,8 @@ export const SCHOOL = {
   name: 'Green Hope High School',
   team: 'Green Hope Falcons',
   address: '2500 Carpenter Upchurch Rd, Cary, NC 27519',
-  conference: 'NCHSAA 4A — Southwest Wake',
+  conference: 'NCHSAA 8A — Southwest Wake',
   mapsUrl:
     'https://www.google.com/maps/search/?api=1&query=Green+Hope+High+School,+2500+Carpenter+Upchurch+Rd,+Cary,+NC+27519',
-  maxprepsBoys:
-    'https://www.maxpreps.com/nc/cary/green-hope-falcons/lacrosse/',
   athleticsUrl: 'https://www.wcpss.net/greenhopehs',
 } as const

@@ -387,6 +387,32 @@ export async function deleteCoach(id: string) {
   revalidatePath('/admin/coaches')
 }
 
+// ── awards ──
+export async function upsertAward(formData: FormData) {
+  const supabase = await createClient()
+  const id = str(formData.get('id'))
+  const payload = {
+    season: str(formData.get('season')) || '2026',
+    award: str(formData.get('award')),
+    recipient: str(formData.get('recipient')),
+    description: str(formData.get('description')) || null,
+    sort_order: Number(formData.get('sort_order') ?? 0) || 0,
+  }
+  if (id) await supabase.from('team_awards').update(payload).eq('id', id)
+  else await supabase.from('team_awards').insert(payload)
+  revalidatePath('/awards')
+  revalidatePath('/roster')
+  revalidatePath('/admin/awards')
+}
+
+export async function deleteAward(id: string) {
+  const supabase = await createClient()
+  await supabase.from('team_awards').delete().eq('id', id)
+  revalidatePath('/awards')
+  revalidatePath('/roster')
+  revalidatePath('/admin/awards')
+}
+
 // ── news ──
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)

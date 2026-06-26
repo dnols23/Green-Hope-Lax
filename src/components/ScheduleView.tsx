@@ -1,19 +1,12 @@
 'use client'
 import type { Game } from '@/lib/types'
 import { formatDate, formatTime, gameResult, homeAwayLabel } from '@/lib/format'
-import { SCHOOL } from '@/lib/brand'
 
 export function ScheduleView({ games }: { games: Game[] }) {
   const sorted = [...games].sort((a, b) => +new Date(a.game_date) - +new Date(b.game_date))
 
   return (
     <div>
-      <div className="flex items-center justify-end mb-6">
-        <a href={SCHOOL.maxprepsBoys} target="_blank" rel="noopener noreferrer" className="text-sm font-bold" style={{ color: 'var(--gh-green)' }}>
-          Official stats on MaxPreps ↗
-        </a>
-      </div>
-
       {sorted.length === 0 ? (
         <p className="text-gray-500">No games scheduled yet.</p>
       ) : (

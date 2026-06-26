@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { getGames, getProgramStats } from '@/lib/queries'
 import { seasonYear, summarizeSeason, recordLabel } from '@/lib/format'
 import { STAT_SECTION_META, type ProgramStat, type StatSection } from '@/lib/types'
-import { SCHOOL } from '@/lib/brand'
 
 export const metadata: Metadata = { title: 'Stats' }
 
@@ -34,14 +33,9 @@ export default async function StatsPage() {
 
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-10">
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="section-label">Green Hope Falcons</div>
-          <h1 className="page-title">Stats</h1>
-        </div>
-        <a href={SCHOOL.maxprepsBoys} target="_blank" rel="noopener noreferrer" className="text-sm font-bold" style={{ color: 'var(--gh-green)' }}>
-          Official stats on MaxPreps ↗
-        </a>
+      <div className="mb-6">
+        <div className="section-label">Green Hope Falcons</div>
+        <h1 className="page-title">Stats</h1>
       </div>
 
       {/* ── Current season at a glance ── */}

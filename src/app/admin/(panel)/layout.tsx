@@ -13,6 +13,7 @@ const ADMIN_LINKS = [
   { href: '/admin/stats', label: 'Stats' },
   { href: '/admin/roster', label: 'Roster' },
   { href: '/admin/coaches', label: 'Coaches' },
+  { href: '/admin/awards', label: 'Awards' },
   { href: '/admin/news', label: 'News' },
 ]
 

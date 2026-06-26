@@ -5,11 +5,11 @@ import { useState } from 'react'
 import { FalconHead } from './Logo'
 
 const LINKS = [
-  { href: '/', label: 'Home' },
   { href: '/schedule', label: 'Schedule' },
   { href: '/stats', label: 'Stats' },
   { href: '/roster', label: 'Roster' },
   { href: '/coaches', label: 'Coaches' },
+  { href: '/awards', label: 'Awards' },
   { href: '/news', label: 'News' },
   { href: '/resources', label: 'Resources' },
   { href: '/contact', label: 'Contact' },
@@ -55,27 +55,37 @@ export default function Nav() {
           </Link>
         </div>
 
-        {/* Mobile burger */}
-        <button
-          className="lg:hidden ml-auto p-2 rounded-lg"
-          style={{ background: 'rgba(255,255,255,0.1)' }}
-          onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
-        >
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {open ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            )}
-          </svg>
-        </button>
+        {/* Mobile: Schedule always visible up top + menu button */}
+        <div className="lg:hidden ml-auto flex items-center gap-1">
+          <Link
+            href="/schedule"
+            onClick={() => setOpen(false)}
+            className="px-3 py-2 text-sm font-bold"
+            style={{ color: isActive('/schedule') ? '#fff' : 'rgba(255,255,255,0.85)' }}
+          >
+            Schedule
+          </Link>
+          <button
+            className="p-2 rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.1)' }}
+            onClick={() => setOpen(!open)}
+            aria-label="Toggle menu"
+          >
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {open ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}
       {open && (
         <div className="lg:hidden border-t px-4 py-3 flex flex-col gap-1" style={{ background: 'var(--gh-green-darker)', borderColor: 'rgba(255,255,255,0.1)' }}>
-          {LINKS.map(({ href, label }) => (
+          {LINKS.filter((l) => l.href !== '/schedule').map(({ href, label }) => (
             <Link
               key={href}
               href={href}

@@ -66,7 +66,6 @@ export default function ResourcesPage() {
           <h2 className="font-black text-xl mb-3">Links</h2>
           <ul className="space-y-2 text-sm">
             <li><a href={SCHOOL.athleticsUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--gh-green)] font-semibold">Green Hope HS Athletics ↗</a></li>
-            <li><a href={SCHOOL.maxprepsBoys} target="_blank" rel="noopener noreferrer" className="text-[var(--gh-green)] font-semibold">MaxPreps — Lacrosse ↗</a></li>
           </ul>
         </section>
       </div>
