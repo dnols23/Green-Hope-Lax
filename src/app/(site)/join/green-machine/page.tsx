@@ -24,8 +24,8 @@ export default function JoinGreenMachinePage() {
       {/* Transparent Green Machine logo as a faint page-background watermark */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 bg-no-repeat bg-center opacity-[0.06]"
-        style={{ backgroundImage: "url('/logos/green-machine.png')", backgroundSize: 'min(680px, 90vw)' }}
+        className="pointer-events-none fixed inset-0 -z-10 bg-no-repeat bg-center opacity-[0.07]"
+        style={{ backgroundImage: "url('/logos/green-machine.png')", backgroundSize: 'min(1360px, 175vw)' }}
       />
       <div className="section-label">West Cary Green Machine · Middle school</div>
       <h1 className="page-title mb-2">Join the Green Machine</h1>
