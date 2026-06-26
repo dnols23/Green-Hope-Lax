@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { upsertPlayer, deletePlayer } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
+import { PublishToggle } from '@/components/admin/PublishToggle'
 import { TEAM_LABELS, type Player } from '@/lib/types'
 
 export const metadata = { title: 'Manage Roster' }
@@ -85,9 +86,12 @@ export default async function AdminRosterPage() {
               <span className="font-semibold">
                 {p.number && <span className="text-gray-400">#{p.number} </span>}
                 {p.name}
-                <span className="ml-2 text-xs text-gray-400">{TEAM_LABELS[p.team]}{!p.is_active && ' · hidden'}</span>
+                <span className="ml-2 text-xs text-gray-400">{TEAM_LABELS[p.team]}</span>
               </span>
-              <DeleteButton id={p.id} action={deletePlayer} />
+              <span className="flex items-center gap-3">
+                <PublishToggle entity="player" id={p.id} live={p.is_active} />
+                <DeleteButton id={p.id} action={deletePlayer} />
+              </span>
             </summary>
             <form action={upsertPlayer} className="mt-4 space-y-4">
               <input type="hidden" name="id" value={p.id} />

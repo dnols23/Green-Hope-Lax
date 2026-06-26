@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { upsertCoach, deleteCoach } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
+import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { Coach } from '@/lib/types'
 
 export const metadata = { title: 'Manage Coaches' }
@@ -69,7 +70,10 @@ export default async function AdminCoachesPage() {
           <details key={c.id} className="card p-4">
             <summary className="flex items-center justify-between cursor-pointer list-none gap-3">
               <span className="font-semibold">{c.name} <span className="text-xs text-gray-400">{c.role}</span></span>
-              <DeleteButton id={c.id} action={deleteCoach} />
+              <span className="flex items-center gap-3">
+                <PublishToggle entity="coach" id={c.id} live={c.is_published ?? true} />
+                <DeleteButton id={c.id} action={deleteCoach} />
+              </span>
             </summary>
             <form action={upsertCoach} className="mt-4 space-y-4">
               <input type="hidden" name="id" value={c.id} />

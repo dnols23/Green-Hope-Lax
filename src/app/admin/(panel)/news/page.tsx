@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { upsertNews, deleteNews } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
+import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { NewsPost } from '@/lib/types'
 
 export const metadata = { title: 'Manage News' }
@@ -71,10 +72,13 @@ export default async function AdminNewsPage() {
               <span className="font-semibold">
                 {n.title}
                 <span className="ml-2 text-xs text-gray-400">
-                  {new Date(n.published_at).toLocaleDateString()}{!n.published && ' · draft'}
+                  {new Date(n.published_at).toLocaleDateString()}
                 </span>
               </span>
-              <DeleteButton id={n.id} action={deleteNews} />
+              <span className="flex items-center gap-3">
+                <PublishToggle entity="news" id={n.id} live={n.published} />
+                <DeleteButton id={n.id} action={deleteNews} />
+              </span>
             </summary>
             <form action={upsertNews} className="mt-4 space-y-4">
               <input type="hidden" name="id" value={n.id} />

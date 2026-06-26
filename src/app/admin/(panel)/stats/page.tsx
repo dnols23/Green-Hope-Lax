@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { upsertProgramStat, deleteProgramStat } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
+import { PublishToggle } from '@/components/admin/PublishToggle'
 import { STAT_SECTION_META, type ProgramStat, type StatSection } from '@/lib/types'
 
 export const metadata = { title: 'Manage Stats' }
@@ -91,9 +92,11 @@ export default async function AdminStatsPage() {
               <span className="font-semibold">
                 <span className="text-gray-400">{STAT_SECTION_META[s.section]?.label ?? s.section} —</span> {s.label}
                 {s.value && <span className="ml-2 text-gray-500">{s.value}</span>}
-                {!s.is_published && <span className="ml-2 badge badge-sched">Hidden</span>}
               </span>
-              <DeleteButton id={s.id} action={deleteProgramStat} />
+              <span className="flex items-center gap-3">
+                <PublishToggle entity="stat" id={s.id} live={s.is_published} />
+                <DeleteButton id={s.id} action={deleteProgramStat} />
+              </span>
             </summary>
             <form action={upsertProgramStat} className="mt-4 space-y-4">
               <input type="hidden" name="id" value={s.id} />

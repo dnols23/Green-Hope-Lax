@@ -2,6 +2,10 @@
 
 export type TeamGroup = 'boys_varsity' | 'boys_jv' | 'girls'
 export type ProgramGender = 'boys' | 'girls'
+
+// Content types that support a one-click live/hidden toggle in the admin panel.
+// Each maps (in lib/actions setVisibility) to a table + its visibility column.
+export type VisibilityEntity = 'stat' | 'news' | 'award' | 'coach' | 'player' | 'teampost'
 export type HomeAway = 'home' | 'away' | 'neutral'
 export type GameStatus = 'scheduled' | 'final' | 'postponed' | 'canceled'
 export type ExperienceLevel = 'new' | 'some' | 'experienced'
@@ -47,6 +51,7 @@ export interface Coach {
   bio: string | null
   photo_url: string | null
   sort_order: number
+  is_published: boolean
   created_at: string
 }
 
@@ -126,6 +131,7 @@ export interface TeamAward {
   recipient: string
   description: string | null
   sort_order: number
+  is_published: boolean
   created_at: string
 }
 
