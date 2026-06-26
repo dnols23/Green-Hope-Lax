@@ -21,7 +21,13 @@ const GEAR = ['Helmet', 'Shoulder pads', 'Arm pads', 'Gloves', 'Stick', 'Mouth g
 
 export default function JoinGreenMachinePage() {
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
+    <div className="relative max-w-2xl mx-auto px-4 py-10">
+      {/* Transparent Green Machine logo as a faint page-background watermark */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-no-repeat bg-center opacity-[0.06]"
+        style={{ backgroundImage: "url('/logos/green-machine.png')", backgroundSize: 'min(680px, 90vw)' }}
+      />
       <Image
         src="/logos/green-machine.png"
         alt="West Cary Green Machine lacrosse logo"
