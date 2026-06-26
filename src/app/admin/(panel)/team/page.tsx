@@ -1,6 +1,7 @@
 import { getTeamPosts } from '@/lib/queries'
 import { upsertTeamPost, deleteTeamPost, setTeamPassword } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
+import { PublishToggle } from '@/components/admin/PublishToggle'
 import { TEAM_CATEGORY_META, type TeamPost, type TeamPostCategory } from '@/lib/types'
 
 export const metadata = { title: 'Manage Team Hub' }
@@ -116,10 +117,13 @@ export default async function AdminTeamPage() {
                   {p.pinned && '📌 '}
                   {TEAM_CATEGORY_META[p.category].emoji} {p.title}
                   <span className="ml-2 text-xs text-gray-400">
-                    {new Date(p.created_at).toLocaleDateString()}{!p.published && ' · draft'}
+                    {new Date(p.created_at).toLocaleDateString()}
                   </span>
                 </span>
-                <DeleteButton id={p.id} action={deleteTeamPost} />
+                <span className="flex items-center gap-3">
+                  <PublishToggle entity="teampost" id={p.id} live={p.published} />
+                  <DeleteButton id={p.id} action={deleteTeamPost} />
+                </span>
               </summary>
               <form action={upsertTeamPost} className="mt-4 space-y-4">
                 <input type="hidden" name="id" value={p.id} />

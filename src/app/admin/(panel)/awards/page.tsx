@@ -1,6 +1,7 @@
 import { getAwards } from '@/lib/queries'
 import { upsertAward, deleteAward } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
+import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { TeamAward } from '@/lib/types'
 
 export const metadata = { title: 'Manage Awards' }
@@ -58,7 +59,10 @@ export default async function AdminAwardsPage() {
                 🏆 {a.award} — {a.recipient}
                 <span className="ml-2 text-xs text-gray-400">{a.season}</span>
               </span>
-              <DeleteButton id={a.id} action={deleteAward} />
+              <span className="flex items-center gap-3">
+                <PublishToggle entity="award" id={a.id} live={a.is_published ?? true} />
+                <DeleteButton id={a.id} action={deleteAward} />
+              </span>
             </summary>
             <form action={upsertAward} className="mt-4 space-y-4">
               <input type="hidden" name="id" value={a.id} />

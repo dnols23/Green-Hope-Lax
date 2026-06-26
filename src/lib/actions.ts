@@ -274,6 +274,27 @@ export async function submitContact(
 // All of these run as the logged-in admin (anon client + their auth cookie), so
 // RLS "admin all" policies authorize the writes.
 
+// ── one-click live/hidden toggle (shared by every content admin page) ──
+// Maps each toggleable content type to its table, visibility column, and the
+// pages to revalidate. Whitelisted so the client can only ever flip these flags.
+const VISIBILITY = {
+  stat:     { table: 'program_stats', column: 'is_published', paths: ['/stats', '/admin/stats'] },
+  news:     { table: 'news_posts',    column: 'published',    paths: ['/news', '/admin/news'] },
+  award:    { table: 'team_awards',   column: 'is_published', paths: ['/awards', '/admin/awards'] },
+  coach:    { table: 'coaches',       column: 'is_published', paths: ['/coaches', '/admin/coaches'] },
+  player:   { table: 'players',       column: 'is_active',    paths: ['/roster', '/admin/roster'] },
+  teampost: { table: 'team_posts',    column: 'published',    paths: ['/team', '/admin/team'], service: true },
+} as const
+
+export async function setVisibility(entity: keyof typeof VISIBILITY, id: string, next: boolean) {
+  const cfg = VISIBILITY[entity]
+  if (!cfg) return
+  // team_posts is locked down (no anon policies) so it must be written service-side.
+  const supabase = 'service' in cfg && cfg.service ? createServiceClient() : await createClient()
+  await supabase.from(cfg.table).update({ [cfg.column]: next }).eq('id', id)
+  cfg.paths.forEach((p) => revalidatePath(p))
+}
+
 // ── players ──
 export async function upsertPlayer(formData: FormData) {
   const supabase = await createClient()
