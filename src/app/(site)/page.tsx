@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { getNextGame, getNews } from '@/lib/queries'
 import { NextGameCard } from '@/components/NextGameCard'
-import { FalconBadge } from '@/components/Logo'
 import { formatDate } from '@/lib/format'
 
 export default async function HomePage() {
@@ -10,9 +9,14 @@ export default async function HomePage() {
   return (
     <>
       {/* ── Hero ── */}
-      <section className="hero-gradient text-white">
-        <div className="max-w-screen-xl mx-auto px-4 py-20 sm:py-28 flex flex-col items-center text-center">
-          <FalconBadge size={120} variant="light" className="mb-6" />
+      <section className="hero-gradient text-white relative overflow-hidden">
+        {/* Falcon mark as a faint background watermark */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-no-repeat bg-center opacity-[0.08]"
+          style={{ backgroundImage: "url('/logos/falcon-head-white.png')", backgroundSize: 'min(900px, 120vw)' }}
+        />
+        <div className="relative max-w-screen-xl mx-auto px-4 py-20 sm:py-28 flex flex-col items-center text-center">
           <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-none">
             GREEN HOPE FALCONS
           </h1>
@@ -24,11 +28,8 @@ export default async function HomePage() {
             on the field and in the classroom.
           </p>
           <div className="mt-8 flex flex-wrap gap-3 justify-center">
-            <Link href="/schedule" className="btn btn-primary">Schedule</Link>
-            <Link href="/roster" className="btn btn-outline">Roster</Link>
             <Link href="/join" className="btn btn-maroon">Join Green Hope Lacrosse</Link>
             <Link href="/join/green-machine" className="btn btn-maroon">Join the Green Machine</Link>
-            <Link href="/contact" className="btn btn-outline">Contact</Link>
           </div>
         </div>
       </section>
