@@ -1,10 +1,9 @@
 import Link from 'next/link'
-import { getNextGame, getNews } from '@/lib/queries'
-import { NextGameCard } from '@/components/NextGameCard'
+import { getNews } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
 
 export default async function HomePage() {
-  const [nextGame, news] = await Promise.all([getNextGame(), getNews(3)])
+  const news = await getNews(3)
 
   return (
     <>
@@ -32,11 +31,6 @@ export default async function HomePage() {
             <Link href="/join/green-machine" className="btn btn-maroon">Join the Green Machine</Link>
           </div>
         </div>
-      </section>
-
-      {/* ── Next game ── */}
-      <section className="max-w-screen-xl mx-auto px-4 -mt-10 relative z-10">
-        <NextGameCard game={nextGame} />
       </section>
 
       {/* ── Quick links ── */}
