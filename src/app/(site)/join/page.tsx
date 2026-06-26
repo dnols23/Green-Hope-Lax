@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { InterestForm } from '@/components/InterestForm'
 
 export const metadata: Metadata = {
@@ -17,6 +18,10 @@ export default function JoinPage() {
         Even better — we’d love to have you.
       </p>
       <InterestForm />
+      <p className="text-sm text-gray-500 mt-6 text-center">
+        In middle school?{' '}
+        <Link href="/join/green-machine" className="font-semibold" style={{ color: 'var(--gh-green)' }}>Join the Green Machine →</Link>
+      </p>
     </div>
   )
 }

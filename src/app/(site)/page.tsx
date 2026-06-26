@@ -27,6 +27,7 @@ export default async function HomePage() {
             <Link href="/schedule" className="btn btn-primary">Schedule</Link>
             <Link href="/roster" className="btn btn-outline">Roster</Link>
             <Link href="/join" className="btn btn-maroon">Join the Team</Link>
+            <Link href="/join/green-machine" className="btn btn-maroon">Join the Green Machine</Link>
             <Link href="/contact" className="btn btn-outline">Contact</Link>
           </div>
         </div>

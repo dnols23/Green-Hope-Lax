@@ -6,7 +6,9 @@ import { FalconBadge } from './Logo'
 
 const initial: FormState = { ok: false }
 
-export function InterestForm() {
+// `level` distinguishes the high school program (default) from the middle school
+// team so the coach knows which one the player is interested in.
+export function InterestForm({ level = 'high' }: { level?: 'high' | 'middle' }) {
   const [state, formAction] = useActionState(submitInterest, initial)
 
   if (state.ok) {
@@ -26,6 +28,7 @@ export function InterestForm() {
     <form action={formAction} className="card p-6 space-y-5">
       {/* honeypot */}
       <input type="text" name="company" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
+      <input type="hidden" name="level" value={level} />
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
