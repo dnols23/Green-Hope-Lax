@@ -55,7 +55,7 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
             </Link>
           ))}
           <Link href="/join" className="btn btn-maroon ml-2 !py-2 !px-3 text-sm">
-            Join the Team
+            Join Green Hope Lacrosse
           </Link>
           <Link href="/join/green-machine" className="btn btn-maroon !py-2 !px-3 text-sm">
             Join the Green Machine
@@ -99,7 +99,7 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
             </Link>
           ))}
           <Link href="/join" onClick={() => setOpen(false)} className="btn btn-maroon mt-2">
-            Join the Team
+            Join Green Hope Lacrosse
           </Link>
           <Link href="/join/green-machine" onClick={() => setOpen(false)} className="btn btn-maroon mt-2">
             Join the Green Machine
