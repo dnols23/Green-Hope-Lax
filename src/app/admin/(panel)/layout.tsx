@@ -10,6 +10,7 @@ const ADMIN_LINKS = [
   { href: '/admin/members', label: 'Members' },
   { href: '/admin/submissions', label: 'Submissions' },
   { href: '/admin/schedule', label: 'Schedule' },
+  { href: '/admin/stats', label: 'Stats' },
   { href: '/admin/roster', label: 'Roster' },
   { href: '/admin/coaches', label: 'Coaches' },
   { href: '/admin/awards', label: 'Awards' },

@@ -333,6 +333,33 @@ export async function deleteGame(id: string) {
   revalidatePath('/admin/schedule')
 }
 
+// ── program stats (all-time records / leaders / milestones / honors) ──
+export async function upsertProgramStat(formData: FormData) {
+  const supabase = await createClient()
+  const id = str(formData.get('id'))
+  const payload = {
+    section: str(formData.get('section')) || 'records',
+    gender: str(formData.get('gender')) || null,
+    label: str(formData.get('label')),
+    value: str(formData.get('value')) || null,
+    detail: str(formData.get('detail')) || null,
+    season: str(formData.get('season')) || null,
+    sort_order: Number(formData.get('sort_order') ?? 0) || 0,
+    is_published: str(formData.get('is_published')) !== 'false',
+  }
+  if (id) await supabase.from('program_stats').update(payload).eq('id', id)
+  else await supabase.from('program_stats').insert(payload)
+  revalidatePath('/stats')
+  revalidatePath('/admin/stats')
+}
+
+export async function deleteProgramStat(id: string) {
+  const supabase = await createClient()
+  await supabase.from('program_stats').delete().eq('id', id)
+  revalidatePath('/stats')
+  revalidatePath('/admin/stats')
+}
+
 // ── coaches ──
 export async function upsertCoach(formData: FormData) {
   const supabase = await createClient()

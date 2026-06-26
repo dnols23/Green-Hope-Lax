@@ -1,5 +1,5 @@
 import { createClient, createServiceClient } from './supabase-server'
-import type { Game, Player, Coach, NewsPost, ProgramGender, TeamGroup, TeamPost, TeamMember, TeamAward } from './types'
+import type { Game, Player, Coach, NewsPost, ProgramGender, ProgramStat, TeamGroup, TeamPost, TeamMember, TeamAward } from './types'
 
 // All public-site reads live here. They use the anon (RLS-respecting) client, so
 // they only ever return data the public is allowed to see.
@@ -38,6 +38,18 @@ export async function getPlayers(team?: TeamGroup): Promise<Player[]> {
   if (team) q = q.eq('team', team)
   const { data } = await q
   return (data as Player[]) ?? []
+}
+
+// All-time / program stat lines for the public /stats page (published only).
+export async function getProgramStats(): Promise<ProgramStat[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('program_stats')
+    .select('*')
+    .eq('is_published', true)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+  return (data as ProgramStat[]) ?? []
 }
 
 export async function getAwards(): Promise<TeamAward[]> {
