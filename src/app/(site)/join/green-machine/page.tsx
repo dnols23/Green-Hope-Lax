@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { InterestForm } from '@/components/InterestForm'
 
@@ -21,6 +22,14 @@ const GEAR = ['Helmet', 'Shoulder pads', 'Arm pads', 'Gloves', 'Stick', 'Mouth g
 export default function JoinGreenMachinePage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
+      <Image
+        src="/logos/green-machine.png"
+        alt="West Cary Green Machine lacrosse logo"
+        width={160}
+        height={155}
+        priority
+        className="mb-5"
+      />
       <div className="section-label">West Cary Green Machine · Middle school</div>
       <h1 className="page-title mb-2">Join the Green Machine</h1>
       <p className="text-gray-600 mb-8">
