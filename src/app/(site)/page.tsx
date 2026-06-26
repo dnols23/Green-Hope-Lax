@@ -13,7 +13,7 @@ export default async function HomePage() {
         {/* Falcon mark as a faint background watermark */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-no-repeat bg-center opacity-[0.08]"
+          className="pointer-events-none absolute inset-0 bg-no-repeat bg-center opacity-[0.12]"
           style={{ backgroundImage: "url('/logos/falcon-head-white.png')", backgroundSize: 'min(900px, 120vw)' }}
         />
         <div className="relative max-w-screen-xl mx-auto px-4 py-20 sm:py-28 flex flex-col items-center text-center">
