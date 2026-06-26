@@ -26,7 +26,7 @@ export default async function HomePage() {
           <div className="mt-8 flex flex-wrap gap-3 justify-center">
             <Link href="/schedule" className="btn btn-primary">Schedule</Link>
             <Link href="/roster" className="btn btn-outline">Roster</Link>
-            <Link href="/join" className="btn btn-maroon">Join the Team</Link>
+            <Link href="/join" className="btn btn-maroon">Join Green Hope Lacrosse</Link>
             <Link href="/join/green-machine" className="btn btn-maroon">Join the Green Machine</Link>
             <Link href="/contact" className="btn btn-outline">Contact</Link>
           </div>
@@ -44,7 +44,7 @@ export default async function HomePage() {
           { href: '/schedule', title: 'Schedule & Results', desc: 'Games, scores, and locations.' },
           { href: '/stats', title: 'Stats', desc: 'Season records, computed from the schedule.' },
           { href: '/roster', title: 'Roster', desc: 'Varsity and JV rosters.' },
-          { href: '/join', title: 'Join the Team', desc: 'New or experienced — start here.' },
+          { href: '/join', title: 'Join Green Hope Lacrosse', desc: 'New or experienced — start here.' },
         ].map((c) => (
           <Link key={c.href} href={c.href} className="card p-5 hover:shadow-md transition-shadow group">
             <div className="font-black text-lg group-hover:text-[var(--gh-green)] transition-colors">{c.title}</div>

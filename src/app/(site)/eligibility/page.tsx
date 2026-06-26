@@ -127,7 +127,7 @@ export default async function EligibilityPage() {
       <div className="text-center">
         <p className="text-gray-600 mb-3">Cleared and ready to play?</p>
         <div className="flex flex-wrap gap-3 justify-center">
-          <Link href="/join" className="btn btn-maroon">Join the Team</Link>
+          <Link href="/join" className="btn btn-maroon">Join Green Hope Lacrosse</Link>
           <Link href="/join/green-machine" className="btn btn-maroon">Join the Green Machine</Link>
         </div>
       </div>

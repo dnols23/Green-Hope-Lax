@@ -13,7 +13,7 @@ export default async function ContactPage() {
       <h1 className="page-title mb-2">Contact Us</h1>
       <p className="text-gray-600 mb-8">
         Questions about the program, schedule, or getting involved? Send us a message.
-        Looking to play? Head to the <a href="/join" className="text-[var(--gh-green)] font-semibold">Join the Team</a> page instead.
+        Looking to play? Head to the <a href="/join" className="text-[var(--gh-green)] font-semibold">Join Green Hope Lacrosse</a> page instead.
       </p>
 
       <ContactForm />
