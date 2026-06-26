@@ -5,13 +5,13 @@ import { useState } from 'react'
 import { FalconHead } from './Logo'
 
 const LINKS = [
+  { href: '/news', label: 'News' },
   { href: '/schedule', label: 'Schedule' },
   { href: '/stats', label: 'Stats' },
   { href: '/record-books', label: 'Record Books' },
   { href: '/roster', label: 'Roster' },
   { href: '/coaches', label: 'Coaches' },
   { href: '/awards', label: 'Awards' },
-  { href: '/news', label: 'News' },
   { href: '/resources', label: 'Resources' },
   { href: '/contact', label: 'Contact' },
   { href: '/team', label: 'Team Hub' },
