@@ -20,7 +20,7 @@ export default function JoinPage() {
       <InterestForm />
       <p className="text-sm text-gray-500 mt-6 text-center">
         In middle school?{' '}
-        <Link href="/join/middle-school" className="font-semibold" style={{ color: 'var(--gh-green)' }}>Join the middle school team →</Link>
+        <Link href="/join/green-machine" className="font-semibold" style={{ color: 'var(--gh-green)' }}>Join the Green Machine →</Link>
       </p>
     </div>
   )

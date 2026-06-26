@@ -180,9 +180,9 @@ export async function submitInterest(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  // Which team: middle school vs the default high school program.
+  // Which team: the Green Machine (middle school) vs the default high school program.
   const isMiddle = str(formData.get('level')) === 'middle'
-  const teamLabel = isMiddle ? 'Middle School Team' : 'High School Team'
+  const teamLabel = isMiddle ? 'Green Machine (middle school)' : 'High School Team'
   const rawNotes = str(formData.get('notes'))
   // Tag the stored note so the team shows up in the admin Submissions list/CSV
   // without needing a new column.
@@ -223,7 +223,7 @@ export async function submitInterest(
   }
 
   await sendCoachEmail({
-    subject: `New ${isMiddle ? 'MIDDLE SCHOOL ' : ''}lacrosse interest: ${data.player_first} ${data.player_last}`,
+    subject: `New ${isMiddle ? 'GREEN MACHINE ' : ''}lacrosse interest: ${data.player_first} ${data.player_last}`,
     replyTo: data.parent_email,
     html: emailShell(
       'New Player Interest Submission',
