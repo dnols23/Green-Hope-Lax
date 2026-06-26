@@ -25,7 +25,6 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
   const links = LINKS.filter((l) => !hidden.includes(l.href))
-  const showSchedule = !hidden.includes('/schedule')
 
   return (
     <nav className="fixed top-0 inset-x-0 z-50 shadow-sm" style={{ background: 'var(--gh-green-dk)' }}>
@@ -63,18 +62,8 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
           </Link>
         </div>
 
-        {/* Mobile: Schedule always visible up top + menu button */}
+        {/* Mobile: menu button only — all links live in the pop-out menu */}
         <div className="lg:hidden ml-auto flex items-center gap-1">
-          {showSchedule && (
-            <Link
-              href="/schedule"
-              onClick={() => setOpen(false)}
-              className="px-3 py-2 text-sm font-bold"
-              style={{ color: isActive('/schedule') ? '#fff' : 'rgba(255,255,255,0.85)' }}
-            >
-              Schedule
-            </Link>
-          )}
           <button
             className="p-2 rounded-lg"
             style={{ background: 'rgba(255,255,255,0.1)' }}
@@ -95,7 +84,7 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
       {/* Mobile menu */}
       {open && (
         <div className="lg:hidden border-t px-4 py-3 flex flex-col gap-1" style={{ background: 'var(--gh-green-darker)', borderColor: 'rgba(255,255,255,0.1)' }}>
-          {links.filter((l) => l.href !== '/schedule').map(({ href, label }) => (
+          {links.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
