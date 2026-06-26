@@ -13,6 +13,7 @@ const LINKS = [
   { href: '/coaches', label: 'Coaches' },
   { href: '/awards', label: 'Awards' },
   { href: '/resources', label: 'Resources' },
+  { href: '/eligibility', label: 'Eligibility' },
   { href: '/contact', label: 'Contact' },
   { href: '/team', label: 'Team Hub' },
 ]
