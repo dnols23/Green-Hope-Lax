@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getNews } from '@/lib/queries'
+import { assertPageVisible } from '@/lib/pages'
 import { formatDate } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'News & Announcements' }
 
 export default async function NewsPage() {
+  await assertPageVisible('news')
   const news = await getNews()
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-10">

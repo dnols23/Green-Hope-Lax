@@ -10,11 +10,12 @@ const ADMIN_LINKS = [
   { href: '/admin/members', label: 'Members' },
   { href: '/admin/submissions', label: 'Submissions' },
   { href: '/admin/schedule', label: 'Schedule' },
-  { href: '/admin/stats', label: 'Stats' },
+  { href: '/admin/record-books', label: 'Record Books' },
   { href: '/admin/roster', label: 'Roster' },
   { href: '/admin/coaches', label: 'Coaches' },
   { href: '/admin/awards', label: 'Awards' },
   { href: '/admin/news', label: 'News' },
+  { href: '/admin/pages', label: 'Pages' },
 ]
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

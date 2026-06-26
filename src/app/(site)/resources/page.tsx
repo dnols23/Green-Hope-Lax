@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SCHOOL } from '@/lib/brand'
+import { assertPageVisible } from '@/lib/pages'
 
 export const metadata: Metadata = { title: 'Resources & Info' }
 
@@ -11,7 +12,8 @@ const FORMS = [
   { label: 'Player Code of Conduct (sample)', href: '/forms/code-of-conduct.pdf' },
 ]
 
-export default function ResourcesPage() {
+export default async function ResourcesPage() {
+  await assertPageVisible('resources')
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
       <div className="section-label">Everything you need</div>

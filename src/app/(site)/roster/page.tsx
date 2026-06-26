@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { getPlayers, getAwards } from '@/lib/queries'
+import { assertPageVisible } from '@/lib/pages'
 import { RosterView } from '@/components/RosterView'
 
 export const metadata: Metadata = { title: 'Roster' }
 
 export default async function RosterPage() {
+  await assertPageVisible('roster')
   const [players, awards] = await Promise.all([getPlayers(), getAwards()])
 
   // Map lowercased recipient name → award label(s), so the roster can flag winners.
