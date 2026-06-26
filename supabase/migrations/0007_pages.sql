@@ -37,7 +37,8 @@ insert into public.page_settings (key, label, href, sort_order) values
   ('awards',       'Awards',       '/awards',       6),
   ('news',         'News',         '/news',         7),
   ('resources',    'Resources',    '/resources',    8),
-  ('contact',      'Contact',      '/contact',      9),
-  ('team',         'Team Hub',     '/team',         10)
+  ('eligibility',  'Eligibility',  '/eligibility',  9),
+  ('contact',      'Contact',      '/contact',      10),
+  ('team',         'Team Hub',     '/team',         11)
 on conflict (key) do update
   set label = excluded.label, href = excluded.href, sort_order = excluded.sort_order;
