@@ -180,6 +180,14 @@ export async function submitInterest(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  // Which team: middle school vs the default high school program.
+  const isMiddle = str(formData.get('level')) === 'middle'
+  const teamLabel = isMiddle ? 'Middle School Team' : 'High School Team'
+  const rawNotes = str(formData.get('notes'))
+  // Tag the stored note so the team shows up in the admin Submissions list/CSV
+  // without needing a new column.
+  const taggedNotes = `[${teamLabel}]${rawNotes ? ` ${rawNotes}` : ''}`
+
   const data = {
     player_first: str(formData.get('player_first')),
     player_last: str(formData.get('player_last')),
@@ -190,7 +198,7 @@ export async function submitInterest(
     player_email: str(formData.get('player_email')) || null,
     experience: (str(formData.get('experience')) || 'new') as ExperienceLevel,
     program: str(formData.get('program')) === 'girls' ? 'girls' : 'boys',
-    notes: str(formData.get('notes')) || null,
+    notes: taggedNotes,
   }
 
   // Honeypot — bots fill hidden fields; humans don't.
@@ -215,18 +223,19 @@ export async function submitInterest(
   }
 
   await sendCoachEmail({
-    subject: `New lacrosse interest: ${data.player_first} ${data.player_last}`,
+    subject: `New ${isMiddle ? 'MIDDLE SCHOOL ' : ''}lacrosse interest: ${data.player_first} ${data.player_last}`,
     replyTo: data.parent_email,
     html: emailShell(
       'New Player Interest Submission',
-      row('Player', `${data.player_first} ${data.player_last}`) +
+      row('Team', teamLabel) +
+        row('Player', `${data.player_first} ${data.player_last}`) +
         row('Grad year', data.grad_year) +
         row('Experience', EXPERIENCE_LABELS[data.experience]) +
         row('Parent/Guardian', data.parent_name) +
         row('Parent email', data.parent_email) +
         row('Parent phone', data.parent_phone) +
         row('Player email', data.player_email) +
-        row('Notes', data.notes)
+        row('Notes', rawNotes || null)
     ),
   })
 
