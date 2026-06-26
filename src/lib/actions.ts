@@ -278,12 +278,14 @@ export async function submitContact(
 // Maps each toggleable content type to its table, visibility column, and the
 // pages to revalidate. Whitelisted so the client can only ever flip these flags.
 const VISIBILITY = {
-  stat:     { table: 'program_stats', column: 'is_published', paths: ['/stats', '/admin/stats'] },
+  stat:     { table: 'program_stats', column: 'is_published', paths: ['/record-books', '/admin/record-books'] },
   news:     { table: 'news_posts',    column: 'published',    paths: ['/news', '/admin/news'] },
   award:    { table: 'team_awards',   column: 'is_published', paths: ['/awards', '/admin/awards'] },
   coach:    { table: 'coaches',       column: 'is_published', paths: ['/coaches', '/admin/coaches'] },
   player:   { table: 'players',       column: 'is_active',    paths: ['/roster', '/admin/roster'] },
   teampost: { table: 'team_posts',    column: 'published',    paths: ['/team', '/admin/team'], service: true },
+  // Whole-page on/off. Revalidates the site layout so the nav updates everywhere.
+  page:     { table: 'page_settings', column: 'is_published', paths: ['/admin/pages'], layout: true },
 } as const
 
 export async function setVisibility(entity: keyof typeof VISIBILITY, id: string, next: boolean) {
@@ -293,6 +295,7 @@ export async function setVisibility(entity: keyof typeof VISIBILITY, id: string,
   const supabase = 'service' in cfg && cfg.service ? createServiceClient() : await createClient()
   await supabase.from(cfg.table).update({ [cfg.column]: next }).eq('id', id)
   cfg.paths.forEach((p) => revalidatePath(p))
+  if ('layout' in cfg && cfg.layout) revalidatePath('/', 'layout')
 }
 
 // ── players ──
@@ -370,15 +373,15 @@ export async function upsertProgramStat(formData: FormData) {
   }
   if (id) await supabase.from('program_stats').update(payload).eq('id', id)
   else await supabase.from('program_stats').insert(payload)
-  revalidatePath('/stats')
-  revalidatePath('/admin/stats')
+  revalidatePath('/record-books')
+  revalidatePath('/admin/record-books')
 }
 
 export async function deleteProgramStat(id: string) {
   const supabase = await createClient()
   await supabase.from('program_stats').delete().eq('id', id)
-  revalidatePath('/stats')
-  revalidatePath('/admin/stats')
+  revalidatePath('/record-books')
+  revalidatePath('/admin/record-books')
 }
 
 // ── coaches ──

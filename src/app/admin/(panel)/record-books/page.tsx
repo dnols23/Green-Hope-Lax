@@ -4,7 +4,7 @@ import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import { STAT_SECTION_META, type ProgramStat, type StatSection } from '@/lib/types'
 
-export const metadata = { title: 'Manage Stats' }
+export const metadata = { title: 'Manage Record Books' }
 
 const SECTIONS: StatSection[] = ['records', 'leaders', 'milestones', 'honors']
 
@@ -69,23 +69,24 @@ export default async function AdminStatsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-black mb-1">Stats</h1>
+      <h1 className="text-xl font-black mb-1">Record Books</h1>
       <p className="text-sm text-gray-500 mb-4">
-        Season win/loss records are computed automatically from the schedule.
-        Use this page to add all-time <strong>records</strong>, <strong>career leaders</strong>,{' '}
-        <strong>milestones</strong>, and <strong>team honors</strong> shown on the public stats page.
+        Add all-time <strong>records</strong>, <strong>career leaders</strong>,{' '}
+        <strong>milestones</strong>, and <strong>team honors</strong> shown on the public{' '}
+        <strong>Record Books</strong> page. (Season win/loss records are computed automatically
+        from the schedule and shown on the Stats page.)
       </p>
 
       <div className="card p-5 mb-6">
-        <h2 className="font-bold text-gray-700 mb-4">Add Stat</h2>
+        <h2 className="font-bold text-gray-700 mb-4">Add Record</h2>
         <form action={upsertProgramStat} className="space-y-4">
           <StatFields />
-          <button type="submit" className="btn btn-primary">Add stat</button>
+          <button type="submit" className="btn btn-primary">Add record</button>
         </form>
       </div>
 
       <div className="space-y-2">
-        {stats.length === 0 && <p className="text-sm text-gray-400">No stats added yet.</p>}
+        {stats.length === 0 && <p className="text-sm text-gray-400">No records added yet.</p>}
         {stats.map((s) => (
           <details key={s.id} className="card p-4">
             <summary className="flex items-center justify-between cursor-pointer list-none gap-3">

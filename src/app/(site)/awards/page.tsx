@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { getAwards } from '@/lib/queries'
+import { assertPageVisible } from '@/lib/pages'
 import type { TeamAward } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Team Awards' }
 
 export default async function AwardsPage() {
+  await assertPageVisible('awards')
   const awards = await getAwards()
 
   // group by season, newest first (query already ordered)

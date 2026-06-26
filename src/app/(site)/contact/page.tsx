@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { ContactForm } from '@/components/ContactForm'
 import { SCHOOL } from '@/lib/brand'
+import { assertPageVisible } from '@/lib/pages'
 
 export const metadata: Metadata = { title: 'Contact' }
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  await assertPageVisible('contact')
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
       <div className="section-label">Get in touch</div>

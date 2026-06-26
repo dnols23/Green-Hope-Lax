@@ -7,6 +7,7 @@ import { FalconHead } from './Logo'
 const LINKS = [
   { href: '/schedule', label: 'Schedule' },
   { href: '/stats', label: 'Stats' },
+  { href: '/record-books', label: 'Record Books' },
   { href: '/roster', label: 'Roster' },
   { href: '/coaches', label: 'Coaches' },
   { href: '/awards', label: 'Awards' },
@@ -16,11 +17,14 @@ const LINKS = [
   { href: '/team', label: 'Team Hub' },
 ]
 
-export default function Nav() {
+// `hidden` is the set of hrefs an admin has toggled off in /admin → Pages.
+export default function Nav({ hidden = [] }: { hidden?: string[] }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
+  const links = LINKS.filter((l) => !hidden.includes(l.href))
+  const showSchedule = !hidden.includes('/schedule')
 
   return (
     <nav className="fixed top-0 inset-x-0 z-50 shadow-sm" style={{ background: 'var(--gh-green-dk)' }}>
@@ -37,7 +41,7 @@ export default function Nav() {
 
         {/* Desktop links */}
         <div className="hidden lg:flex items-center gap-1 ml-auto">
-          {LINKS.map(({ href, label }) => (
+          {links.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
@@ -57,14 +61,16 @@ export default function Nav() {
 
         {/* Mobile: Schedule always visible up top + menu button */}
         <div className="lg:hidden ml-auto flex items-center gap-1">
-          <Link
-            href="/schedule"
-            onClick={() => setOpen(false)}
-            className="px-3 py-2 text-sm font-bold"
-            style={{ color: isActive('/schedule') ? '#fff' : 'rgba(255,255,255,0.85)' }}
-          >
-            Schedule
-          </Link>
+          {showSchedule && (
+            <Link
+              href="/schedule"
+              onClick={() => setOpen(false)}
+              className="px-3 py-2 text-sm font-bold"
+              style={{ color: isActive('/schedule') ? '#fff' : 'rgba(255,255,255,0.85)' }}
+            >
+              Schedule
+            </Link>
+          )}
           <button
             className="p-2 rounded-lg"
             style={{ background: 'rgba(255,255,255,0.1)' }}
@@ -85,7 +91,7 @@ export default function Nav() {
       {/* Mobile menu */}
       {open && (
         <div className="lg:hidden border-t px-4 py-3 flex flex-col gap-1" style={{ background: 'var(--gh-green-darker)', borderColor: 'rgba(255,255,255,0.1)' }}>
-          {LINKS.filter((l) => l.href !== '/schedule').map(({ href, label }) => (
+          {links.filter((l) => l.href !== '/schedule').map(({ href, label }) => (
             <Link
               key={href}
               href={href}

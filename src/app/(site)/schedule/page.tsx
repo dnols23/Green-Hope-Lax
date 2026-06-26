@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getGames } from '@/lib/queries'
+import { assertPageVisible } from '@/lib/pages'
 import { seasonYear } from '@/lib/format'
 import { ScheduleView } from '@/components/ScheduleView'
 
@@ -15,6 +16,7 @@ function seasonLabel(years: number[]): string {
 }
 
 export default async function SchedulePage() {
+  await assertPageVisible('schedule')
   const games = await getGames()
   const years = [...new Set(games.map((g) => seasonYear(g.game_date)))].sort((a, b) => a - b)
   return (

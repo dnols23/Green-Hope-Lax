@@ -1,15 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getGames, getProgramStats } from '@/lib/queries'
+import { getGames } from '@/lib/queries'
+import { assertPageVisible } from '@/lib/pages'
 import { seasonYear, summarizeSeason, recordLabel } from '@/lib/format'
-import { STAT_SECTION_META, type ProgramStat, type StatSection } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Stats' }
 
-const SECTION_ORDER: StatSection[] = ['records', 'leaders', 'milestones', 'honors']
-
 export default async function StatsPage() {
-  const [games, stats] = await Promise.all([getGames(), getProgramStats()])
+  await assertPageVisible('stats')
+  const games = await getGames()
 
   // Seasons present in the schedule, newest first.
   const years = [...new Set(games.map((g) => seasonYear(g.game_date)))].sort((a, b) => b - a)
@@ -28,14 +27,16 @@ export default async function StatsPage() {
     { wins: 0, losses: 0, ties: 0, goalsFor: 0, goalsAgainst: 0 },
   )
 
-  // Group the editable program-stat lines by section.
-  const bySection = (section: StatSection) => stats.filter((s) => s.section === section)
-
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-10">
-      <div className="mb-6">
-        <div className="section-label">Green Hope Falcons</div>
-        <h1 className="page-title">Stats</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="section-label">Green Hope Falcons</div>
+          <h1 className="page-title">Stats</h1>
+        </div>
+        <Link href="/record-books" className="text-sm font-bold" style={{ color: 'var(--gh-green)' }}>
+          All-time Record Books →
+        </Link>
       </div>
 
       {/* ── Current season at a glance ── */}
@@ -60,7 +61,7 @@ export default async function StatsPage() {
       ) : null}
 
       {/* ── Season-by-season ── */}
-      {summaries.some((s) => s.played > 0) && (
+      {summaries.some((s) => s.played > 0) ? (
         <section className="mb-12">
           <h2 className="font-black text-xl mb-4">Season by Season</h2>
           <div className="card table-scroll">
@@ -91,31 +92,11 @@ export default async function StatsPage() {
             </table>
           </div>
         </section>
-      )}
-
-      {/* ── All-time records / leaders / milestones / honors (coach-editable) ── */}
-      {SECTION_ORDER.map((section) => {
-        const meta = STAT_SECTION_META[section]
-        const rows = bySection(section)
-        if (rows.length === 0) return null
-        return (
-          <section key={section} className="mb-12">
-            <h2 className="font-black text-xl mb-1">{meta.emoji} {meta.label}</h2>
-            <p className="text-sm text-gray-500 mb-4">{meta.blurb}</p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {rows.map((s) => <StatLine key={s.id} stat={s} />)}
-            </div>
-          </section>
-        )
-      })}
-
-      {/* ── Empty state when nothing has been populated yet ── */}
-      {stats.length === 0 && !summaries.some((s) => s.played > 0) && (
+      ) : (
         <div className="card p-8 text-center text-gray-500">
-          <p className="font-semibold text-gray-700">No stats yet.</p>
+          <p className="font-semibold text-gray-700">No season stats yet.</p>
           <p className="text-sm mt-1">
-            Season records appear here automatically once games have final scores.
-            All-time records and leaders can be added from the admin panel.
+            Season records appear here automatically once games have final scores on the schedule.
           </p>
         </div>
       )}
@@ -128,19 +109,6 @@ function StatBox({ label, value }: { label: string; value: string }) {
     <div className="card p-5 text-center">
       <div className="text-3xl font-black tracking-tight" style={{ color: 'var(--gh-green)' }}>{value}</div>
       <div className="text-xs font-bold uppercase tracking-wide text-gray-400 mt-1">{label}</div>
-    </div>
-  )
-}
-
-function StatLine({ stat }: { stat: ProgramStat }) {
-  return (
-    <div className="card p-4">
-      <div className="text-xs font-bold uppercase tracking-wide text-gray-400">
-        {stat.label}
-        {stat.season && <span className="ml-1 text-gray-300">· {stat.season}</span>}
-      </div>
-      {stat.value && <div className="text-xl font-black mt-1">{stat.value}</div>}
-      {stat.detail && <div className="text-sm text-gray-500 mt-0.5">{stat.detail}</div>}
     </div>
   )
 }

@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { getCoaches } from '@/lib/queries'
+import { assertPageVisible } from '@/lib/pages'
 import { FalconHead } from '@/components/Logo'
 
 export const metadata: Metadata = { title: 'Coaches & Staff' }
 
 export default async function CoachesPage() {
+  await assertPageVisible('coaches')
   const coaches = await getCoaches()
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-10">
