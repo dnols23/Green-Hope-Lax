@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import styles from './VideoBoard.module.css'
 import { Panel } from './Panel'
@@ -7,6 +8,7 @@ import {
   IconClose,
   IconCompress,
   IconExpand,
+  IconFilm,
   IconKeyboard,
   IconLayout,
   IconPause,
@@ -50,6 +52,8 @@ export function VideoBoard() {
   const [configured, setConfigured] = useState(false)
   const [canManage, setCanManage] = useState(false)
   const [uploads, setUploads] = useState<UploadItem[]>([])
+  // Deep link from the Library page: /team/video?v=<id> or ?clip=<id>
+  const [autoLoad, setAutoLoad] = useState<{ videoId: number; clip?: Clip } | null>(null)
 
   const mainRef = useRef<HTMLDivElement>(null)
   const nextLocalVidRef = useRef(-1) // local ids are negative; library rows are positive
@@ -92,6 +96,16 @@ export function VideoBoard() {
         setCanManage(!!d.canManage)
         setVideos((local) => [...(d.videos as LibVideo[]), ...local])
         setClips((local) => [...(d.clips as Clip[]), ...local])
+        // Honor a Library deep link once the team film list is in.
+        const params = new URLSearchParams(window.location.search)
+        const clipParam = params.get('clip')
+        const vParam = params.get('v')
+        if (clipParam) {
+          const clip = (d.clips as Clip[]).find((c) => c.id === +clipParam)
+          if (clip) setAutoLoad({ videoId: clip.videoId, clip })
+        } else if (vParam) {
+          setAutoLoad({ videoId: +vParam })
+        }
       })
       .catch(() => {}) // stay in local mode
     return () => {
@@ -430,6 +444,11 @@ export function VideoBoard() {
         </div>
 
         <div className={styles.toolGroup}>
+          {configured && (
+            <Link href="/team/video/library" className={styles.iconBtn} title="Browse the team library">
+              <IconFilm size={15} /> Library
+            </Link>
+          )}
           <button
             type="button"
             className={`${styles.iconBtn} ${shortcutsOpen ? styles.iconBtnOn : ''}`}
@@ -468,12 +487,13 @@ export function VideoBoard() {
       <div className={styles.grid} data-count={panelCount}>
         {Array.from({ length: panelCount }, (_, i) => (
           <Panel
-            key={i}
+            key={i === 0 && autoLoad ? `p0-${autoLoad.videoId}-${autoLoad.clip?.id ?? 'v'}` : i}
             index={i}
             videos={videos}
             clips={clips}
             isSource={i === 0}
             canManage={canManage}
+            autoLoad={i === 0 ? autoLoad : null}
             onSaveClip={saveClip}
             onDeleteClip={deleteClip}
             addFiles={addFiles}

@@ -767,6 +767,180 @@
   background: var(--vb-bg);
 }
 
+/* ── Library page (Hudl-style list) ── */
+.libPage {
+  flex: 1;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 12px 12px 40px;
+  color: var(--vb-text, #e8ebe9);
+}
+
+.searchRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.searchBox {
+  flex: 1;
+  min-width: 180px;
+  background: #1a1e1b;
+  border: 1px solid #262b27;
+  color: #e8ebe9;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+}
+.searchBox:focus { outline: 1px solid #0e7a50; }
+.searchBox::placeholder { color: #59635d; }
+
+.fChips { display: flex; gap: 6px; }
+.fChip {
+  background: #1a1e1b;
+  border: 1px solid #262b27;
+  color: #9aa39d;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.fChip:hover { color: #e8ebe9; }
+.fChipOn { background: #0e7a50; border-color: #0e7a50; color: #fff; }
+
+.monthHdr {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #59635d;
+  padding: 16px 2px 8px;
+}
+
+.rowCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #141715;
+  border: 1px solid #1e2320;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  transition: border-color 0.12s;
+}
+.rowCard:hover { border-color: #33413a; }
+
+.rowLink {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.rowThumb {
+  width: 104px;
+  height: 58px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #0b0d0c;
+  flex-shrink: 0;
+}
+.rowThumbPh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #3a423c;
+  border: 1px solid #1e2320;
+}
+
+.rowBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rowTitle {
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  color: #e8ebe9;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.rowMeta { font-size: 0.74rem; color: #9aa39d; }
+
+.rowMenuWrap { position: relative; flex-shrink: 0; padding-right: 4px; }
+.rowDots {
+  width: 36px;
+  height: 44px;
+  background: none;
+  border: none;
+  color: #9aa39d;
+  font-size: 1.2rem;
+  cursor: pointer;
+  border-radius: 8px;
+  line-height: 1;
+}
+.rowDots:hover { color: #e8ebe9; background: #1a1e1b; }
+
+.rowMenu {
+  position: absolute;
+  right: 6px;
+  top: calc(100% - 4px);
+  background: #1d211f;
+  border: 1px solid #262b27;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  z-index: 30;
+  min-width: 190px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.rowMenuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  color: #e8ebe9;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.rowMenuItem:hover { background: #262b27; }
+.rowMenuDanger { color: #f0a0a0; }
+
+.libNote {
+  margin-top: 32px;
+  text-align: center;
+  color: #9aa39d;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+}
+.libNoteBtn {
+  display: inline-block;
+  background: #0e7a50;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  border-radius: 999px;
+  padding: 8px 18px;
+  text-decoration: none;
+}
+.libNoteBtn:hover { background: #0d905d; }
+
 /* ── Upload progress stack ── */
 .upStack {
   position: fixed;

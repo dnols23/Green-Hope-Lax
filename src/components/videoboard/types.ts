@@ -10,6 +10,10 @@ export type LibVideo = {
   remote?: boolean
   /** Probed after load — shown as a badge on the library chip. */
   duration?: number
+  /** Cloudflare Stream thumbnail URL (team film only). */
+  thumb?: string
+  /** ISO timestamp for team film — drives the Library's month grouping. */
+  createdAt?: string
 }
 
 export type Clip = {
@@ -20,6 +24,7 @@ export type Clip = {
   start: number
   end: number
   remote?: boolean
+  createdAt?: string
 }
 
 export const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2] as const

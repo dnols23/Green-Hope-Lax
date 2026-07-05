@@ -27,6 +27,8 @@ export type PanelProps = {
   isSource: boolean
   /** Coach signed in — may delete shared team clips. */
   canManage: boolean
+  /** Library deep link: load this video (and optionally play a clip) once available. */
+  autoLoad?: { videoId: number; clip?: Clip } | null
   onSaveClip: (clip: { videoId: number; name: string; start: number; end: number }) => void
   onDeleteClip: (id: number) => void
   /** Add dropped files to the shared library; returns the created entries. */
@@ -42,6 +44,7 @@ export function Panel({
   clips,
   isSource,
   canManage,
+  autoLoad,
   onSaveClip,
   onDeleteClip,
   addFiles,
@@ -49,7 +52,9 @@ export function Panel({
   onPlayingChange,
   notify,
 }: PanelProps) {
-  const [videoId, setVideoId] = useState<number | null>(null)
+  // A Library deep link mounts the panel with its film (and queued clip)
+  // already selected — the board remounts Panel 1 via `key` when one arrives.
+  const [videoId, setVideoId] = useState<number | null>(autoLoad?.videoId ?? null)
   const [playing, setPlaying] = useState(false)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
@@ -72,7 +77,10 @@ export function Panel({
   const handleRef = useRef<HTMLDivElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
   const endWatcherRef = useRef<number | null>(null)
-  const pendingClipRef = useRef<Clip | null>(null)
+  const pendingClipRef = useRef<Clip | null>(autoLoad?.clip ?? null)
+  // Deep-linked clips load paused at their In point (browsers block autoplay
+  // without a tap); drawer plays are gesture-driven and start immediately.
+  const pendingAutoplayRef = useRef(!autoLoad?.clip)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -277,6 +285,7 @@ export function Panel({
     }
     if (loadedId !== target.id) {
       pendingClipRef.current = clip
+      pendingAutoplayRef.current = true
       selectVideo(target.id)
     } else {
       const video = videoRef.current
@@ -487,7 +496,10 @@ export function Panel({
                 pendingClipRef.current = null
                 endWatcherRef.current = pending.end
                 video.currentTime = pending.start
-                video.play()
+                if (pendingAutoplayRef.current) video.play()
+                else setCtrlShow(true)
+                pendingAutoplayRef.current = true
+                syncProgress()
               }
             }}
           />

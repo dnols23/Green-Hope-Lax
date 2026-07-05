@@ -45,18 +45,24 @@ export function filmHlsUrl(customerCode: string, uid: string): string {
   return `https://customer-${customerCode}.cloudflarestream.com/${uid}/manifest/video.m3u8`
 }
 
+export function filmThumbUrl(customerCode: string, uid: string): string {
+  return `https://customer-${customerCode}.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg?height=270`
+}
+
 // ── Row → client shape mappers ───────────────────────────────────────────────
 
-type VideoRow = { id: number; uid: string; name: string }
-type ClipRow = { id: number; video_id: number; name: string; start_time: number; end_time: number }
+type VideoRow = { id: number; uid: string; name: string; created_at?: string }
+type ClipRow = { id: number; video_id: number; name: string; start_time: number; end_time: number; created_at?: string }
 
 export function mapVideoRow(row: VideoRow, customerCode: string): LibVideo {
   return {
     id: row.id,
     name: row.name,
     url: filmHlsUrl(customerCode, row.uid),
+    thumb: filmThumbUrl(customerCode, row.uid),
     hls: true,
     remote: true,
+    createdAt: row.created_at,
   }
 }
 
@@ -68,5 +74,6 @@ export function mapClipRow(row: ClipRow): Clip {
     start: row.start_time,
     end: row.end_time,
     remote: true,
+    createdAt: row.created_at,
   }
 }

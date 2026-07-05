@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await sb
     .from('team_clips')
     .insert({ video_id: videoId, name, start_time: start, end_time: end })
-    .select('id, video_id, name, start_time, end_time')
+    .select('id, video_id, name, start_time, end_time, created_at')
     .single()
   if (error || !data) {
     return NextResponse.json({ error: 'Could not save the clip.' }, { status: 500 })
