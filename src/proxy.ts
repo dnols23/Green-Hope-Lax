@@ -46,12 +46,17 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse
   }
 
-  // ── Team Hub (parents/players) — shared password cookie ──
+  // ── Team Hub (parents/players) — shared password cookie. A signed-in
+  // coach (Supabase admin) gets in too, without registering. ──
   const isTeamRoute = path.startsWith('/team')
   const isTeamLogin = path === '/team/login'
   if (isTeamRoute) {
     const token = request.cookies.get(TEAM_COOKIE)?.value
-    const valid = !!token && token === (await teamCookieToken())
+    let valid = !!token && token === (await teamCookieToken())
+    if (!valid) {
+      const { data: { user } } = await supabase.auth.getUser()
+      valid = !!user
+    }
     if (!isTeamLogin && !valid) {
       const url = request.nextUrl.clone(); url.pathname = '/team/login'
       return NextResponse.redirect(url)

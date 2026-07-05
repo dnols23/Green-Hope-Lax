@@ -25,6 +25,8 @@ export type PanelProps = {
   videos: LibVideo[]
   clips: Clip[]
   isSource: boolean
+  /** Coach signed in — may delete shared team clips. */
+  canManage: boolean
   onSaveClip: (clip: { videoId: number; name: string; start: number; end: number }) => void
   onDeleteClip: (id: number) => void
   /** Add dropped files to the shared library; returns the created entries. */
@@ -39,6 +41,7 @@ export function Panel({
   videos,
   clips,
   isSource,
+  canManage,
   onSaveClip,
   onDeleteClip,
   addFiles,
@@ -636,6 +639,7 @@ export function Panel({
         open={drawerOpen}
         clips={clips}
         videos={videos}
+        canManage={canManage}
         onClose={() => setDrawerOpen(false)}
         onPlay={playClip}
         onDelete={onDeleteClip}

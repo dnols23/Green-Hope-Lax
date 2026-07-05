@@ -3,6 +3,23 @@
 // clip records. Never import this into a client component.
 
 import type { Clip, LibVideo } from '@/components/videoboard/types'
+import { createClient } from './supabase-server'
+import { isTeamRequest } from './teamAuth'
+
+// Who's calling the film APIs?
+//  - manage: a signed-in coach (any Supabase admin user) — can upload/delete
+//    team film and manage shared clips.
+//  - view: a coach OR anyone signed into the Team Hub — can watch the team
+//    library and play its clips.
+export async function getFilmAccess(req: {
+  cookies: { get(name: string): { value: string } | undefined }
+}): Promise<{ view: boolean; manage: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) return { view: true, manage: true }
+  const team = await isTeamRequest(req)
+  return { view: team, manage: false }
+}
 
 export type CfConfig = {
   accountId: string
