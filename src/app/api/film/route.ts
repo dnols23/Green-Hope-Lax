@@ -18,8 +18,8 @@ export async function GET(req: NextRequest) {
 
   const sb = createServiceClient()
   const [videosRes, clipsRes] = await Promise.all([
-    sb.from('team_videos').select('id, uid, name').order('created_at', { ascending: true }),
-    sb.from('team_clips').select('id, video_id, name, start_time, end_time').order('created_at', { ascending: true }),
+    sb.from('team_videos').select('id, uid, name, created_at').order('created_at', { ascending: true }),
+    sb.from('team_clips').select('id, video_id, name, start_time, end_time, created_at').order('created_at', { ascending: true }),
   ])
   if (videosRes.error || clipsRes.error) {
     return NextResponse.json(
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await sb
     .from('team_videos')
     .insert({ uid, name })
-    .select('id, uid, name')
+    .select('id, uid, name, created_at')
     .single()
   if (error || !data) {
     return NextResponse.json({ error: 'Could not save to the team library.' }, { status: 500 })
