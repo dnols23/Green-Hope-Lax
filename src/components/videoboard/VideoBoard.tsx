@@ -27,6 +27,15 @@ const SHORTCUTS: Array<[string[], string]> = [
   [['F'], 'Fullscreen panel'],
 ]
 
+type UploadItem = {
+  key: number
+  name: string
+  sizeMB: number
+  pct: number
+  done?: boolean
+  error?: string
+}
+
 export function VideoBoard() {
   const [videos, setVideos] = useState<LibVideo[]>([])
   const [clips, setClips] = useState<Clip[]>([])
@@ -38,10 +47,14 @@ export function VideoBoard() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [playingPanels, setPlayingPanels] = useState<Set<number>>(new Set())
   const [toast, setToast] = useState<{ msg: string; show: boolean } | null>(null)
+  const [configured, setConfigured] = useState(false)
+  const [uploads, setUploads] = useState<UploadItem[]>([])
 
   const mainRef = useRef<HTMLDivElement>(null)
-  const nextVidRef = useRef(1)
-  const nextClipRef = useRef(1)
+  const nextLocalVidRef = useRef(-1) // local ids are negative; library rows are positive
+  const nextLocalClipRef = useRef(-1)
+  const nextUploadKeyRef = useRef(1)
+  const configuredRef = useRef(false)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const urlsRef = useRef<Set<string>>(new Set())
   const videoElsRef = useRef<Map<number, HTMLVideoElement>>(new Map())
@@ -64,61 +77,173 @@ export function VideoBoard() {
     }
   }, [])
 
-  // ── Library ───────────────────────────────────────────────────────────────
-  const addFiles = useCallback((files: Iterable<File>): LibVideo[] => {
-    const added: LibVideo[] = []
-    for (const file of files) {
-      if (!file.type.startsWith('video/')) continue
-      const url = URL.createObjectURL(file)
-      urlsRef.current.add(url)
-      added.push({ id: nextVidRef.current++, name: file.name, url })
+  // ── Team library: load shared film + clips from the server ───────────────
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/film')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d?.configured) return
+        configuredRef.current = true
+        setConfigured(true)
+        setVideos((local) => [...(d.videos as LibVideo[]), ...local])
+        setClips((local) => [...(d.clips as Clip[]), ...local])
+      })
+      .catch(() => {}) // stay in local mode
+    return () => {
+      cancelled = true
     }
-    if (!added.length) return added
-    setVideos((v) => [...v, ...added])
-    // Probe durations off-screen so chips can show film length.
-    added.forEach((entry) => {
-      const probe = document.createElement('video')
-      probe.preload = 'metadata'
-      probe.src = entry.url
-      probe.onloadedmetadata = () => {
-        const d = probe.duration
-        probe.removeAttribute('src')
-        setVideos((vs) => vs.map((v) => (v.id === entry.id ? { ...v, duration: d } : v)))
-      }
-    })
-    return added
   }, [])
 
+  // ── Uploads (tus → Cloudflare Stream, resumable with progress) ───────────
+  const patchUpload = useCallback((key: number, patch: Partial<UploadItem> | null) => {
+    setUploads((us) => (patch === null ? us.filter((u) => u.key !== key) : us.map((u) => (u.key === key ? { ...u, ...patch } : u))))
+  }, [])
+
+  const cloudUpload = useCallback(
+    async (file: File) => {
+      const key = nextUploadKeyRef.current++
+      const sizeMB = file.size / (1024 * 1024)
+      setUploads((us) => [...us, { key, name: file.name, sizeMB, pct: 0 }])
+      try {
+        const urlRes = await fetch('/api/film/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uploadLength: file.size, name: file.name }),
+        })
+        const urlJson = await urlRes.json()
+        if (!urlRes.ok) throw new Error(urlJson.error || `HTTP ${urlRes.status}`)
+
+        const { Upload } = await import('tus-js-client')
+        await new Promise<void>((resolve, reject) => {
+          new Upload(file, {
+            uploadUrl: urlJson.uploadURL,
+            chunkSize: 50 * 1024 * 1024,
+            retryDelays: [0, 1000, 3000, 6000, 12000],
+            metadata: { name: file.name, filetype: file.type },
+            onError: (err) => reject(err instanceof Error ? err : new Error(String(err))),
+            onProgress: (sent, total) => patchUpload(key, { pct: total ? sent / total : 0 }),
+            onSuccess: () => resolve(),
+          }).start()
+        })
+
+        const recRes = await fetch('/api/film', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: urlJson.uid, name: file.name }),
+        })
+        const recJson = await recRes.json()
+        if (!recRes.ok) throw new Error(recJson.error || `HTTP ${recRes.status}`)
+
+        setVideos((v) => [...v, recJson.video as LibVideo])
+        patchUpload(key, { done: true, pct: 1 })
+        setTimeout(() => patchUpload(key, null), 2500)
+        notify('Film saved to the team library')
+      } catch (e) {
+        patchUpload(key, { error: e instanceof Error ? e.message : 'Upload failed' })
+      }
+    },
+    [notify, patchUpload]
+  )
+
+  // ── Library ───────────────────────────────────────────────────────────────
+  const addFiles = useCallback(
+    (files: Iterable<File>): LibVideo[] => {
+      const added: LibVideo[] = []
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('video/')) continue
+        if (configuredRef.current) {
+          void cloudUpload(file) // lands in the library when the upload finishes
+          continue
+        }
+        const url = URL.createObjectURL(file)
+        urlsRef.current.add(url)
+        added.push({ id: nextLocalVidRef.current--, name: file.name, url })
+      }
+      if (!added.length) return added
+      setVideos((v) => [...v, ...added])
+      // Probe durations off-screen so chips can show film length.
+      added.forEach((entry) => {
+        const probe = document.createElement('video')
+        probe.preload = 'metadata'
+        probe.src = entry.url
+        probe.onloadedmetadata = () => {
+          const d = probe.duration
+          probe.removeAttribute('src')
+          setVideos((vs) => vs.map((v) => (v.id === entry.id ? { ...v, duration: d } : v)))
+        }
+      })
+      return added
+    },
+    [cloudUpload]
+  )
+
   function removeVideos(ids: Set<number>) {
+    const removedRemote = videos.filter((v) => ids.has(v.id) && v.remote)
     setVideos((vs) =>
       vs.filter((v) => {
         if (!ids.has(v.id)) return true
-        URL.revokeObjectURL(v.url)
-        urlsRef.current.delete(v.url)
+        if (!v.remote) {
+          URL.revokeObjectURL(v.url)
+          urlsRef.current.delete(v.url)
+        }
         return false
       })
     )
-    // Local film can't come back once removed, so its clips go too.
+    // Clips go with their film (the server cascades team clips the same way).
     setClips((cs) => cs.filter((c) => !ids.has(c.videoId)))
     setSelectedIds((sel) => {
       const next = new Set(sel)
       ids.forEach((id) => next.delete(id))
       return next
     })
+    removedRemote.forEach((v) => {
+      fetch(`/api/film/${v.id}`, { method: 'DELETE' })
+        .then((r) => {
+          if (!r.ok) throw new Error()
+        })
+        .catch(() => notify(`Could not delete “${shortName(baseName(v.name), 18)}” from the team library`))
+    })
   }
 
   // ── Clips ─────────────────────────────────────────────────────────────────
   const saveClip = useCallback(
-    (data: { videoId: number; name: string; start: number; end: number }) => {
-      setClips((cs) => [...cs, { id: nextClipRef.current++, ...data }])
-      notify('Clip saved')
+    async (data: { videoId: number; name: string; start: number; end: number }) => {
+      if (data.videoId > 0 && configuredRef.current) {
+        try {
+          const res = await fetch('/api/film/clips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          })
+          const j = await res.json()
+          if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`)
+          setClips((cs) => [...cs, j.clip as Clip])
+          notify('Clip saved to the team library')
+        } catch {
+          notify('Could not save the clip — check your connection and try again.')
+        }
+        return
+      }
+      setClips((cs) => [...cs, { id: nextLocalClipRef.current--, ...data }])
+      notify('Clip saved (this device, this session)')
     },
     [notify]
   )
 
-  const deleteClip = useCallback((id: number) => {
-    setClips((cs) => cs.filter((c) => c.id !== id))
-  }, [])
+  const deleteClip = useCallback(
+    (id: number) => {
+      setClips((cs) => cs.filter((c) => c.id !== id))
+      if (id > 0 && configuredRef.current) {
+        fetch(`/api/film/clips/${id}`, { method: 'DELETE' })
+          .then((r) => {
+            if (!r.ok) throw new Error()
+          })
+          .catch(() => notify('Could not delete the clip from the team library'))
+      }
+    },
+    [notify]
+  )
 
   // ── Panel registry: lets the toolbar drive all panels at once ────────────
   const registerVideo = useCallback((index: number, el: HTMLVideoElement | null) => {
@@ -138,7 +263,7 @@ export function VideoBoard() {
   const anyPlaying = playingPanels.size > 0
 
   function toggleAll() {
-    const els = [...videoElsRef.current.values()].filter((v) => v.src)
+    const els = [...videoElsRef.current.values()]
     if (!els.length) return
     if (anyPlaying) els.forEach((v) => v.pause())
     else els.forEach((v) => void v.play())
@@ -195,8 +320,8 @@ export function VideoBoard() {
           addFiles(e.dataTransfer.files)
         }}
       >
-        <label className={styles.loadBtn} title="Load video files from this device">
-          <IconUpload size={16} /> Load Film
+        <label className={styles.loadBtn} title={configured ? 'Upload film to the team library' : 'Load video files from this device'}>
+          <IconUpload size={16} /> {configured ? 'Upload Film' : 'Load Film'}
           <input
             type="file"
             accept="video/*"
@@ -212,7 +337,9 @@ export function VideoBoard() {
         <div className={styles.libraryStrip}>
           {videos.length === 0 ? (
             <span className={styles.libEmpty}>
-              No film loaded — stays on this device, this session only.
+              {configured
+                ? 'No film in the team library yet — uploads are shared with the whole team.'
+                : 'No film loaded — stays on this device, this session only.'}
             </span>
           ) : (
             videos.map((v) => (
@@ -239,7 +366,7 @@ export function VideoBoard() {
                 <button
                   type="button"
                   className={styles.chipX}
-                  title="Remove from library"
+                  title={v.remote ? 'Delete from the team library' : 'Remove from library'}
                   onClick={(e) => {
                     e.stopPropagation()
                     removeVideos(new Set([v.id]))
@@ -337,6 +464,41 @@ export function VideoBoard() {
           />
         ))}
       </div>
+
+      {/* ── Upload progress stack ── */}
+      {uploads.length > 0 && (
+        <div className={styles.upStack}>
+          {uploads.map((u) => (
+            <div key={u.key} className={`${styles.upCard} ${u.error ? styles.upErr : ''}`}>
+              <div className={styles.upName}>
+                {shortName(baseName(u.name), 24)}
+                <span className={styles.upSize}>
+                  {u.sizeMB >= 1 ? ` · ${Math.round(u.sizeMB)} MB` : ''}
+                </span>
+              </div>
+              {u.error ? (
+                <>
+                  <div className={styles.upMsg}>{u.error}</div>
+                  <button type="button" className={styles.upX} title="Dismiss" onClick={() => patchUpload(u.key, null)}>
+                    <IconClose size={12} />
+                  </button>
+                </>
+              ) : u.done ? (
+                <div className={styles.upMsg}>Saved to team library ✓</div>
+              ) : (
+                <>
+                  <div className={styles.upBar}>
+                    <div className={styles.upFill} style={{ width: `${Math.round(u.pct * 100)}%` }} />
+                  </div>
+                  <div className={styles.upMsg}>
+                    {u.pct >= 1 ? 'Processing…' : `Uploading… ${Math.round(u.pct * 100)}%`}
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {toast && (
         <div className={`${styles.toast} ${toast.show ? styles.toastShow : ''}`}>

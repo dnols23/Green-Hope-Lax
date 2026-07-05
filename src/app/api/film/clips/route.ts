@@ -1,0 +1,40 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { isTeamRequest } from '@/lib/teamAuth'
+import { createServiceClient } from '@/lib/supabase-server'
+import { getCfConfig, mapClipRow } from '@/lib/film'
+
+// POST /api/film/clips { videoId, name, start, end } — save a marked clip to
+// the shared team library.
+export async function POST(req: NextRequest) {
+  if (!(await isTeamRequest(req))) {
+    return NextResponse.json({ error: 'Not signed in to the Team Hub.' }, { status: 401 })
+  }
+  if (!getCfConfig()) {
+    return NextResponse.json({ error: 'Film storage is not configured.' }, { status: 503 })
+  }
+
+  let body: { videoId?: unknown; name?: unknown; start?: unknown; end?: unknown }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Bad request.' }, { status: 400 })
+  }
+  const videoId = Number(body.videoId)
+  const start = Number(body.start)
+  const end = Number(body.end)
+  const name = (typeof body.name === 'string' ? body.name.trim() : '').slice(0, 60) || 'Clip'
+  if (!Number.isInteger(videoId) || videoId <= 0 || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) {
+    return NextResponse.json({ error: 'Invalid clip.' }, { status: 400 })
+  }
+
+  const sb = createServiceClient()
+  const { data, error } = await sb
+    .from('team_clips')
+    .insert({ video_id: videoId, name, start_time: start, end_time: end })
+    .select('id, video_id, name, start_time, end_time')
+    .single()
+  if (error || !data) {
+    return NextResponse.json({ error: 'Could not save the clip.' }, { status: 500 })
+  }
+  return NextResponse.json({ clip: mapClipRow(data) })
+}

@@ -767,6 +767,65 @@
   background: var(--vb-bg);
 }
 
+/* ── Upload progress stack ── */
+.upStack {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 9400;
+  width: 260px;
+}
+.upCard {
+  position: relative;
+  background: #1d211f;
+  border: 1px solid var(--vb-line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+.upCard.upErr { border-color: rgba(224, 82, 82, 0.55); }
+.upName {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--vb-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 16px;
+}
+.upSize { color: var(--vb-faint); font-weight: 600; }
+.upBar {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  margin: 7px 0 5px;
+}
+.upFill {
+  height: 100%;
+  background: var(--vb-accent);
+  border-radius: 3px;
+  transition: width 0.2s;
+}
+.upMsg { font-size: 0.7rem; color: var(--vb-dim); margin-top: 3px; }
+.upErr .upMsg { color: #f0a0a0; }
+.upX {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: inline-flex;
+  background: none;
+  border: none;
+  color: var(--vb-faint);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+}
+.upX:hover { color: var(--vb-text); background: var(--vb-raise); }
+
 /* ── Toast ── */
 .toast {
   position: fixed;

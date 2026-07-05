@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type Hls from 'hls.js'
 import styles from './VideoBoard.module.css'
 import { ClipsDrawer } from './ClipsDrawer'
 import {
@@ -71,10 +72,73 @@ export function Panel({
   const pendingClipRef = useRef<Clip | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hlsRef = useRef<Hls | null>(null)
 
   // Derived: a removed library video empties the panel (the <video> unmounts).
   const vid = videoId != null ? videos.find((v) => v.id === videoId) : undefined
   const loadedId = vid ? videoId : null
+
+  // ── HLS attach for team-library film (Cloudflare Stream) ─────────────────
+  // Safari plays HLS natively; everyone else gets hls.js, loaded on demand so
+  // it never weighs down the page for local-file review. A 404/500 on the
+  // manifest means Cloudflare is still transcoding a fresh upload — retry for
+  // a couple of minutes before giving up.
+  const vidId = vid?.id
+  const vidUrl = vid?.url
+  const vidHls = vid?.hls
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || vidId == null || !vidUrl || !vidHls) return
+    let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = vidUrl
+    } else {
+      import('hls.js').then(({ default: HlsMod }) => {
+        if (cancelled) return
+        if (!HlsMod.isSupported()) {
+          video.src = vidUrl
+          return
+        }
+        const hls = new HlsMod({ maxBufferLength: 30 })
+        hlsRef.current = hls
+        let processingTries = 0
+        hls.on(HlsMod.Events.ERROR, (_evt, data) => {
+          if (!data?.fatal) return
+          const code = data.response?.code ?? 0
+          const stillProcessing =
+            data.type === HlsMod.ErrorTypes.NETWORK_ERROR &&
+            (code === 404 || code === 500 || data.details === 'manifestLoadError')
+          if (stillProcessing && processingTries < 20) {
+            processingTries++
+            notify('Cloudflare is still processing this film — retrying…')
+            retryTimer = setTimeout(() => {
+              try {
+                hls.loadSource(vidUrl)
+                hls.startLoad()
+              } catch {}
+            }, 8000)
+          } else if (data.type === HlsMod.ErrorTypes.MEDIA_ERROR) {
+            try {
+              hls.recoverMediaError()
+            } catch {}
+          } else {
+            notify('Could not load this film — it may still be processing. Try again shortly.')
+          }
+        })
+        hls.loadSource(vidUrl)
+        hls.attachMedia(video)
+      })
+    }
+    return () => {
+      cancelled = true
+      if (retryTimer) clearTimeout(retryTimer)
+      if (hlsRef.current) {
+        hlsRef.current.destroy()
+        hlsRef.current = null
+      }
+    }
+  }, [vidId, vidUrl, vidHls, notify])
 
   // ── Progress engine ───────────────────────────────────────────────────────
   // The seek bar and clock update via requestAnimationFrame writing straight
@@ -391,7 +455,7 @@ export function Panel({
               registerVideo(index, el)
             }}
             className={styles.video}
-            src={vid.url}
+            src={vid.hls ? undefined : vid.url}
             preload="metadata"
             playsInline
             onPlay={() => {
