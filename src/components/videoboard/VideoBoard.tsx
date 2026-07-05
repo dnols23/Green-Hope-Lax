@@ -48,6 +48,7 @@ export function VideoBoard() {
   const [playingPanels, setPlayingPanels] = useState<Set<number>>(new Set())
   const [toast, setToast] = useState<{ msg: string; show: boolean } | null>(null)
   const [configured, setConfigured] = useState(false)
+  const [canManage, setCanManage] = useState(false)
   const [uploads, setUploads] = useState<UploadItem[]>([])
 
   const mainRef = useRef<HTMLDivElement>(null)
@@ -55,6 +56,7 @@ export function VideoBoard() {
   const nextLocalClipRef = useRef(-1)
   const nextUploadKeyRef = useRef(1)
   const configuredRef = useRef(false)
+  const canManageRef = useRef(false)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const urlsRef = useRef<Set<string>>(new Set())
   const videoElsRef = useRef<Map<number, HTMLVideoElement>>(new Map())
@@ -85,7 +87,9 @@ export function VideoBoard() {
       .then((d) => {
         if (cancelled || !d?.configured) return
         configuredRef.current = true
+        canManageRef.current = !!d.canManage
         setConfigured(true)
+        setCanManage(!!d.canManage)
         setVideos((local) => [...(d.videos as LibVideo[]), ...local])
         setClips((local) => [...(d.clips as Clip[]), ...local])
       })
@@ -152,8 +156,8 @@ export function VideoBoard() {
       const added: LibVideo[] = []
       for (const file of Array.from(files)) {
         if (!file.type.startsWith('video/')) continue
-        if (configuredRef.current) {
-          void cloudUpload(file) // lands in the library when the upload finishes
+        if (configuredRef.current && canManageRef.current) {
+          void cloudUpload(file) // lands in the team library when the upload finishes
           continue
         }
         const url = URL.createObjectURL(file)
@@ -179,6 +183,11 @@ export function VideoBoard() {
   )
 
   function removeVideos(ids: Set<number>) {
+    // Team film is coach-managed; non-coaches can only drop their local files.
+    if (!canManageRef.current) {
+      ids = new Set([...ids].filter((id) => id < 0))
+      if (!ids.size) return
+    }
     const removedRemote = videos.filter((v) => ids.has(v.id) && v.remote)
     setVideos((vs) =>
       vs.filter((v) => {
@@ -209,7 +218,7 @@ export function VideoBoard() {
   // ── Clips ─────────────────────────────────────────────────────────────────
   const saveClip = useCallback(
     async (data: { videoId: number; name: string; start: number; end: number }) => {
-      if (data.videoId > 0 && configuredRef.current) {
+      if (data.videoId > 0 && configuredRef.current && canManageRef.current) {
         try {
           const res = await fetch('/api/film/clips', {
             method: 'POST',
@@ -233,6 +242,7 @@ export function VideoBoard() {
 
   const deleteClip = useCallback(
     (id: number) => {
+      if (id > 0 && !canManageRef.current) return // team clips are coach-managed
       setClips((cs) => cs.filter((c) => c.id !== id))
       if (id > 0 && configuredRef.current) {
         fetch(`/api/film/clips/${id}`, { method: 'DELETE' })
@@ -320,8 +330,11 @@ export function VideoBoard() {
           addFiles(e.dataTransfer.files)
         }}
       >
-        <label className={styles.loadBtn} title={configured ? 'Upload film to the team library' : 'Load video files from this device'}>
-          <IconUpload size={16} /> {configured ? 'Upload Film' : 'Load Film'}
+        <label
+          className={styles.loadBtn}
+          title={configured && canManage ? 'Upload film to the team library' : 'Load video files from this device'}
+        >
+          <IconUpload size={16} /> {configured && canManage ? 'Upload Film' : 'Load Film'}
           <input
             type="file"
             accept="video/*"
@@ -338,7 +351,9 @@ export function VideoBoard() {
           {videos.length === 0 ? (
             <span className={styles.libEmpty}>
               {configured
-                ? 'No film in the team library yet — uploads are shared with the whole team.'
+                ? canManage
+                  ? 'No film in the team library yet — uploads are shared with the whole team.'
+                  : 'No team film yet — your coach can upload film here. Load Film plays files from this device.'
                 : 'No film loaded — stays on this device, this session only.'}
             </span>
           ) : (
@@ -351,29 +366,32 @@ export function VideoBoard() {
                   e.dataTransfer.setData('application/x-vb-video', String(v.id))
                   e.dataTransfer.effectAllowed = 'copy'
                 }}
-                onClick={() =>
+                onClick={() => {
+                  if (v.remote && !canManage) return // selection is for batch delete
                   setSelectedIds((sel) => {
                     const next = new Set(sel)
                     if (next.has(v.id)) next.delete(v.id)
                     else next.add(v.id)
                     return next
                   })
-                }
+                }}
                 title={`${v.name} — drag onto a panel to load it`}
               >
                 <span className={styles.chipName}>{shortName(baseName(v.name), 20)}</span>
                 {v.duration != null && <span className={styles.chipDur}>{fmtTime(v.duration)}</span>}
-                <button
-                  type="button"
-                  className={styles.chipX}
-                  title={v.remote ? 'Delete from the team library' : 'Remove from library'}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removeVideos(new Set([v.id]))
-                  }}
-                >
-                  <IconClose size={11} />
-                </button>
+                {(!v.remote || canManage) && (
+                  <button
+                    type="button"
+                    className={styles.chipX}
+                    title={v.remote ? 'Delete from the team library' : 'Remove from library'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeVideos(new Set([v.id]))
+                    }}
+                  >
+                    <IconClose size={11} />
+                  </button>
+                )}
               </div>
             ))
           )}
@@ -455,6 +473,7 @@ export function VideoBoard() {
             videos={videos}
             clips={clips}
             isSource={i === 0}
+            canManage={canManage}
             onSaveClip={saveClip}
             onDeleteClip={deleteClip}
             addFiles={addFiles}

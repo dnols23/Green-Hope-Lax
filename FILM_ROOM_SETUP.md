@@ -61,9 +61,13 @@ with adaptive quality on any device.
 - **Upload**: the browser asks the site server for a one-time resumable (tus)
   upload URL, then sends the file straight to Cloudflare. Big files resume if
   the connection drops. The API token never reaches the browser.
-- **Who can upload/delete**: anyone signed into the Team Hub (it's one shared
-  password). Deleting a film also deletes it from Cloudflare so you don't pay
-  for orphaned storage — and removes its saved clips.
+- **Who can do what**: coaches (anyone signed into `/admin`) upload film,
+  delete it, and manage the shared clips — and get into the Film Room with
+  their admin session, no Team Hub registration needed (there's a Film Room
+  link in the admin nav). Team Hub members get watch-only access to the team
+  library; they can still load their own local files and mark private
+  on-device clips. Deleting a film also deletes it from Cloudflare so you
+  don't pay for orphaned storage — and removes its saved clips.
 - **What's stored where**: the video files live on Cloudflare; Supabase only
   holds a tiny record per film (`name` + Cloudflare id) and the clip marks.
 - **Fresh uploads** take Cloudflare a minute or two to process. If a panel

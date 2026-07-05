@@ -16,6 +16,9 @@ const ADMIN_LINKS = [
   { href: '/admin/awards', label: 'Awards' },
   { href: '/admin/news', label: 'News' },
   { href: '/admin/pages', label: 'Pages' },
+  // Coaches get into the Team Hub's Film Room with their admin session —
+  // no Team Hub registration needed.
+  { href: '/team/video', label: 'Film Room' },
 ]
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

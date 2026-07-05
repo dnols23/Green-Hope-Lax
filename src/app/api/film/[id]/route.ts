@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { isTeamRequest } from '@/lib/teamAuth'
 import { createServiceClient } from '@/lib/supabase-server'
-import { cfStreamApi, getCfConfig } from '@/lib/film'
+import { cfStreamApi, getCfConfig, getFilmAccess } from '@/lib/film'
 
-// DELETE /api/film/:id — remove a film from the team library. Its clips
-// cascade in the database, and the underlying Cloudflare video is deleted
-// best-effort so storage isn't paid for orphaned film.
+// DELETE /api/film/:id — remove a film from the team library. Coach only.
+// Its clips cascade in the database, and the underlying Cloudflare video is
+// deleted best-effort so storage isn't paid for orphaned film.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await isTeamRequest(req))) {
-    return NextResponse.json({ error: 'Not signed in to the Team Hub.' }, { status: 401 })
+  const access = await getFilmAccess(req)
+  if (!access.manage) {
+    return NextResponse.json({ error: 'Coach sign-in required.' }, { status: 403 })
   }
   const cf = getCfConfig()
   if (!cf) return NextResponse.json({ error: 'Film storage is not configured.' }, { status: 503 })

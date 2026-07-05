@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { isTeamRequest } from '@/lib/teamAuth'
-import { cfStreamApi, getCfConfig } from '@/lib/film'
+import { cfStreamApi, getCfConfig, getFilmAccess } from '@/lib/film'
 
-// POST /api/film/upload-url { uploadLength, name }
+// POST /api/film/upload-url { uploadLength, name } — coach only.
 // Mints a one-time Cloudflare Stream resumable (tus) upload URL. The browser
 // then uploads the file straight to Cloudflare — the API token never leaves
 // the server, and big game films resume if the connection drops.
 export async function POST(req: NextRequest) {
-  if (!(await isTeamRequest(req))) {
-    return NextResponse.json({ error: 'Not signed in to the Team Hub.' }, { status: 401 })
+  const access = await getFilmAccess(req)
+  if (!access.manage) {
+    return NextResponse.json({ error: 'Coach sign-in required.' }, { status: 403 })
   }
   const cf = getCfConfig()
   if (!cf) return NextResponse.json({ error: 'Film storage is not configured.' }, { status: 503 })

@@ -9,12 +9,14 @@ type ClipsDrawerProps = {
   open: boolean
   clips: Clip[]
   videos: LibVideo[]
+  /** Coach signed in — may delete shared team clips. */
+  canManage: boolean
   onClose: () => void
   onPlay: (clip: Clip) => void
   onDelete: (id: number) => void
 }
 
-export function ClipsDrawer({ open, clips, videos, onClose, onPlay, onDelete }: ClipsDrawerProps) {
+export function ClipsDrawer({ open, clips, videos, canManage, onClose, onPlay, onDelete }: ClipsDrawerProps) {
   return (
     <div className={`${styles.drawer} ${open ? styles.drawerOpen : ''}`}>
       <div className={styles.drawerHead}>
@@ -51,14 +53,16 @@ export function ClipsDrawer({ open, clips, videos, onClose, onPlay, onDelete }: 
                 >
                   <IconPlay size={14} />
                 </button>
-                <button
-                  type="button"
-                  className={`${styles.clipAct} ${styles.clipActDel}`}
-                  title="Delete clip"
-                  onClick={() => onDelete(clip.id)}
-                >
-                  <IconTrash size={14} />
-                </button>
+                {(!clip.remote || canManage) && (
+                  <button
+                    type="button"
+                    className={`${styles.clipAct} ${styles.clipActDel}`}
+                    title="Delete clip"
+                    onClick={() => onDelete(clip.id)}
+                  >
+                    <IconTrash size={14} />
+                  </button>
+                )}
               </div>
             )
           })

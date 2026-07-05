@@ -1,17 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { isTeamRequest } from '@/lib/teamAuth'
 import { createServiceClient } from '@/lib/supabase-server'
-import { getCfConfig, mapClipRow, mapVideoRow } from '@/lib/film'
+import { getCfConfig, getFilmAccess, mapClipRow, mapVideoRow } from '@/lib/film'
 
 // GET /api/film — the shared team film library + clips.
 // Returns { configured: false } when Cloudflare env vars aren't set, which
-// tells the board to run in local, session-only mode.
+// tells the board to run in local, session-only mode. `canManage` is true for
+// a signed-in coach; team members get a watch-only library.
 export async function GET(req: NextRequest) {
-  if (!(await isTeamRequest(req))) {
+  const access = await getFilmAccess(req)
+  if (!access.view) {
     return NextResponse.json({ error: 'Not signed in to the Team Hub.' }, { status: 401 })
   }
   const cf = getCfConfig()
-  if (!cf) return NextResponse.json({ configured: false, videos: [], clips: [] })
+  if (!cf) {
+    return NextResponse.json({ configured: false, canManage: access.manage, videos: [], clips: [] })
+  }
 
   const sb = createServiceClient()
   const [videosRes, clipsRes] = await Promise.all([
@@ -26,16 +29,18 @@ export async function GET(req: NextRequest) {
   }
   return NextResponse.json({
     configured: true,
+    canManage: access.manage,
     videos: videosRes.data.map((row) => mapVideoRow(row, cf.customerCode)),
     clips: clipsRes.data.map(mapClipRow),
   })
 }
 
 // POST /api/film { uid, name } — record a finished Cloudflare upload in the
-// shared library so the whole team sees it.
+// shared library so the whole team sees it. Coach only.
 export async function POST(req: NextRequest) {
-  if (!(await isTeamRequest(req))) {
-    return NextResponse.json({ error: 'Not signed in to the Team Hub.' }, { status: 401 })
+  const access = await getFilmAccess(req)
+  if (!access.manage) {
+    return NextResponse.json({ error: 'Coach sign-in required.' }, { status: 403 })
   }
   const cf = getCfConfig()
   if (!cf) return NextResponse.json({ error: 'Film storage is not configured.' }, { status: 503 })
