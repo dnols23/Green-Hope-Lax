@@ -23,3 +23,9 @@ export function teamCookieToken(): Promise<string> {
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'unset'
   return sha256hex(`team-session:${secret}:${PEPPER}`)
 }
+
+// Guard for API route handlers (the proxy only covers /admin and /team pages).
+export async function isTeamRequest(req: { cookies: { get(name: string): { value: string } | undefined } }): Promise<boolean> {
+  const token = req.cookies.get(TEAM_COOKIE)?.value
+  return !!token && token === (await teamCookieToken())
+}

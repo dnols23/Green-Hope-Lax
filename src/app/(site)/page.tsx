@@ -33,26 +33,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── Quick links ── */}
-      <section className="max-w-screen-xl mx-auto px-4 mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { href: '/schedule', title: 'Schedule & Results', desc: 'Games, scores, and locations.' },
-          { href: '/stats', title: 'Stats', desc: 'Season records, computed from the schedule.' },
-          { href: '/roster', title: 'Roster', desc: 'Varsity and JV rosters.' },
-          { href: '/join', title: 'Join Green Hope Lacrosse', desc: 'New or experienced — start here.' },
-        ].map((c) => (
-          <Link key={c.href} href={c.href} className="card p-5 hover:shadow-md transition-shadow group">
-            <div className="font-black text-lg group-hover:text-[var(--gh-green)] transition-colors">{c.title}</div>
-            <p className="text-sm text-gray-500 mt-1">{c.desc}</p>
-            <span className="inline-block mt-3 text-sm font-bold" style={{ color: 'var(--gh-maroon)' }}>
-              View →
-            </span>
-          </Link>
-        ))}
-      </section>
-
       {/* ── Latest news ── */}
-      <section className="max-w-screen-xl mx-auto px-4 mt-16">
+      <section className="max-w-screen-xl mx-auto px-4 mt-12">
         <div className="flex items-end justify-between mb-5">
           <div>
             <div className="section-label">From the program</div>

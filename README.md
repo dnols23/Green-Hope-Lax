@@ -217,6 +217,15 @@ Forest green `#00693E` · Maroon `#7A1F2B` (defined in
 [`src/lib/brand.ts`](src/lib/brand.ts)). Sample the final exact hex from the
 official logo files and update those two spots if needed.
 
+## Film Room (Team Hub video board)
+
+The Team Hub includes a multi-panel **Film Room** at `/team/video` — load game
+film, review side-by-side at any speed (frame-by-frame too), and mark named
+clips. Out of the box it runs in *local mode* (film stays on-device, session
+only). To store film in the cloud and share the library + clips with the whole
+team, follow the one-time setup in [`FILM_ROOM_SETUP.md`](FILM_ROOM_SETUP.md)
+(Cloudflare Stream + one SQL migration + three env vars).
+
 ## Tech notes / known limitations
 
 - **Auth model is simple by design**: any confirmed Supabase user is an admin.

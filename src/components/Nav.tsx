@@ -98,12 +98,6 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
               {label}
             </Link>
           ))}
-          <Link href="/join" onClick={() => setOpen(false)} className="btn btn-maroon mt-2">
-            Join Green Hope Lacrosse
-          </Link>
-          <Link href="/join/green-machine" onClick={() => setOpen(false)} className="btn btn-maroon mt-2">
-            Join the Green Machine
-          </Link>
         </div>
       )}
     </nav>
