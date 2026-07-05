@@ -1,0 +1,349 @@
+'use client'
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import styles from './VideoBoard.module.css'
+import { Panel } from './Panel'
+import {
+  IconClose,
+  IconCompress,
+  IconExpand,
+  IconKeyboard,
+  IconLayout,
+  IconPause,
+  IconPlay,
+  IconTrash,
+  IconUpload,
+} from './icons'
+import type { Clip, LibVideo } from './types'
+import { baseName, fmtTime, shortName } from './utils'
+
+const SHORTCUTS: Array<[string[], string]> = [
+  [['Space', 'K'], 'Play / pause'],
+  [['J', 'L'], 'Back / forward 10s'],
+  [['←', '→'], 'Back / forward 5s'],
+  [[',', '.'], 'Step one frame'],
+  [['I', 'O'], 'Mark clip In / Out'],
+  [['M'], 'Mute'],
+  [['F'], 'Fullscreen panel'],
+]
+
+export function VideoBoard() {
+  const [videos, setVideos] = useState<LibVideo[]>([])
+  const [clips, setClips] = useState<Clip[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [panelCount, setPanelCount] = useState(1)
+  const [dragOver, setDragOver] = useState(false)
+  const [boardPseudoFs, setBoardPseudoFs] = useState(false)
+  const [boardNativeFs, setBoardNativeFs] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [playingPanels, setPlayingPanels] = useState<Set<number>>(new Set())
+  const [toast, setToast] = useState<{ msg: string; show: boolean } | null>(null)
+
+  const mainRef = useRef<HTMLDivElement>(null)
+  const nextVidRef = useRef(1)
+  const nextClipRef = useRef(1)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const urlsRef = useRef<Set<string>>(new Set())
+  const videoElsRef = useRef<Map<number, HTMLVideoElement>>(new Map())
+
+  const notify = useCallback((msg: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    setToast({ msg, show: true })
+    toastTimerRef.current = setTimeout(() => {
+      setToast((t) => (t ? { ...t, show: false } : null))
+      toastTimerRef.current = setTimeout(() => setToast(null), 300)
+    }, 2200)
+  }, [])
+
+  // Release object URLs when the board unmounts.
+  useEffect(() => {
+    const urls = urlsRef.current
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u))
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    }
+  }, [])
+
+  // ── Library ───────────────────────────────────────────────────────────────
+  const addFiles = useCallback((files: Iterable<File>): LibVideo[] => {
+    const added: LibVideo[] = []
+    for (const file of files) {
+      if (!file.type.startsWith('video/')) continue
+      const url = URL.createObjectURL(file)
+      urlsRef.current.add(url)
+      added.push({ id: nextVidRef.current++, name: file.name, url })
+    }
+    if (!added.length) return added
+    setVideos((v) => [...v, ...added])
+    // Probe durations off-screen so chips can show film length.
+    added.forEach((entry) => {
+      const probe = document.createElement('video')
+      probe.preload = 'metadata'
+      probe.src = entry.url
+      probe.onloadedmetadata = () => {
+        const d = probe.duration
+        probe.removeAttribute('src')
+        setVideos((vs) => vs.map((v) => (v.id === entry.id ? { ...v, duration: d } : v)))
+      }
+    })
+    return added
+  }, [])
+
+  function removeVideos(ids: Set<number>) {
+    setVideos((vs) =>
+      vs.filter((v) => {
+        if (!ids.has(v.id)) return true
+        URL.revokeObjectURL(v.url)
+        urlsRef.current.delete(v.url)
+        return false
+      })
+    )
+    // Local film can't come back once removed, so its clips go too.
+    setClips((cs) => cs.filter((c) => !ids.has(c.videoId)))
+    setSelectedIds((sel) => {
+      const next = new Set(sel)
+      ids.forEach((id) => next.delete(id))
+      return next
+    })
+  }
+
+  // ── Clips ─────────────────────────────────────────────────────────────────
+  const saveClip = useCallback(
+    (data: { videoId: number; name: string; start: number; end: number }) => {
+      setClips((cs) => [...cs, { id: nextClipRef.current++, ...data }])
+      notify('Clip saved')
+    },
+    [notify]
+  )
+
+  const deleteClip = useCallback((id: number) => {
+    setClips((cs) => cs.filter((c) => c.id !== id))
+  }, [])
+
+  // ── Panel registry: lets the toolbar drive all panels at once ────────────
+  const registerVideo = useCallback((index: number, el: HTMLVideoElement | null) => {
+    if (el) videoElsRef.current.set(index, el)
+    else videoElsRef.current.delete(index)
+  }, [])
+
+  const onPlayingChange = useCallback((index: number, playing: boolean) => {
+    setPlayingPanels((prev) => {
+      const next = new Set(prev)
+      if (playing) next.add(index)
+      else next.delete(index)
+      return next
+    })
+  }, [])
+
+  const anyPlaying = playingPanels.size > 0
+
+  function toggleAll() {
+    const els = [...videoElsRef.current.values()].filter((v) => v.src)
+    if (!els.length) return
+    if (anyPlaying) els.forEach((v) => v.pause())
+    else els.forEach((v) => void v.play())
+  }
+
+  // Panels leaving the layout must not linger in the playing set.
+  function changeLayout(n: number) {
+    setPanelCount(n)
+    setPlayingPanels((prev) => {
+      const next = new Set([...prev].filter((i) => i < n))
+      return next.size === prev.size ? prev : next
+    })
+  }
+
+  // ── Board fullscreen ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const onFsChange = () => setBoardNativeFs(document.fullscreenElement === mainRef.current)
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  }, [])
+
+  useEffect(() => {
+    if (!boardPseudoFs) return
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [boardPseudoFs])
+
+  function toggleBoardFullscreen() {
+    const el = mainRef.current
+    if (!el) return
+    if (boardPseudoFs) setBoardPseudoFs(false)
+    else if (document.fullscreenElement) document.exitFullscreen()
+    else if (el.requestFullscreen) el.requestFullscreen().catch(() => setBoardPseudoFs(true))
+    else setBoardPseudoFs(true)
+  }
+
+  const inBoardFs = boardPseudoFs || boardNativeFs
+
+  return (
+    <div ref={mainRef} className={`${styles.board} ${boardPseudoFs ? styles.pseudoFs : ''}`}>
+      {/* ── Toolbar ── */}
+      <div
+        className={`${styles.toolbar} ${dragOver ? styles.dragOver : ''}`}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragOver(true)
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragOver(false)
+          addFiles(e.dataTransfer.files)
+        }}
+      >
+        <label className={styles.loadBtn} title="Load video files from this device">
+          <IconUpload size={16} /> Load Film
+          <input
+            type="file"
+            accept="video/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              if (e.target.files) addFiles(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        </label>
+
+        <div className={styles.libraryStrip}>
+          {videos.length === 0 ? (
+            <span className={styles.libEmpty}>
+              No film loaded — stays on this device, this session only.
+            </span>
+          ) : (
+            videos.map((v) => (
+              <div
+                key={v.id}
+                className={`${styles.chip} ${selectedIds.has(v.id) ? styles.chipSel : ''}`}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('application/x-vb-video', String(v.id))
+                  e.dataTransfer.effectAllowed = 'copy'
+                }}
+                onClick={() =>
+                  setSelectedIds((sel) => {
+                    const next = new Set(sel)
+                    if (next.has(v.id)) next.delete(v.id)
+                    else next.add(v.id)
+                    return next
+                  })
+                }
+                title={`${v.name} — drag onto a panel to load it`}
+              >
+                <span className={styles.chipName}>{shortName(baseName(v.name), 20)}</span>
+                {v.duration != null && <span className={styles.chipDur}>{fmtTime(v.duration)}</span>}
+                <button
+                  type="button"
+                  className={styles.chipX}
+                  title="Remove from library"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeVideos(new Set([v.id]))
+                  }}
+                >
+                  <IconClose size={11} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {selectedIds.size > 0 && (
+          <button type="button" className={styles.deleteSelBtn} onClick={() => removeVideos(selectedIds)}>
+            <IconTrash size={13} /> Delete {selectedIds.size}
+          </button>
+        )}
+
+        {panelCount > 1 && (
+          <button
+            type="button"
+            className={`${styles.iconBtn} ${anyPlaying ? styles.iconBtnOn : ''}`}
+            title="Play or pause every panel together"
+            onClick={toggleAll}
+          >
+            {anyPlaying ? <IconPause size={14} /> : <IconPlay size={14} />}
+            {anyPlaying ? 'Pause all' : 'Play all'}
+          </button>
+        )}
+
+        <div className={styles.segmented} title="Panel layout">
+          {([1, 2, 3, 4] as const).map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`${styles.segBtn} ${panelCount === n ? styles.segActive : ''}`}
+              title={`${n} panel${n > 1 ? 's' : ''}`}
+              onClick={() => changeLayout(n)}
+            >
+              <IconLayout panes={n} />
+            </button>
+          ))}
+        </div>
+
+        <div className={styles.toolGroup}>
+          <button
+            type="button"
+            className={`${styles.iconBtn} ${shortcutsOpen ? styles.iconBtnOn : ''}`}
+            title="Keyboard shortcuts"
+            onClick={() => setShortcutsOpen((o) => !o)}
+          >
+            <IconKeyboard size={16} />
+          </button>
+          {shortcutsOpen && (
+            <div className={styles.shortcutsPop}>
+              <div className={styles.shortcutsTitle}>Keyboard shortcuts</div>
+              {SHORTCUTS.map(([keys, label]) => (
+                <div key={label} className={styles.shortcutRow}>
+                  <span>{label}</span>
+                  <span className={styles.kbd}>
+                    {keys.map((k) => (
+                      <span key={k}>{k}</span>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            className={`${styles.iconBtn} ${inBoardFs ? styles.iconBtnOn : ''}`}
+            title="Fullscreen the whole board"
+            onClick={toggleBoardFullscreen}
+          >
+            {inBoardFs ? <IconCompress size={15} /> : <IconExpand size={15} />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Panel grid ── */}
+      <div className={styles.grid} data-count={panelCount}>
+        {Array.from({ length: panelCount }, (_, i) => (
+          <Panel
+            key={i}
+            index={i}
+            videos={videos}
+            clips={clips}
+            isSource={i === 0}
+            onSaveClip={saveClip}
+            onDeleteClip={deleteClip}
+            addFiles={addFiles}
+            registerVideo={registerVideo}
+            onPlayingChange={onPlayingChange}
+            notify={notify}
+          />
+        ))}
+      </div>
+
+      {toast && (
+        <div className={`${styles.toast} ${toast.show ? styles.toastShow : ''}`}>
+          <span className={styles.toastDot} />
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  )
+}

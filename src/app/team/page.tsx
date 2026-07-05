@@ -72,9 +72,10 @@ export default async function TeamHubPage() {
           <section className="card p-5">
             <h2 className="font-black mb-3">🎬 Film room</h2>
             <p className="text-sm text-gray-500 mb-3">
-              Watch game film side-by-side and mark clips on the multi-panel video board.
+              Watch game film side-by-side, control playback frame-by-frame, and mark clips
+              on the multi-panel video board.
             </p>
-            <Link href="/team/video" className="btn btn-primary w-full">Open Video Board</Link>
+            <Link href="/team/video" className="btn btn-primary w-full">Open the Film Room</Link>
           </section>
 
           <section className="card p-5">
