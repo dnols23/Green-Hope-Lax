@@ -17,6 +17,15 @@ export const metadata: Metadata = {
     title: 'Green Hope Falcons Lacrosse',
     description: 'Schedule, rosters, news, and how to join the Falcons lacrosse program.',
     type: 'website',
+    siteName: 'Green Hope Falcons Lacrosse',
+    locale: 'en_US',
+    images: [{ url: '/logos/falcon-head.png', width: 1327, height: 847, alt: 'Green Hope Falcons Lacrosse' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Green Hope Falcons Lacrosse',
+    description: 'Schedule, rosters, news, and how to join the Falcons lacrosse program.',
+    images: ['/logos/falcon-head.png'],
   },
 }
 

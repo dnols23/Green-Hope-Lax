@@ -4,7 +4,10 @@ import { getProgramStats } from '@/lib/queries'
 import { assertPageVisible } from '@/lib/pages'
 import { STAT_SECTION_META, type ProgramStat, type StatSection } from '@/lib/types'
 
-export const metadata: Metadata = { title: 'Record Books' }
+export const metadata: Metadata = {
+  title: 'Record Books',
+  description: 'All-time records, career leaders, and program milestones for Green Hope Falcons lacrosse.',
+}
 
 const SECTION_ORDER: StatSection[] = ['records', 'leaders', 'milestones', 'honors']
 

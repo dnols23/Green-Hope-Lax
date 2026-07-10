@@ -1,9 +1,13 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { ContactForm } from '@/components/ContactForm'
 import { SCHOOL } from '@/lib/brand'
 import { assertPageVisible } from '@/lib/pages'
 
-export const metadata: Metadata = { title: 'Contact' }
+export const metadata: Metadata = {
+  title: 'Contact',
+  description: 'Questions about Green Hope Falcons lacrosse? Reach the coaching staff and find our location in Cary, NC.',
+}
 
 export default async function ContactPage() {
   await assertPageVisible('contact')
@@ -13,7 +17,7 @@ export default async function ContactPage() {
       <h1 className="page-title mb-2">Contact Us</h1>
       <p className="text-gray-600 mb-8">
         Questions about the program, schedule, or getting involved? Send us a message.
-        Looking to play? Head to the <a href="/join" className="text-[var(--gh-green)] font-semibold">Join Green Hope Lacrosse</a> page instead.
+        Looking to play? Head to the <Link href="/join" className="text-[var(--gh-green)] font-semibold">Join Green Hope Lacrosse</Link> page instead.
       </p>
 
       <ContactForm />

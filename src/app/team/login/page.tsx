@@ -27,33 +27,33 @@ export default function TeamJoinPage() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="field-label">Parent/guardian name *</label>
-              <input name="parent_name" required className="field" />
+              <label htmlFor="parent_name" className="field-label">Parent/guardian name *</label>
+              <input id="parent_name" name="parent_name" required className="field" />
             </div>
             <div>
-              <label className="field-label">Phone *</label>
-              <input name="parent_phone" type="tel" required className="field" placeholder="(919) 555-0123" />
+              <label htmlFor="parent_phone" className="field-label">Phone *</label>
+              <input id="parent_phone" name="parent_phone" type="tel" required className="field" placeholder="(919) 555-0123" />
             </div>
           </div>
 
           <div>
-            <label className="field-label">Email *</label>
-            <input name="parent_email" type="email" required className="field" />
+            <label htmlFor="parent_email" className="field-label">Email *</label>
+            <input id="parent_email" name="parent_email" type="email" required className="field" />
           </div>
 
           <div>
-            <label className="field-label">Player name(s) *</label>
-            <input name="player_name" required className="field" placeholder="Separate multiple players with commas" />
+            <label htmlFor="player_name" className="field-label">Player name(s) *</label>
+            <input id="player_name" name="player_name" required className="field" placeholder="Separate multiple players with commas" />
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="field-label">Player grad year</label>
-              <input name="player_grad_year" className="field" placeholder="e.g. 2028" inputMode="numeric" />
+              <label htmlFor="player_grad_year" className="field-label">Player grad year</label>
+              <input id="player_grad_year" name="player_grad_year" className="field" placeholder="e.g. 2028" inputMode="numeric" />
             </div>
             <div>
-              <label className="field-label">Team</label>
-              <select name="player_team" defaultValue="" className="field">
+              <label htmlFor="player_team" className="field-label">Team</label>
+              <select id="player_team" name="player_team" defaultValue="" className="field">
                 <option value="">— select —</option>
                 <option value="Boys Varsity">Boys Varsity</option>
                 <option value="Boys JV">Boys JV</option>
@@ -70,8 +70,8 @@ export default function TeamJoinPage() {
           <hr className="border-gray-100" />
 
           <div>
-            <label className="field-label">Team password *</label>
-            <input name="password" type="password" required autoComplete="off" className="field" placeholder="Shared password from your coach" />
+            <label htmlFor="password" className="field-label">Team password *</label>
+            <input id="password" name="password" type="password" required autoComplete="off" className="field" placeholder="Shared password from your coach" />
           </div>
 
           {state.error && (

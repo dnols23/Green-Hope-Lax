@@ -3,7 +3,10 @@ import Link from 'next/link'
 import { SCHOOL } from '@/lib/brand'
 import { assertPageVisible } from '@/lib/pages'
 
-export const metadata: Metadata = { title: 'Resources & Info' }
+export const metadata: Metadata = {
+  title: 'Resources & Info',
+  description: 'Forms, practice info, and everything families need for Green Hope Falcons lacrosse.',
+}
 
 // Downloadable forms: drop PDFs into /public/forms and list them here.
 const FORMS = [

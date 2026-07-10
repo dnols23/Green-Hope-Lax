@@ -3,7 +3,10 @@ import { getPlayers, getAwards } from '@/lib/queries'
 import { assertPageVisible } from '@/lib/pages'
 import { RosterView } from '@/components/RosterView'
 
-export const metadata: Metadata = { title: 'Roster' }
+export const metadata: Metadata = {
+  title: 'Roster',
+  description: 'Player rosters for the Green Hope Falcons boys and girls lacrosse teams.',
+}
 
 export default async function RosterPage() {
   await assertPageVisible('roster')

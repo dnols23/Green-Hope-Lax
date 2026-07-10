@@ -4,7 +4,10 @@ import { getGames } from '@/lib/queries'
 import { assertPageVisible } from '@/lib/pages'
 import { seasonYear, summarizeSeason, recordLabel } from '@/lib/format'
 
-export const metadata: Metadata = { title: 'Stats' }
+export const metadata: Metadata = {
+  title: 'Stats',
+  description: 'Season records and team statistics for Green Hope Falcons lacrosse.',
+}
 
 export default async function StatsPage() {
   await assertPageVisible('stats')

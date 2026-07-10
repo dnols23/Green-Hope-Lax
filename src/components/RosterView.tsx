@@ -13,14 +13,16 @@ export function RosterView({ players, awards = {} }: { players: Player[]; awards
   return (
     <div>
       <div className="mb-6">
-        <label className="field-label">Team</label>
+        <label htmlFor="roster-team" className="field-label">Team</label>
         <select
+          id="roster-team"
           value={group}
           onChange={(e) => setGroup(e.target.value as TeamGroup)}
           className="field max-w-xs"
         >
           <option value="boys_varsity">Boys Varsity</option>
           <option value="boys_jv">Boys JV</option>
+          <option value="girls">Girls</option>
         </select>
       </div>
 

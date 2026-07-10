@@ -23,6 +23,15 @@
 
 * { box-sizing: border-box; }
 
+/* ── Keyboard focus ── */
+/* Visible focus ring for keyboard/AT users only (not on mouse click). Uses
+   currentColor so it contrasts on both the dark nav and light page surfaces. */
+:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 body {
   background: var(--surface-2);
   color: var(--text-primary);

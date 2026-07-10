@@ -18,7 +18,7 @@ export function ScheduleView({ games }: { games: Game[] }) {
               return (
                 <div key={g.id} className="card p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-400">{formatDate(g.game_date)}</span>
+                    <span className="text-xs font-bold text-gray-500">{formatDate(g.game_date)}</span>
                     {res ? <span className={`badge ${res.cls}`}>{res.label}</span>
                       : <span className="badge badge-sched">{formatTime(g.game_date)}</span>}
                   </div>

@@ -3,7 +3,10 @@ import { getCoaches } from '@/lib/queries'
 import { assertPageVisible } from '@/lib/pages'
 import { FalconHead } from '@/components/Logo'
 
-export const metadata: Metadata = { title: 'Coaches & Staff' }
+export const metadata: Metadata = {
+  title: 'Coaches & Staff',
+  description: 'Meet the coaches and staff behind the Green Hope Falcons lacrosse program in Cary, NC.',
+}
 
 export default async function CoachesPage() {
   await assertPageVisible('coaches')

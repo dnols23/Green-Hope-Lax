@@ -51,7 +51,7 @@ export default async function HomePage() {
           <div className="grid gap-5 md:grid-cols-3">
             {news.map((post) => (
               <Link key={post.id} href={`/news/${post.slug}`} className="card p-5 hover:shadow-md transition-shadow">
-                <div className="text-xs font-semibold text-gray-400">{formatDate(post.published_at, { weekday: undefined, year: 'numeric' })}</div>
+                <div className="text-xs font-semibold text-gray-500">{formatDate(post.published_at, { weekday: undefined, year: 'numeric' })}</div>
                 <h3 className="font-bold text-lg mt-1 leading-snug">{post.title}</h3>
                 <p className="text-sm text-gray-500 mt-2 line-clamp-3">{post.body}</p>
                 <span className="inline-block mt-3 text-sm font-bold" style={{ color: 'var(--gh-maroon)' }}>Read more →</span>

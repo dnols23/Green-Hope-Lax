@@ -45,7 +45,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="border-t border-white/10">
-        <div className="max-w-screen-xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-white/50">
+        <div className="max-w-screen-xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-white/70">
           <span>© {new Date().getFullYear()} Green Hope Falcons Lacrosse. Go Falcons!</span>
           <Link href="/admin" className="hover:text-white/80">Coach / Admin Login</Link>
         </div>

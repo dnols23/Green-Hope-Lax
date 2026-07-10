@@ -3,7 +3,10 @@ import { getAwards } from '@/lib/queries'
 import { assertPageVisible } from '@/lib/pages'
 import type { TeamAward } from '@/lib/types'
 
-export const metadata: Metadata = { title: 'Team Awards' }
+export const metadata: Metadata = {
+  title: 'Team Awards',
+  description: 'Season awards and honors earned by Green Hope Falcons lacrosse players.',
+}
 
 export default async function AwardsPage() {
   await assertPageVisible('awards')

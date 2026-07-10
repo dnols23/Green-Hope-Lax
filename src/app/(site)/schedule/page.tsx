@@ -4,7 +4,10 @@ import { assertPageVisible } from '@/lib/pages'
 import { seasonYear } from '@/lib/format'
 import { ScheduleView } from '@/components/ScheduleView'
 
-export const metadata: Metadata = { title: 'Schedule & Results' }
+export const metadata: Metadata = {
+  title: 'Schedule & Results',
+  description: 'Game schedule, scores, and results for Green Hope Falcons boys and girls lacrosse.',
+}
 
 // Label the page from the seasons actually on the schedule, so it never goes
 // stale. Falls back to the current year when there are no games yet.

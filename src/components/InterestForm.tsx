@@ -32,23 +32,23 @@ export function InterestForm({ level = 'high' }: { level?: 'high' | 'middle' }) 
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
-          <label className="field-label">Player first name *</label>
-          <input name="player_first" required className="field" />
+          <label htmlFor="player_first" className="field-label">Player first name *</label>
+          <input id="player_first" name="player_first" required className="field" />
         </div>
         <div>
-          <label className="field-label">Player last name *</label>
-          <input name="player_last" required className="field" />
+          <label htmlFor="player_last" className="field-label">Player last name *</label>
+          <input id="player_last" name="player_last" required className="field" />
         </div>
       </div>
 
       <div>
-        <label className="field-label">Graduation year</label>
-        <input name="grad_year" placeholder="e.g. 2028" className="field" inputMode="numeric" />
+        <label htmlFor="grad_year" className="field-label">Graduation year</label>
+        <input id="grad_year" name="grad_year" placeholder="e.g. 2028" className="field" inputMode="numeric" />
       </div>
 
       <div>
-        <label className="field-label">Experience level *</label>
-        <select name="experience" required defaultValue="new" className="field">
+        <label htmlFor="experience" className="field-label">Experience level *</label>
+        <select id="experience" name="experience" required defaultValue="new" className="field">
           <option value="new">New to lacrosse</option>
           <option value="some">Some experience</option>
           <option value="experienced">Experienced</option>
@@ -58,29 +58,29 @@ export function InterestForm({ level = 'high' }: { level?: 'high' | 'middle' }) 
       <hr className="border-gray-100" />
 
       <div>
-        <label className="field-label">Parent / guardian name *</label>
-        <input name="parent_name" required className="field" />
+        <label htmlFor="parent_name" className="field-label">Parent / guardian name *</label>
+        <input id="parent_name" name="parent_name" required className="field" />
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
-          <label className="field-label">Parent email *</label>
-          <input name="parent_email" type="email" required className="field" />
+          <label htmlFor="parent_email" className="field-label">Parent email *</label>
+          <input id="parent_email" name="parent_email" type="email" required className="field" />
         </div>
         <div>
-          <label className="field-label">Parent phone *</label>
-          <input name="parent_phone" type="tel" required className="field" placeholder="(919) 555-0123" />
+          <label htmlFor="parent_phone" className="field-label">Parent phone *</label>
+          <input id="parent_phone" name="parent_phone" type="tel" required className="field" placeholder="(919) 555-0123" />
         </div>
       </div>
 
       <div>
-        <label className="field-label">Player email (optional)</label>
-        <input name="player_email" type="email" className="field" />
+        <label htmlFor="player_email" className="field-label">Player email (optional)</label>
+        <input id="player_email" name="player_email" type="email" className="field" />
       </div>
 
       <div>
-        <label className="field-label">Notes / questions</label>
-        <textarea name="notes" rows={4} className="field" placeholder="Anything you'd like the coaches to know?" />
+        <label htmlFor="notes" className="field-label">Notes / questions</label>
+        <textarea id="notes" name="notes" rows={4} className="field" placeholder="Anything you'd like the coaches to know?" />
       </div>
 
       {state.error && (

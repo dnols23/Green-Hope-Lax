@@ -15,7 +15,7 @@ function PostCard({ post }: { post: TeamPost }) {
     <article className="card p-5">
       <div className="flex items-center justify-between gap-3 mb-2">
         <span className={`badge ${meta.cls}`}>{meta.emoji} {meta.label}</span>
-        <span className="text-xs text-gray-400">{formatDate(post.created_at, { year: 'numeric' })}</span>
+        <span className="text-xs text-gray-500">{formatDate(post.created_at, { year: 'numeric' })}</span>
       </div>
 
       {post.pinned && (
@@ -71,6 +71,7 @@ export function TeamFeed({ posts }: { posts: TeamPost[] }) {
             <button
               key={f}
               onClick={() => setFilter(f)}
+              aria-pressed={active}
               className="px-3 py-1.5 rounded-full text-xs font-bold border transition-colors"
               style={
                 active

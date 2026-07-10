@@ -21,16 +21,16 @@ export function ContactForm() {
     <form action={formAction} className="card p-6 space-y-5">
       <input type="text" name="company" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
       <div>
-        <label className="field-label">Your name *</label>
-        <input name="name" required className="field" />
+        <label htmlFor="name" className="field-label">Your name *</label>
+        <input id="name" name="name" required className="field" />
       </div>
       <div>
-        <label className="field-label">Email *</label>
-        <input name="email" type="email" required className="field" />
+        <label htmlFor="email" className="field-label">Email *</label>
+        <input id="email" name="email" type="email" required className="field" />
       </div>
       <div>
-        <label className="field-label">Message *</label>
-        <textarea name="message" rows={5} required className="field" />
+        <label htmlFor="message" className="field-label">Message *</label>
+        <textarea id="message" name="message" rows={5} required className="field" />
       </div>
       {state.error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
