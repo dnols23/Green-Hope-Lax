@@ -5,7 +5,7 @@ export type ProgramGender = 'boys' | 'girls'
 
 // Content types that support a one-click live/hidden toggle in the admin panel.
 // Each maps (in lib/actions setVisibility) to a table + its visibility column.
-export type VisibilityEntity = 'stat' | 'news' | 'award' | 'coach' | 'player' | 'teampost' | 'page'
+export type VisibilityEntity = 'stat' | 'news' | 'award' | 'coach' | 'player' | 'teampost' | 'page' | 'product'
 
 export interface PageSetting {
   id: string
@@ -111,6 +111,31 @@ export interface InterestSubmission {
   program: ProgramGender
   notes: string | null
   created_at: string
+}
+
+export interface Product {
+  id: string
+  name: string
+  description: string | null
+  category: string
+  price: number | null
+  price_note: string | null
+  sizes: string | null
+  image_url: string | null
+  buy_url: string | null
+  badge: string | null
+  sort_order: number
+  is_published: boolean
+  created_at: string
+}
+
+// Order categories are grouped in on the public /shop page. Any category not
+// listed here still shows, appended after these in first-seen order.
+export const SHOP_CATEGORY_ORDER = ['Outerwear', 'Tops', 'Bottoms', 'Headwear', 'Bags & Gear', 'Fan Gear'] as const
+
+export function formatPrice(price: number | null): string {
+  if (price == null) return ''
+  return `$${price.toFixed(2).replace(/\.00$/, '')}`
 }
 
 export interface ContactSubmission {

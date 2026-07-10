@@ -292,6 +292,7 @@ const VISIBILITY = {
   award:    { table: 'team_awards',   column: 'is_published', paths: ['/awards', '/admin/awards'] },
   coach:    { table: 'coaches',       column: 'is_published', paths: ['/coaches', '/admin/coaches'] },
   player:   { table: 'players',       column: 'is_active',    paths: ['/roster', '/admin/roster'] },
+  product:  { table: 'products',       column: 'is_published', paths: ['/shop', '/admin/shop'] },
   teampost: { table: 'team_posts',    column: 'published',    paths: ['/team', '/admin/team'], service: true },
   // Whole-page on/off. Revalidates the site layout so the nav updates everywhere.
   page:     { table: 'page_settings', column: 'is_published', paths: ['/admin/pages'], layout: true },
@@ -473,4 +474,51 @@ export async function deleteNews(id: string) {
   await supabase.from('news_posts').delete().eq('id', id)
   revalidatePath('/news')
   revalidatePath('/admin/news')
+}
+
+// ── team store / products ──
+export async function upsertProduct(formData: FormData) {
+  const supabase = await createClient()
+  const id = str(formData.get('id'))
+  const payload = {
+    name: str(formData.get('name')),
+    description: str(formData.get('description')) || null,
+    category: str(formData.get('category')) || 'Apparel',
+    price: numOrNull(formData.get('price')),
+    price_note: str(formData.get('price_note')) || null,
+    sizes: str(formData.get('sizes')) || null,
+    image_url: str(formData.get('image_url')) || null,
+    buy_url: str(formData.get('buy_url')) || null,
+    badge: str(formData.get('badge')) || null,
+    sort_order: Number(formData.get('sort_order') ?? 0) || 0,
+    is_published: str(formData.get('is_published')) !== 'false',
+  }
+  if (id) await supabase.from('products').update(payload).eq('id', id)
+  else await supabase.from('products').insert(payload)
+  revalidatePath('/shop')
+  revalidatePath('/admin/shop')
+}
+
+export async function deleteProduct(id: string) {
+  const supabase = await createClient()
+  await supabase.from('products').delete().eq('id', id)
+  revalidatePath('/shop')
+  revalidatePath('/admin/shop')
+}
+
+// Store-wide settings (the "Shop the full store" link + page intro), kept in the
+// service-role app_settings key/value store like the team password.
+export async function saveShopSettings(formData: FormData) {
+  const supabase = createServiceClient()
+  const store_url = str(formData.get('store_url'))
+  const intro = str(formData.get('intro'))
+  await supabase.from('app_settings').upsert(
+    [
+      { key: 'shop_store_url', value: store_url },
+      { key: 'shop_intro', value: intro },
+    ],
+    { onConflict: 'key' }
+  )
+  revalidatePath('/shop')
+  revalidatePath('/admin/shop')
 }

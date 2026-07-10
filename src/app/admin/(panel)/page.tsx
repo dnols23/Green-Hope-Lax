@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 
 async function counts() {
   const supabase = await createClient()
-  const tables = ['interest_form_submissions', 'contact_submissions', 'players', 'games', 'news_posts', 'coaches'] as const
+  const tables = ['interest_form_submissions', 'contact_submissions', 'players', 'games', 'news_posts', 'coaches', 'products'] as const
   const entries = await Promise.all(
     tables.map(async (t) => {
       const { count } = await supabase.from(t).select('*', { count: 'exact', head: true })
@@ -22,6 +22,7 @@ export default async function AdminDashboard() {
     { href: '/admin/schedule', label: 'Games', value: c.games, accent: 'var(--gh-green)' },
     { href: '/admin/news', label: 'News posts', value: c.news_posts, accent: 'var(--gh-green)' },
     { href: '/admin/coaches', label: 'Coaches', value: c.coaches, accent: 'var(--gh-green)' },
+    { href: '/admin/shop', label: 'Store products', value: c.products, accent: 'var(--gh-maroon)' },
   ]
   return (
     <div>

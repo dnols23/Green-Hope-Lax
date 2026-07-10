@@ -1,5 +1,5 @@
 import { createClient, createServiceClient } from './supabase-server'
-import type { Game, Player, Coach, NewsPost, PageSetting, ProgramGender, ProgramStat, TeamGroup, TeamPost, TeamMember, TeamAward } from './types'
+import type { Game, Player, Coach, NewsPost, PageSetting, ProgramGender, ProgramStat, TeamGroup, TeamPost, TeamMember, TeamAward, Product } from './types'
 
 // All public-site reads live here. They use the anon (RLS-respecting) client, so
 // they only ever return data the public is allowed to see.
@@ -117,6 +117,33 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
     .select('*')
     .order('created_at', { ascending: false })
   return (data as TeamMember[]) ?? []
+}
+
+// Team store — published products for the public /shop page.
+export async function getProducts(): Promise<Product[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_published', true)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+  return (data as Product[]) ?? []
+}
+
+// Store-wide shop settings (link to the full vendor store + page intro). Stored
+// in the service-role-only app_settings table, so read it server-side.
+export async function getShopSettings(): Promise<{ storeUrl: string; intro: string }> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('app_settings')
+    .select('key, value')
+    .in('key', ['shop_store_url', 'shop_intro'])
+  const map = new Map((data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
+  return {
+    storeUrl: map.get('shop_store_url') ?? '',
+    intro: map.get('shop_intro') ?? '',
+  }
 }
 
 export async function getNewsBySlug(slug: string): Promise<NewsPost | null> {

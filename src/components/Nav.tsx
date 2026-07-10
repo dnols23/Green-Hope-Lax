@@ -12,6 +12,7 @@ const LINKS = [
   { href: '/roster', label: 'Roster' },
   { href: '/coaches', label: 'Coaches' },
   { href: '/awards', label: 'Awards' },
+  { href: '/shop', label: 'Shop' },
   { href: '/resources', label: 'Resources' },
   { href: '/eligibility', label: 'Eligibility' },
   { href: '/contact', label: 'Contact' },
@@ -40,7 +41,7 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
         </Link>
 
         {/* Desktop links */}
-        <div className="hidden lg:flex items-center gap-1 ml-auto">
+        <div className="hidden xl:flex items-center gap-1 ml-auto">
           {links.map(({ href, label }) => (
             <Link
               key={href}
@@ -63,12 +64,14 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
         </div>
 
         {/* Mobile: menu button only — all links live in the pop-out menu */}
-        <div className="lg:hidden ml-auto flex items-center gap-1">
+        <div className="xl:hidden ml-auto flex items-center gap-1">
           <button
             className="p-2 rounded-lg"
             style={{ background: 'rgba(255,255,255,0.1)' }}
             onClick={() => setOpen(!open)}
             aria-label="Toggle menu"
+            aria-expanded={open}
+            aria-controls="mobile-menu"
           >
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {open ? (
@@ -83,7 +86,7 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
 
       {/* Mobile menu */}
       {open && (
-        <div className="lg:hidden border-t px-4 py-3 flex flex-col gap-1" style={{ background: 'var(--gh-green-darker)', borderColor: 'rgba(255,255,255,0.1)' }}>
+        <div id="mobile-menu" className="xl:hidden border-t px-4 py-3 flex flex-col gap-1" style={{ background: 'var(--gh-green-darker)', borderColor: 'rgba(255,255,255,0.1)' }}>
           {links.map(({ href, label }) => (
             <Link
               key={href}
