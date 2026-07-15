@@ -7,6 +7,8 @@ import { createClient, createServiceClient } from './supabase-server'
 import { sendCoachEmail, sendEmail, postEmailHtml, emailShell, row } from './email'
 import { EXPERIENCE_LABELS, type ExperienceLevel } from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
+import { getCurrentCoach } from './coach'
+import { EVAL_CATEGORIES } from './evaluations'
 
 // ─── validation helpers ────────────────────────────────────────────────────────
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -521,4 +523,60 @@ export async function saveShopSettings(formData: FormData) {
   )
   revalidatePath('/shop')
   revalidatePath('/admin/shop')
+}
+
+// ── Coaches Hub: player evaluations ──
+// A signed-in coach submits/updates their OWN evaluation for a player. One eval
+// per (player, coach, season); saved via the service client (evaluations are
+// coach-only). The evaluator is taken from the session, never the form.
+export async function upsertEvaluation(formData: FormData) {
+  const coach = await getCurrentCoach()
+  if (!coach) redirect('/admin/login')
+
+  const playerId = str(formData.get('player_id'))
+  if (!playerId) return
+  const season = str(formData.get('season')) || '2026'
+
+  const ratings: Record<string, number> = {}
+  for (const c of EVAL_CATEGORIES) {
+    const v = Number(formData.get(`cat_${c.key}`))
+    if (v >= 1 && v <= 5) ratings[c.key] = v
+  }
+
+  const payload = {
+    player_id: playerId,
+    evaluator_email: coach.email,
+    evaluator_name: coach.name,
+    season,
+    position: str(formData.get('position')) || null,
+    ratings,
+    overall: numOrNull(formData.get('overall')),
+    strengths: str(formData.get('strengths')) || null,
+    areas_to_improve: str(formData.get('areas_to_improve')) || null,
+    playing_time: str(formData.get('playing_time')) || null,
+    notes: str(formData.get('notes')) || null,
+    updated_at: new Date().toISOString(),
+  }
+
+  const supabase = createServiceClient()
+  await supabase.from('evaluations').upsert(payload, { onConflict: 'player_id,evaluator_email,season' })
+
+  revalidatePath('/admin/hub/mine')
+  revalidatePath('/admin/hub/board')
+  revalidatePath(`/admin/hub/evaluate/${playerId}`)
+  redirect(`/admin/hub/evaluate/${playerId}?saved=1`)
+}
+
+// Delete an evaluation. A coach may delete their own; the head coach may delete any.
+export async function deleteEvaluation(id: string) {
+  const coach = await getCurrentCoach()
+  if (!coach) return
+  const supabase = createServiceClient()
+  if (coach.role === 'head') {
+    await supabase.from('evaluations').delete().eq('id', id)
+  } else {
+    await supabase.from('evaluations').delete().eq('id', id).eq('evaluator_email', coach.email)
+  }
+  revalidatePath('/admin/hub/mine')
+  revalidatePath('/admin/hub/board')
 }
