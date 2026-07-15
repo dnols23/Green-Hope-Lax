@@ -11,7 +11,10 @@ export default async function CoachesHub() {
     { href: '/admin/hub/evaluate', emoji: '📝', title: 'Evaluate a player', desc: 'Rate a player across skill categories and add notes.', accent: 'var(--gh-green)' },
     { href: '/admin/hub/mine', emoji: '📋', title: 'My evaluations', desc: 'Review and update the evaluations you’ve submitted.', accent: 'var(--gh-green)' },
     ...(isHead
-      ? [{ href: '/admin/hub/board', emoji: '📊', title: 'Team evaluation board', desc: 'Compiled scores from every coach — head coach only.', accent: 'var(--gh-maroon)' }]
+      ? [
+        { href: '/admin/hub/board', emoji: '📊', title: 'Team evaluation board', desc: 'Compiled scores from every coach — head coach only.', accent: 'var(--gh-maroon)' },
+        { href: '/admin/hub/coaches', emoji: '👥', title: 'Coaches & roles', desc: 'Add coaches and set who’s Head vs Assistant.', accent: 'var(--gh-maroon)' },
+      ]
       : []),
   ]
 

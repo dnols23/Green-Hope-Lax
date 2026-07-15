@@ -580,3 +580,19 @@ export async function deleteEvaluation(id: string) {
   revalidatePath('/admin/hub/mine')
   revalidatePath('/admin/hub/board')
 }
+
+// ── Coaches Hub: manage coach roles (Head Coach only) ──
+// Add or update a coach account. Upserts by email, so it handles both the
+// per-coach role/name form and the "add a coach" form. Their LOGIN is created
+// separately in Supabase Auth; this row just labels them + sets their role.
+export async function setCoachRole(formData: FormData) {
+  const me = await getCurrentCoach()
+  if (me?.role !== 'head') return
+  const email = str(formData.get('email')).toLowerCase()
+  if (!email) return
+  const display_name = str(formData.get('display_name')) || email.split('@')[0]
+  const role = str(formData.get('role')) === 'head' ? 'head' : 'assistant'
+  const supabase = createServiceClient()
+  await supabase.from('coach_accounts').upsert({ email, display_name, role }, { onConflict: 'email' })
+  revalidatePath('/admin/hub/coaches')
+}

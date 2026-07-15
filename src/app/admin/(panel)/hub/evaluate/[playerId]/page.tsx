@@ -119,7 +119,7 @@ function Rating({ name, value }: { name: string; value?: number }) {
       {[1, 2, 3, 4, 5].map((n) => (
         <label key={n} className="relative cursor-pointer" title={SCALE.labels[n]}>
           <input type="radio" name={name} value={n} defaultChecked={value === n} className="peer sr-only" />
-          <span className="peer-checked:bg-[var(--gh-green)] peer-checked:text-white peer-checked:border-transparent inline-flex items-center justify-center rounded-lg border font-black text-sm w-9 h-9 transition-colors"
+          <span className="peer-checked:bg-[var(--gh-green)] peer-checked:text-white peer-checked:border-transparent inline-flex items-center justify-center rounded-lg border font-black w-11 h-11 sm:w-10 sm:h-10 text-base transition-colors"
             style={{ borderColor: 'var(--border)' }}>{n}</span>
         </label>
       ))}
