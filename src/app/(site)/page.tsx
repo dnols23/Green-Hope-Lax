@@ -33,6 +33,26 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ── SWFL callout ── */}
+      <section className="max-w-screen-xl mx-auto px-4 mt-8">
+        <Link
+          href="/swfl"
+          className="card p-5 sm:p-6 flex flex-wrap items-center gap-4 hover:shadow-md transition-shadow"
+          style={{ borderLeft: '4px solid var(--gh-maroon)' }}
+        >
+          <div className="flex-1 min-w-60">
+            <div className="section-label">Falcons Fall Ball · Sign-ups open</div>
+            <div className="font-black text-lg sm:text-xl mt-1">
+              South Wake Fall High School League at Seymour Park
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              Six Monday nights, 6–9 PM · Aug 17 – Sep 28 · $50 per player
+            </p>
+          </div>
+          <span className="btn btn-maroon">Sign up to play</span>
+        </Link>
+      </section>
+
       {/* ── Latest news ── */}
       <section className="max-w-screen-xl mx-auto px-4 mt-12">
         <div className="flex items-end justify-between mb-5">

@@ -281,6 +281,66 @@ export async function submitContact(
   return { ok: true }
 }
 
+// SWFL player signup — used by /swfl. Same shape as the interest form, stored in
+// interest_form_submissions with the notes tagged so fall-league signups are
+// distinguishable in the admin Submissions list without a schema change.
+export async function submitSwfl(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const rawNotes = str(formData.get('notes'))
+  const data = {
+    player_first: str(formData.get('player_first')),
+    player_last: str(formData.get('player_last')),
+    grad_year: str(formData.get('grad_year')) || null,
+    parent_name: str(formData.get('parent_name')),
+    parent_email: str(formData.get('parent_email')),
+    parent_phone: str(formData.get('parent_phone')),
+    player_email: str(formData.get('player_email')) || null,
+    experience: (str(formData.get('experience')) || 'new') as ExperienceLevel,
+    program: 'boys',
+    notes: `[SWFL Fall League]${rawNotes ? ` ${rawNotes}` : ''}`,
+  }
+
+  if (str(formData.get('company'))) return { ok: true } // honeypot
+  if (!data.player_first || !data.player_last)
+    return { ok: false, error: 'Please enter the player\u2019s first and last name.' }
+  if (!data.parent_name)
+    return { ok: false, error: 'Please enter a parent/guardian name.' }
+  if (!EMAIL_RE.test(data.parent_email))
+    return { ok: false, error: 'Please enter a valid parent email address.' }
+  if (data.parent_phone.replace(/\D/g, '').length < 10)
+    return { ok: false, error: 'Please enter a valid phone number.' }
+  if (data.player_email && !EMAIL_RE.test(data.player_email))
+    return { ok: false, error: 'Player email looks invalid \u2014 leave it blank or fix it.' }
+
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('interest_form_submissions').insert(data)
+  if (error) {
+    console.error('[submitSwfl]', error)
+    return { ok: false, error: 'Something went wrong saving your signup. Please try again.' }
+  }
+
+  await sendCoachEmail({
+    subject: `New SWFL fall league signup: ${data.player_first} ${data.player_last}`,
+    replyTo: data.parent_email,
+    html: emailShell(
+      'New SWFL Fall League Signup',
+      row('Player', `${data.player_first} ${data.player_last}`) +
+        row('Grad year', data.grad_year) +
+        row('Experience', EXPERIENCE_LABELS[data.experience]) +
+        row('Parent/Guardian', data.parent_name) +
+        row('Parent email', data.parent_email) +
+        row('Parent phone', data.parent_phone) +
+        row('Player email', data.player_email) +
+        row('Notes', rawNotes || null)
+    ),
+  })
+
+  revalidatePath('/admin/submissions')
+  return { ok: true }
+}
+
 // ═══ ADMIN CRUD ══════════════════════════════════════════════════════════════════
 // All of these run as the logged-in admin (anon client + their auth cookie), so
 // RLS "admin all" policies authorize the writes.

@@ -32,6 +32,7 @@ export default function Footer() {
           <h3 className="text-white font-bold text-sm mb-3">Get Involved</h3>
           <ul className="space-y-2 text-sm">
             <li><Link href="/join" className="hover:text-white">Join Green Hope Lacrosse</Link></li>
+            <li><Link href="/swfl" className="hover:text-white">SWFL Fall League</Link></li>
             <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
           </ul>
         </div>
