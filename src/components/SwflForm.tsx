@@ -17,18 +17,18 @@ export function SwflForm() {
           You&rsquo;re signed up! 🥍
         </h2>
         <p className="text-gray-600 mt-2 max-w-md mx-auto">
-          Thanks for signing up for fall league. One more step: pay the $50 player fee via
+          Thanks for signing up for fall league. One more step: pay the $75 player fee via
           Venmo (<span className="font-bold">@DanNolan21</span>) with the player&rsquo;s name in
           the note. The coaches will follow up at the email you provided with rosters, gear,
           and game-night details. Go Falcons!
         </p>
         <a
-          href="https://venmo.com/DanNolan21?txn=pay&amount=50&note=SWFL%20Fall%20League"
+          href="https://venmo.com/DanNolan21?txn=pay&amount=75&note=SWFL%20Fall%20League"
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-maroon mt-4"
         >
-          Pay $50 on Venmo ↗
+          Pay $75 on Venmo ↗
         </a>
       </div>
     )

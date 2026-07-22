@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 const VENMO = {
   handle: '@DanNolan21',
-  payUrl: 'https://venmo.com/DanNolan21?txn=pay&amount=50&note=SWFL%20Fall%20League',
+  payUrl: 'https://venmo.com/DanNolan21?txn=pay&amount=75&note=SWFL%20Fall%20League',
 }
 
 const WEEKS = [
@@ -27,7 +27,7 @@ const FACTS = [
   { label: 'When', value: 'Mondays, 6–9 PM', desc: 'Six game nights, Aug 17 – Sep 28' },
   { label: 'Where', value: 'Seymour Park', desc: 'All games at one field — no travel' },
   { label: 'Who', value: 'Falcons players', desc: 'We compete as the Green Hope high school club' },
-  { label: 'Cost', value: '$50 per player', desc: `Paid via Venmo ${VENMO.handle}` },
+  { label: 'Cost', value: '$75 per player', desc: `Paid via Venmo ${VENMO.handle}` },
 ]
 
 const NOTES = [
@@ -125,7 +125,7 @@ export default async function SwflPage() {
           <div className="section-label">Fall 2026</div>
           <h2 className="page-title mb-2">Sign Up to Play</h2>
           <p className="text-gray-600 mb-6">
-            Two quick steps: tell us who&rsquo;s playing, then pay the $50 player fee via Venmo.
+            Two quick steps: tell us who&rsquo;s playing, then pay the $75 player fee via Venmo.
             The coaches will follow up with rosters, gear, and game-night details.
           </p>
           <SwflForm />
@@ -133,13 +133,13 @@ export default async function SwflPage() {
           {/* ── Step 2: player fee ── */}
           <div className="card p-6 mt-6" style={{ borderLeft: '4px solid var(--gh-maroon)' }}>
             <div className="section-label">Step 2 · League fee</div>
-            <h3 className="font-black text-lg mt-1 mb-1">Pay the $50 player fee on Venmo</h3>
+            <h3 className="font-black text-lg mt-1 mb-1">Pay the $75 player fee on Venmo</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Send $50 to <span className="font-bold">{VENMO.handle}</span> and put the
+              Send $75 to <span className="font-bold">{VENMO.handle}</span> and put the
               player&rsquo;s name in the note so we can match your payment to the signup.
             </p>
             <a href={VENMO.payUrl} target="_blank" rel="noopener noreferrer" className="btn btn-maroon">
-              Pay $50 on Venmo ↗
+              Pay $75 on Venmo ↗
             </a>
           </div>
         </section>

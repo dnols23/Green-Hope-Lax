@@ -46,7 +46,7 @@ export default async function HomePage() {
               South Wake Fall High School League at Seymour Park
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              Six Monday nights, 6–9 PM · Aug 17 – Sep 28 · $50 per player
+              Six Monday nights, 6–9 PM · Aug 17 – Sep 28 · $75 per player
             </p>
           </div>
           <span className="btn btn-maroon">Sign up to play</span>
