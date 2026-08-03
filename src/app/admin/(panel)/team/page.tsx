@@ -3,6 +3,7 @@ import { upsertTeamPost, deleteTeamPost, setTeamPassword } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import { TEAM_CATEGORY_META, type TeamPost, type TeamPostCategory } from '@/lib/types'
+import { formatShortDate } from '@/lib/format'
 
 export const metadata = { title: 'Manage Team Hub' }
 export const dynamic = 'force-dynamic'
@@ -117,7 +118,7 @@ export default async function AdminTeamPage() {
                   {p.pinned && '📌 '}
                   {TEAM_CATEGORY_META[p.category].emoji} {p.title}
                   <span className="ml-2 text-xs text-gray-400">
-                    {new Date(p.created_at).toLocaleDateString()}
+                    {formatShortDate(p.created_at)}
                   </span>
                 </span>
                 <span className="flex items-center gap-3">

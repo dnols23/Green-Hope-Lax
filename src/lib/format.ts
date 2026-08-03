@@ -1,7 +1,16 @@
 import type { Game } from './types'
 
+// Every date column in the database is timestamptz, and the servers rendering
+// these pages run in UTC. Formatting without naming a zone therefore uses UTC,
+// which puts every time four hours ahead of Cary in the summer — a 7pm game
+// reads as 11pm, and a signup from this afternoon reads as tonight. The program
+// is in North Carolina, so render in Eastern; the zone name handles the DST
+// switch on its own. Naming it also keeps server and client renders identical.
+export const TEAM_TIME_ZONE = 'America/New_York'
+
 export function formatDate(iso: string, opts?: Intl.DateTimeFormatOptions): string {
   return new Date(iso).toLocaleDateString('en-US', {
+    timeZone: TEAM_TIME_ZONE,
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -11,8 +20,26 @@ export function formatDate(iso: string, opts?: Intl.DateTimeFormatOptions): stri
 
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', {
+    timeZone: TEAM_TIME_ZONE,
     hour: 'numeric',
     minute: '2-digit',
+  })
+}
+
+// "Aug 3, 2026" — for admin lists where the time of day doesn't matter.
+export function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    timeZone: TEAM_TIME_ZONE,
+    dateStyle: 'medium',
+  })
+}
+
+// "Aug 3, 2026, 5:50 PM" — for submissions, where the exact time matters.
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-US', {
+    timeZone: TEAM_TIME_ZONE,
+    dateStyle: 'medium',
+    timeStyle: 'short',
   })
 }
 

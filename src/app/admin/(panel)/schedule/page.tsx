@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { upsertGame, deleteGame } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import type { Game } from '@/lib/types'
+import { formatShortDate } from '@/lib/format'
 
 export const metadata = { title: 'Manage Schedule' }
 
@@ -89,7 +90,7 @@ export default async function AdminSchedulePage() {
           <details key={g.id} className="card p-4">
             <summary className="flex items-center justify-between cursor-pointer list-none gap-3">
               <span className="font-semibold">
-                {new Date(g.game_date).toLocaleDateString()} — {g.home_away === 'away' ? '@' : 'vs'} {g.opponent}
+                {formatShortDate(g.game_date)} — {g.home_away === 'away' ? '@' : 'vs'} {g.opponent}
                 {g.status === 'final' && g.team_score != null && (
                   <span className="ml-2 text-gray-500">({g.team_score}–{g.opp_score})</span>
                 )}

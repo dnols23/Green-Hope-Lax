@@ -1,12 +1,11 @@
 import { getTeamMembers } from '@/lib/queries'
 import { ExportCsvButton } from '@/components/admin/ExportCsvButton'
+import { formatShortDate } from '@/lib/format'
 
 export const metadata = { title: 'Team Members' }
 export const dynamic = 'force-dynamic'
 
-function fmt(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { dateStyle: 'medium' })
-}
+const fmt = formatShortDate
 
 export default async function AdminMembersPage() {
   const members = await getTeamMembers()

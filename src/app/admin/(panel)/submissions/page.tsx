@@ -18,12 +18,11 @@ import {
   type SwflSignup,
   type PlayerCollection,
 } from '@/lib/types'
+import { formatDateTime } from '@/lib/format'
 
 export const metadata = { title: 'Submissions' }
 
-function fmt(iso: string) {
-  return new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-}
+const fmt = formatDateTime
 
 const TABS = [
   { key: 'swfl', label: 'SWFL Fall League' },

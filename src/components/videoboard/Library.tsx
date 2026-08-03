@@ -6,6 +6,7 @@ import styles from './VideoBoard.module.css'
 import { IconFilm, IconScissors } from './icons'
 import type { Clip, LibVideo } from './types'
 import { baseName, fmtDuration, fmtTime } from './utils'
+import { TEAM_TIME_ZONE } from '@/lib/format'
 
 // Hudl-style library: search + filter over all team film and clips, grouped
 // by month, tap to open on the board. Team film only — local files never
@@ -29,14 +30,14 @@ function monthLabel(iso?: string): string {
   if (!iso) return 'Recently added'
   const d = new Date(iso)
   if (isNaN(+d)) return 'Recently added'
-  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  return d.toLocaleDateString('en-US', { timeZone: TEAM_TIME_ZONE, month: 'long', year: 'numeric' })
 }
 
 function dayLabel(iso?: string): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (isNaN(+d)) return ''
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return d.toLocaleDateString('en-US', { timeZone: TEAM_TIME_ZONE, month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export function Library() {
