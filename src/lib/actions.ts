@@ -341,6 +341,20 @@ export async function submitSwfl(
   return { ok: true }
 }
 
+// Admin: delete a single submission (spam cleanup). Service client so RLS
+// can't block the cleanup.
+export async function deleteInterestSubmission(id: string) {
+  const supabase = createServiceClient()
+  await supabase.from('interest_form_submissions').delete().eq('id', id)
+  revalidatePath('/admin/submissions')
+}
+
+export async function deleteContactSubmission(id: string) {
+  const supabase = createServiceClient()
+  await supabase.from('contact_submissions').delete().eq('id', id)
+  revalidatePath('/admin/submissions')
+}
+
 // ═══ ADMIN CRUD ══════════════════════════════════════════════════════════════════
 // All of these run as the logged-in admin (anon client + their auth cookie), so
 // RLS "admin all" policies authorize the writes.
