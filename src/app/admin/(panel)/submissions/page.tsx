@@ -3,11 +3,13 @@ import { createClient } from '@/lib/supabase-server'
 import { ExportCsvButton } from '@/components/admin/ExportCsvButton'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { MoveSubmission } from '@/components/admin/MoveSubmission'
+import { SweepLegacyButton } from '@/components/admin/SweepLegacyButton'
 import {
   deleteInterestSubmission,
   deleteContactSubmission,
   deleteSwflSignup,
   moveSubmission,
+  sweepLegacySubmissions,
 } from '@/lib/actions'
 import {
   EXPERIENCE_LABELS,
@@ -65,6 +67,11 @@ export default async function SubmissionsPage({
   const highSchool = interests.filter((r) => r.form_type !== 'green_machine')
   const greenMachine = interests.filter((r) => r.form_type === 'green_machine')
 
+  // Anything still carrying a "[…]" tag was submitted on an older build and
+  // hasn't been filed by column yet, so it's showing in the wrong tab. Matches
+  // the same shape the sweep does, so the banner clears when the sweep is done.
+  const legacy = interests.filter((r) => /^\[[^\]]*\]/.test(r.notes ?? ''))
+
   const counts: Record<TabKey, number> = {
     swfl: swfls.length,
     high_school: highSchool.length,
@@ -103,6 +110,10 @@ export default async function SubmissionsPage({
           </Link>
         )}
       </p>
+
+      {legacy.length > 0 && tab !== 'contact' && (
+        <SweepLegacyButton count={legacy.length} action={sweepLegacySubmissions} />
+      )}
 
       {tab === 'contact' ? (
         <ContactTable rows={contacts} />

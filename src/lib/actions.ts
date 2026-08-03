@@ -5,7 +5,12 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient, createServiceClient } from './supabase-server'
 import { sendCoachEmail, sendEmail, postEmailHtml, emailShell, row } from './email'
-import { EXPERIENCE_LABELS, type ExperienceLevel, type PlayerCollection } from './types'
+import {
+  EXPERIENCE_LABELS,
+  type ExperienceLevel,
+  type PlayerCollection,
+  type InterestSubmission,
+} from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
@@ -355,6 +360,51 @@ export async function deleteContactSubmission(id: string) {
 export async function deleteSwflSignup(id: string) {
   const supabase = createServiceClient()
   await supabase.from('swfl_signups').delete().eq('id', id)
+  revalidatePath('/admin/submissions')
+}
+
+// Admin: sweep in rows submitted while an older build was live, which recorded
+// the form name as a "[…]" tag on the notes instead of setting form_type. Files
+// each one by its tag and strips it. Same work migration 0010 does, exposed as a
+// button so stragglers never need SQL. Safe to run any time — rows with no tag
+// aren't touched.
+export async function sweepLegacySubmissions() {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('interest_form_submissions')
+    .select('*')
+    .like('notes', '[%]%')
+  const rows = (data ?? []) as InterestSubmission[]
+
+  for (const r of rows) {
+    const tag = r.notes ?? ''
+    const notes = tag.replace(/^\[[^\]]*\]\s*/, '').trim() || null
+
+    if (tag.startsWith('[SWFL Fall League]')) {
+      const { error } = await supabase.from('swfl_signups').insert({
+        player_first: r.player_first,
+        player_last: r.player_last,
+        grad_year: r.grad_year,
+        parent_name: r.parent_name,
+        parent_email: r.parent_email,
+        parent_phone: r.parent_phone,
+        player_email: r.player_email,
+        experience: r.experience,
+        notes,
+        created_at: r.created_at,
+      })
+      if (error) {
+        console.error('[sweepLegacySubmissions]', error)
+        continue
+      }
+      await supabase.from('interest_form_submissions').delete().eq('id', r.id)
+      continue
+    }
+
+    const form_type = tag.startsWith('[Green Machine') ? 'green_machine' : r.form_type
+    await supabase.from('interest_form_submissions').update({ form_type, notes }).eq('id', r.id)
+  }
+
   revalidatePath('/admin/submissions')
 }
 
