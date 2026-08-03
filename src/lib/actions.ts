@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient, createServiceClient } from './supabase-server'
 import { sendCoachEmail, sendEmail, postEmailHtml, emailShell, row } from './email'
-import { EXPERIENCE_LABELS, type ExperienceLevel } from './types'
+import { EXPERIENCE_LABELS, type ExperienceLevel, type PlayerCollection } from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
@@ -186,9 +186,6 @@ export async function submitInterest(
   const isMiddle = str(formData.get('level')) === 'middle'
   const teamLabel = isMiddle ? 'Green Machine (middle school)' : 'High School Team'
   const rawNotes = str(formData.get('notes'))
-  // Tag the stored note so the team shows up in the admin Submissions list/CSV
-  // without needing a new column.
-  const taggedNotes = `[${teamLabel}]${rawNotes ? ` ${rawNotes}` : ''}`
 
   const data = {
     player_first: str(formData.get('player_first')),
@@ -200,7 +197,8 @@ export async function submitInterest(
     player_email: str(formData.get('player_email')) || null,
     experience: (str(formData.get('experience')) || 'new') as ExperienceLevel,
     program: str(formData.get('program')) === 'girls' ? 'girls' : 'boys',
-    notes: taggedNotes,
+    form_type: isMiddle ? 'green_machine' : 'high_school',
+    notes: rawNotes || null,
   }
 
   // Honeypot — bots fill hidden fields; humans don't.
@@ -281,9 +279,9 @@ export async function submitContact(
   return { ok: true }
 }
 
-// SWFL player signup — used by /swfl. Same shape as the interest form, stored in
-// interest_form_submissions with the notes tagged so fall-league signups are
-// distinguishable in the admin Submissions list without a schema change.
+// SWFL player signup — used by /swfl. Fall league is its own program with its
+// own fee and roster, so signups get their own table rather than sharing the
+// interest form's.
 export async function submitSwfl(
   _prev: FormState,
   formData: FormData
@@ -298,8 +296,7 @@ export async function submitSwfl(
     parent_phone: str(formData.get('parent_phone')),
     player_email: str(formData.get('player_email')) || null,
     experience: (str(formData.get('experience')) || 'new') as ExperienceLevel,
-    program: 'boys',
-    notes: `[SWFL Fall League]${rawNotes ? ` ${rawNotes}` : ''}`,
+    notes: rawNotes || null,
   }
 
   if (str(formData.get('company'))) return { ok: true } // honeypot
@@ -315,7 +312,7 @@ export async function submitSwfl(
     return { ok: false, error: 'Player email looks invalid \u2014 leave it blank or fix it.' }
 
   const supabase = createServiceClient()
-  const { error } = await supabase.from('interest_form_submissions').insert(data)
+  const { error } = await supabase.from('swfl_signups').insert(data)
   if (error) {
     console.error('[submitSwfl]', error)
     return { ok: false, error: 'Something went wrong saving your signup. Please try again.' }
@@ -352,6 +349,63 @@ export async function deleteInterestSubmission(id: string) {
 export async function deleteContactSubmission(id: string) {
   const supabase = createServiceClient()
   await supabase.from('contact_submissions').delete().eq('id', id)
+  revalidatePath('/admin/submissions')
+}
+
+export async function deleteSwflSignup(id: string) {
+  const supabase = createServiceClient()
+  await supabase.from('swfl_signups').delete().eq('id', id)
+  revalidatePath('/admin/submissions')
+}
+
+// Admin: re-file a player submission into a different collection, for when a
+// parent fills out the wrong form (e.g. uses /join to sign up for fall league).
+// Between the two interest types it's just a column flip; moving in or out of
+// fall league copies the row across tables, keeping its original submitted date.
+export async function moveSubmission(
+  id: string,
+  from: PlayerCollection,
+  to: PlayerCollection
+) {
+  if (from === to) return
+  const supabase = createServiceClient()
+
+  if (from !== 'swfl' && to !== 'swfl') {
+    await supabase.from('interest_form_submissions').update({ form_type: to }).eq('id', id)
+    revalidatePath('/admin/submissions')
+    return
+  }
+
+  const fromTable = from === 'swfl' ? 'swfl_signups' : 'interest_form_submissions'
+  const toTable = to === 'swfl' ? 'swfl_signups' : 'interest_form_submissions'
+
+  const { data: found } = await supabase.from(fromTable).select('*').eq('id', id).maybeSingle()
+  if (!found) return
+  const r = found as Record<string, unknown>
+
+  const shared = {
+    player_first: r.player_first,
+    player_last: r.player_last,
+    grad_year: r.grad_year,
+    parent_name: r.parent_name,
+    parent_email: r.parent_email,
+    parent_phone: r.parent_phone,
+    player_email: r.player_email,
+    experience: r.experience,
+    notes: r.notes,
+    created_at: r.created_at,
+  }
+  // swfl_signups has no program column (fall league is boys), so a row that
+  // round-trips through it comes back as boys.
+  const payload =
+    to === 'swfl' ? shared : { ...shared, program: r.program ?? 'boys', form_type: to }
+
+  const { error } = await supabase.from(toTable).insert(payload)
+  if (error) {
+    console.error('[moveSubmission]', error)
+    return
+  }
+  await supabase.from(fromTable).delete().eq('id', id)
   revalidatePath('/admin/submissions')
 }
 

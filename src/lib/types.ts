@@ -98,6 +98,13 @@ export const STAT_SECTION_META: Record<StatSection, { label: string; emoji: stri
   honors:     { label: 'Team Honors',      emoji: '🏆', blurb: 'Conference titles, playoff runs, and team awards.' },
 }
 
+// Which team the /join form was filled out for.
+export type InterestFormType = 'high_school' | 'green_machine'
+
+// The three collections a player submission can live in. Fall league is its own
+// table; the other two are form_type values on interest_form_submissions.
+export type PlayerCollection = InterestFormType | 'swfl'
+
 export interface InterestSubmission {
   id: string
   player_first: string
@@ -109,6 +116,23 @@ export interface InterestSubmission {
   player_email: string | null
   experience: ExperienceLevel
   program: ProgramGender
+  form_type: InterestFormType
+  notes: string | null
+  created_at: string
+}
+
+// SWFL fall league signups live in their own table — same player details as the
+// interest form, but a different program with its own fee and roster.
+export interface SwflSignup {
+  id: string
+  player_first: string
+  player_last: string
+  grad_year: string | null
+  parent_name: string
+  parent_email: string
+  parent_phone: string
+  player_email: string | null
+  experience: ExperienceLevel
   notes: string | null
   created_at: string
 }

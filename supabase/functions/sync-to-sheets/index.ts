@@ -60,14 +60,15 @@ async function getAccessToken(): Promise<string> {
   return json.access_token
 }
 
-// Maps a webhook payload to a flat row for the sheet. Works for both form tables.
+// Maps a webhook payload to a flat row for the sheet. Works for every form table.
 function toRow(table: string, record: Record<string, unknown>): string[] {
   if (table === 'contact_submissions') {
     return [String(record.created_at ?? ''), 'contact', String(record.name ?? ''), String(record.email ?? ''), String(record.message ?? '')]
   }
+  // Player forms share a shape; the second column says which form it came from.
   return [
     String(record.created_at ?? ''),
-    'interest',
+    table === 'swfl_signups' ? 'fall_league' : String(record.form_type ?? 'interest'),
     `${record.player_first ?? ''} ${record.player_last ?? ''}`.trim(),
     String(record.program ?? ''),
     String(record.grad_year ?? ''),
