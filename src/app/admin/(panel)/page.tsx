@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 
 async function counts() {
   const supabase = await createClient()
-  const tables = ['interest_form_submissions', 'contact_submissions', 'players', 'games', 'news_posts', 'coaches', 'products'] as const
+  const tables = ['swfl_signups', 'interest_form_submissions', 'contact_submissions', 'players', 'games', 'news_posts', 'coaches', 'products'] as const
   const entries = await Promise.all(
     tables.map(async (t) => {
       const { count } = await supabase.from(t).select('*', { count: 'exact', head: true })
@@ -16,8 +16,9 @@ async function counts() {
 export default async function AdminDashboard() {
   const c = await counts()
   const cards = [
-    { href: '/admin/submissions', label: 'Interest submissions', value: c.interest_form_submissions, accent: 'var(--gh-maroon)' },
-    { href: '/admin/submissions', label: 'Contact messages', value: c.contact_submissions, accent: 'var(--gh-maroon)' },
+    { href: '/admin/submissions?tab=swfl', label: 'Fall league signups', value: c.swfl_signups, accent: 'var(--gh-maroon)' },
+    { href: '/admin/submissions?tab=high_school', label: 'Interest submissions', value: c.interest_form_submissions, accent: 'var(--gh-maroon)' },
+    { href: '/admin/submissions?tab=contact', label: 'Contact messages', value: c.contact_submissions, accent: 'var(--gh-maroon)' },
     { href: '/admin/roster', label: 'Players', value: c.players, accent: 'var(--gh-green)' },
     { href: '/admin/schedule', label: 'Games', value: c.games, accent: 'var(--gh-green)' },
     { href: '/admin/news', label: 'News posts', value: c.news_posts, accent: 'var(--gh-green)' },
