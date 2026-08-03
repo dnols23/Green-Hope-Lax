@@ -5,13 +5,14 @@ import { deleteEvaluation } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { ratingsAverage, type Evaluation } from '@/lib/evaluations'
 import type { Player } from '@/lib/types'
+import { formatDate } from '@/lib/format'
 
 export const metadata = { title: 'My Evaluations' }
 
 const SEASON = '2026'
 
 function fmt(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return formatDate(iso, { weekday: undefined })
 }
 
 export default async function MyEvaluations() {

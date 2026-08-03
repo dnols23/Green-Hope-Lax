@@ -3,6 +3,7 @@ import { upsertNews, deleteNews } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { NewsPost } from '@/lib/types'
+import { formatShortDate } from '@/lib/format'
 
 export const metadata = { title: 'Manage News' }
 
@@ -72,7 +73,7 @@ export default async function AdminNewsPage() {
               <span className="font-semibold">
                 {n.title}
                 <span className="ml-2 text-xs text-gray-400">
-                  {new Date(n.published_at).toLocaleDateString()}
+                  {formatShortDate(n.published_at)}
                 </span>
               </span>
               <span className="flex items-center gap-3">
