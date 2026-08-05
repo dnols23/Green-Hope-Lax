@@ -226,6 +226,23 @@ only). To store film in the cloud and share the library + clips with the whole
 team, follow the one-time setup in [`FILM_ROOM_SETUP.md`](FILM_ROOM_SETUP.md)
 (Cloudflare Stream + one SQL migration + three env vars).
 
+## BrickCraft (Falcons Arcade)
+
+`/brickcraft` is a lacrosse-themed brick-breaker — six levels, three balls,
+power-ups, played with a pointer, touch, or the arrow keys. It runs entirely in
+the browser: no packages beyond what the site already uses, no API routes, and
+no database. The best score is kept in the visitor's own `localStorage`
+(`brickcraft:high-score`), so there's nothing to moderate and nothing to back up.
+
+- Engine (physics, levels, power-ups): [`src/components/brickcraft/engine.ts`](src/components/brickcraft/engine.ts)
+- Canvas rendering: [`src/components/brickcraft/draw.ts`](src/components/brickcraft/draw.ts)
+- Level layouts — edit the character grids to change the boards:
+  [`src/components/brickcraft/levels.ts`](src/components/brickcraft/levels.ts)
+
+Run [`supabase/migrations/0011_brickcraft.sql`](supabase/migrations/0011_brickcraft.sql)
+to list the page in **/admin → Pages** so it can be hidden or shown like any
+other page. The game works without it; the row just adds the on/off switch.
+
 ## Tech notes / known limitations
 
 - **Auth model is simple by design**: any confirmed Supabase user is an admin.
