@@ -133,6 +133,27 @@ body {
 .data-table tbody tr:hover { background: var(--surface-2); }
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+/* ── Password field with show/hide eye ── */
+.pw-wrap { position: relative; display: block; }
+.pw-input { padding-right: 2.75rem; }
+.pw-eye {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.pw-eye:hover { color: var(--text-primary); background: var(--surface-2); }
+
 /* Row actions pin to the right edge so they stay reachable on wide tables
    instead of hiding past the end of the horizontal scroll. */
 .data-table .col-actions {
