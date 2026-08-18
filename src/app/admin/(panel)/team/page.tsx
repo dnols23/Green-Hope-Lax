@@ -1,5 +1,8 @@
 import { getTeamPosts } from '@/lib/queries'
+import { createServiceClient } from '@/lib/supabase-server'
+import { decryptTeamCode } from '@/lib/teamCode'
 import { upsertTeamPost, deleteTeamPost, setTeamPassword } from '@/lib/actions'
+import { TeamCodePanel } from '@/components/admin/TeamCodePanel'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import { TEAM_CATEGORY_META, type TeamPost, type TeamPostCategory } from '@/lib/types'
@@ -73,6 +76,17 @@ function PostFields({ p }: { p?: TeamPost }) {
 export default async function AdminTeamPage() {
   const posts = await getTeamPosts(true) // include drafts
 
+  // The join code, for the instructions a coach sends families. Null until the
+  // password is next set — earlier ones were only ever stored as a hash.
+  const svc = createServiceClient()
+  const { data: codeRow } = await svc
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'team_code_enc')
+    .maybeSingle()
+  const teamCode = await decryptTeamCode(codeRow?.value as string | undefined)
+  const joinUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://greenhopelacrosse.com'}/team/login`
+
   return (
     <div className="space-y-8">
       <div>
@@ -87,10 +101,10 @@ export default async function AdminTeamPage() {
       <section className="card p-5">
         <h2 className="font-bold text-gray-700 mb-1">Team Login Password</h2>
         <p className="text-sm text-gray-500 mb-3">
-          One shared password for all parents &amp; players. Share it with your team; change it here anytime
-          (e.g. each season). Use the eye to check the password as you type — the current one isn’t stored
-          in readable form, so setting a new one replaces it.
+          One shared password for all parents &amp; players. Copy the join instructions below to send to
+          families, or set a new password anytime (e.g. each season).
         </p>
+        <TeamCodePanel code={teamCode} joinUrl={joinUrl} />
         <form action={setTeamPassword} className="flex flex-wrap items-end gap-3">
           <div>
             <PasswordField
