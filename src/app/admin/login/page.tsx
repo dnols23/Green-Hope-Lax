@@ -2,6 +2,7 @@
 import { useState, useTransition } from 'react'
 import { login } from '@/lib/actions'
 import { FalconHead } from '@/components/Logo'
+import { PasswordField } from '@/components/PasswordField'
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -32,8 +33,7 @@ export default function LoginPage() {
             <input name="username" type="text" required autoCapitalize="none" autoComplete="username" className="field" />
           </div>
           <div>
-            <label className="field-label">Password</label>
-            <input name="password" type="password" required autoComplete="current-password" className="field" />
+            <PasswordField name="password" label="Password" required autoComplete="current-password" />
           </div>
 
           {error && (

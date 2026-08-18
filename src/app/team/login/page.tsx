@@ -4,6 +4,7 @@ import { useActionState } from 'react'
 import { registerTeamMember, type FormState } from '@/lib/actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { FalconBadge } from '@/components/Logo'
+import { PasswordField } from '@/components/PasswordField'
 
 const initial: FormState = { ok: false }
 
@@ -70,8 +71,12 @@ export default function TeamJoinPage() {
           <hr className="border-gray-100" />
 
           <div>
-            <label htmlFor="password" className="field-label">Team password *</label>
-            <input id="password" name="password" type="password" required autoComplete="off" className="field" placeholder="Shared password from your coach" />
+            <PasswordField
+              name="password"
+              label="Team password *"
+              placeholder="Shared password from your coach"
+              required
+            />
           </div>
 
           {state.error && (

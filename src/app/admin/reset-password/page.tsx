@@ -3,6 +3,7 @@ import { useActionState } from 'react'
 import { resetCoachPassword, type FormState } from '@/lib/actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { FalconHead } from '@/components/Logo'
+import { PasswordField } from '@/components/PasswordField'
 
 const initial: FormState = { ok: false }
 
@@ -22,12 +23,10 @@ export default function ResetPasswordPage() {
 
         <form action={formAction} className="bg-white rounded-xl p-6 space-y-4">
           <div>
-            <label className="field-label">New password</label>
-            <input name="password" type="password" required minLength={8} autoComplete="new-password" className="field" />
+            <PasswordField name="password" label="New password" required minLength={8} autoComplete="new-password" />
           </div>
           <div>
-            <label className="field-label">Confirm new password</label>
-            <input name="confirm" type="password" required minLength={8} autoComplete="new-password" className="field" />
+            <PasswordField name="confirm" label="Confirm new password" required minLength={8} autoComplete="new-password" />
           </div>
           {state.error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
