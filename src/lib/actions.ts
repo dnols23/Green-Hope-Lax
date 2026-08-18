@@ -12,6 +12,7 @@ import {
   type InterestSubmission,
 } from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
+import { encryptTeamCode } from './teamCode'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
 
@@ -128,9 +129,16 @@ export async function setTeamPassword(formData: FormData) {
   const pw = str(formData.get('team_password'))
   if (pw.length < 4) return
   const supabase = createServiceClient()
-  await supabase
-    .from('app_settings')
-    .upsert({ key: 'team_password_hash', value: await hashTeamPassword(pw) }, { onConflict: 'key' })
+  // The hash stays the source of truth for sign-in. The second row is the same
+  // code encrypted (see lib/teamCode), so a coach can read it back when writing
+  // join instructions for families — never stored in the clear.
+  await supabase.from('app_settings').upsert(
+    [
+      { key: 'team_password_hash', value: await hashTeamPassword(pw) },
+      { key: 'team_code_enc', value: await encryptTeamCode(pw) },
+    ],
+    { onConflict: 'key' }
+  )
   revalidatePath('/admin/team')
 }
 
