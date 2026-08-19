@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import { ExportCsvButton } from '@/components/admin/ExportCsvButton'
-import { EVAL_CATEGORIES } from '@/lib/evaluations'
+import { EVAL_CATEGORIES, readRating, tierFor } from '@/lib/evaluations'
 
 export interface EvaluatorLine {
   name: string
   overall: number | null
-  ratings: Record<string, number>
+  ratings: Record<string, unknown>
   strengths: string | null
   areas: string | null
   notes: string | null
@@ -26,11 +26,26 @@ export interface BoardRow {
   evaluators: EvaluatorLine[]
 }
 
-// 1 (red) → 3 (amber) → 5 (green)
+// Heat map cells use the same tier colours as the sliders, deepening with the
+// score, so a column scans as "who's strong here" at a glance.
+function rgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
+}
+
+function cellAlpha(v: number): number {
+  return 0.14 + (Math.min(100, Math.max(0, v)) / 100) * 0.62
+}
+
 function cellBg(v?: number): string {
   if (!v) return 'transparent'
-  const hue = ((Math.min(5, Math.max(1, v)) - 1) / 4) * 120
-  return `hsl(${hue} 62% 86%)`
+  return rgba(tierFor(v).color, cellAlpha(v))
+}
+
+// Once a cell is dark enough, black text stops being readable on it.
+function cellInk(v?: number): string | undefined {
+  if (!v) return undefined
+  return cellAlpha(v) > 0.5 ? '#fff' : undefined
 }
 
 export function BoardTable({ rows }: { rows: BoardRow[] }) {
@@ -106,9 +121,13 @@ function FragmentRow({ r, open, onToggle }: { r: BoardRow; open: boolean; onTogg
         </td>
         <td className="text-gray-500">{r.position ?? '—'}</td>
         <td className="text-center">{r.count}</td>
-        <td className="text-center font-black" style={{ background: cellBg(r.overallAvg) }}>{r.overallAvg || '—'}</td>
+        <td className="text-center font-black tabular-nums"
+          style={{ background: cellBg(r.overallAvg), color: cellInk(r.overallAvg) }}>
+          {r.overallAvg || '—'}
+        </td>
         {EVAL_CATEGORIES.map((c) => (
-          <td key={c.key} className="text-center font-semibold" style={{ background: cellBg(r.catAvg[c.key]) }}>
+          <td key={c.key} className="text-center font-semibold tabular-nums"
+            style={{ background: cellBg(r.catAvg[c.key]), color: cellInk(r.catAvg[c.key]) }}>
             {r.catAvg[c.key] ?? '—'}
           </td>
         ))}
@@ -121,15 +140,21 @@ function FragmentRow({ r, open, onToggle }: { r: BoardRow; open: boolean; onTogg
                 <div key={i} className="card p-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-bold text-sm">{ev.name}</span>
-                    <span className="text-xs font-black" style={{ color: 'var(--gh-green)' }}>{ev.overall ?? '—'}/5</span>
+                    <span className="text-xs font-black" style={{ color: 'var(--gh-green)' }}>{ev.overall ?? '—'}/100</span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-                    {EVAL_CATEGORIES.map((c) => (
-                      <div key={c.key} className="flex justify-between">
-                        <span className="text-gray-500 truncate">{c.label}</span>
-                        <span className="font-semibold">{ev.ratings?.[c.key] ?? '—'}</span>
-                      </div>
-                    ))}
+                    {EVAL_CATEGORIES.map((c) => {
+                      const rating = readRating(ev.ratings?.[c.key])
+                      return (
+                        <div key={c.key} className="flex justify-between gap-2" title={rating?.note ?? undefined}>
+                          <span className="text-gray-500 truncate">{c.label}</span>
+                          <span className="font-semibold tabular-nums shrink-0">
+                            {rating ? rating.score : '—'}
+                            {rating?.note && <span className="text-gray-400 ml-1">✎</span>}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                   {ev.playing_time && <div className="text-xs mt-2"><span className="text-gray-400">Playing time:</span> <b>{ev.playing_time}</b></div>}
                   {ev.strengths && <div className="text-xs mt-1"><span className="text-gray-400">Strengths:</span> {ev.strengths}</div>}

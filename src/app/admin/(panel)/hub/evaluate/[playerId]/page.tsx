@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase-server'
 import { getCurrentCoach } from '@/lib/coach'
 import { upsertEvaluation } from '@/lib/actions'
-import { EVAL_CATEGORIES, SCALE, PLAYING_TIME_OPTIONS, type Evaluation } from '@/lib/evaluations'
+import { EVAL_CATEGORIES, EVAL_SECTIONS, PLAYING_TIME_OPTIONS, readRating, type Evaluation } from '@/lib/evaluations'
+import { RatingSlider } from '@/components/admin/RatingSlider'
 import type { Player } from '@/lib/types'
 
 export const metadata = { title: 'Evaluate' }
@@ -62,23 +63,31 @@ export default async function EvaluateForm({
           <input name="position" defaultValue={ev?.position ?? player.position ?? ''} className="field max-w-xs" />
         </div>
 
-        {/* Skill ratings */}
-        <div>
-          <div className="field-label mb-2">Skill ratings <span className="text-gray-400 font-normal">(1 = {SCALE.labels[1]}, 5 = {SCALE.labels[5]})</span></div>
-          <div className="divide-y">
-            {EVAL_CATEGORIES.map((c) => (
-              <div key={c.key} className="flex items-center justify-between gap-3 py-2.5 flex-wrap">
-                <span className="font-semibold text-sm">{c.label}</span>
-                <Rating name={`cat_${c.key}`} value={ev?.ratings?.[c.key]} />
-              </div>
-            ))}
+        {/* Skill ratings — grouped, 0–100 sliders */}
+        {EVAL_SECTIONS.map((section) => (
+          <div key={section}>
+            <div className="section-label mb-2">{section}</div>
+            <div className="space-y-3">
+              {EVAL_CATEGORIES.filter((c) => c.section === section).map((c) => {
+                const saved = readRating(ev?.ratings?.[c.key])
+                return (
+                  <RatingSlider
+                    key={c.key}
+                    name={`cat_${c.key}`}
+                    label={c.label}
+                    defaultScore={saved?.score}
+                    defaultNote={saved?.note}
+                  />
+                )
+              })}
+            </div>
           </div>
-        </div>
+        ))}
 
         {/* Overall */}
-        <div className="flex items-center justify-between gap-3 flex-wrap border-t pt-4">
-          <span className="font-black">Overall</span>
-          <Rating name="overall" value={ev?.overall ?? undefined} />
+        <div className="border-t pt-4">
+          <div className="section-label mb-2">Overall</div>
+          <RatingSlider name="overall" label="Overall rating" defaultScore={ev?.overall ?? undefined} />
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
@@ -106,23 +115,13 @@ export default async function EvaluateForm({
           </div>
         </div>
 
-        <button type="submit" className="btn btn-primary">{ev ? 'Update evaluation' : 'Save evaluation'}</button>
+        <div className="sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white border-t rounded-b-xl">
+          <button type="submit" className="btn btn-primary w-full sm:w-auto">
+            {ev ? 'Update evaluation' : 'Save evaluation'}
+          </button>
+        </div>
       </form>
     </div>
   )
 }
 
-// 1–5 segmented rating control (native radios; works without client JS).
-function Rating({ name, value }: { name: string; value?: number }) {
-  return (
-    <div className="inline-flex gap-1.5">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <label key={n} className="relative cursor-pointer" title={SCALE.labels[n]}>
-          <input type="radio" name={name} value={n} defaultChecked={value === n} className="peer sr-only" />
-          <span className="peer-checked:bg-[var(--gh-green)] peer-checked:text-white peer-checked:border-transparent inline-flex items-center justify-center rounded-lg border font-black w-11 h-11 sm:w-10 sm:h-10 text-base transition-colors"
-            style={{ borderColor: 'var(--border)' }}>{n}</span>
-        </label>
-      ))}
-    </div>
-  )
-}

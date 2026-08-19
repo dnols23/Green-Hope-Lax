@@ -743,10 +743,16 @@ export async function upsertEvaluation(formData: FormData) {
   if (!playerId) return
   const season = str(formData.get('season')) || '2026'
 
-  const ratings: Record<string, number> = {}
+  // 0–100 slider score plus the optional note beside it. Both live in the
+  // existing `ratings` jsonb, so per-skill notes needed no schema change.
+  const ratings: Record<string, { score: number; note?: string }> = {}
   for (const c of EVAL_CATEGORIES) {
-    const v = Number(formData.get(`cat_${c.key}`))
-    if (v >= 1 && v <= 5) ratings[c.key] = v
+    const raw = formData.get(`cat_${c.key}`)
+    if (raw == null) continue
+    const score = Number(raw)
+    if (!Number.isFinite(score) || score < 0 || score > 100) continue
+    const note = str(formData.get(`note_${c.key}`))
+    ratings[c.key] = note ? { score, note } : { score }
   }
 
   const payload = {
