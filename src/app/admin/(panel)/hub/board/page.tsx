@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireHeadCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
-import { EVAL_CATEGORIES, ratingsAverage, type Evaluation } from '@/lib/evaluations'
+import { EVAL_CATEGORIES, ratingsAverage, readRating, type Evaluation } from '@/lib/evaluations'
 import { TEAM_LABELS, type Player, type TeamGroup } from '@/lib/types'
 import { BoardTable, type BoardRow } from './BoardTable'
 
@@ -32,7 +32,9 @@ export default async function EvaluationBoard() {
     if (!p) continue
     const catAvg: Record<string, number> = {}
     for (const c of EVAL_CATEGORIES) {
-      const vals = list.map((e) => e.ratings?.[c.key]).filter((v): v is number => typeof v === 'number' && v > 0)
+      const vals = list
+        .map((e) => readRating(e.ratings?.[c.key])?.score)
+        .filter((v): v is number => typeof v === 'number' && v > 0)
       if (vals.length) catAvg[c.key] = round1(vals.reduce((a, b) => a + b, 0) / vals.length)
     }
     const overalls = list.map((e) => (e.overall && e.overall > 0 ? e.overall : ratingsAverage(e.ratings))).filter((v) => v > 0)
