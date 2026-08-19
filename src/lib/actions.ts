@@ -784,13 +784,27 @@ function tempPassword(): string {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('')
 }
 
-// Creates the Supabase login AND the staff record, so the owner never has to
-// open the Supabase dashboard. Returns the temp password once, to hand over; the
-// coach is forced to replace it on first sign-in via the must_reset flag.
+export type CoachResult = FormState & {
+  email?: string
+  password?: string
+  /** generated = we made one up; chosen = the owner typed it; linked = login already existed */
+  outcome?: 'generated' | 'chosen' | 'linked'
+}
+
+// Finds the Supabase login behind a coach's username.
+async function findAuthUser(email: string) {
+  const svc = createServiceClient()
+  const { data } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+  return data?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase()) ?? null
+}
+
+// Creates the Supabase login AND the staff record, so the owner never has to open
+// the Supabase dashboard. The owner may type the password; leaving it blank makes
+// one up and forces the coach to replace it on first sign-in.
 export async function createCoachAccount(
   _prev: FormState,
   formData: FormData
-): Promise<FormState & { tempPassword?: string; email?: string; linked?: boolean }> {
+): Promise<CoachResult> {
   await requireOwner()
 
   const raw = str(formData.get('email')).toLowerCase().trim()
@@ -804,8 +818,13 @@ export async function createCoachAccount(
   const role = str(formData.get('role')) === 'head' ? 'head' : 'assistant'
   const permissions = formData.getAll('permissions').map(String).filter(Boolean)
 
+  const typed = str(formData.get('password'))
+  if (typed && typed.length < 8)
+    return { ok: false, error: 'A password you choose needs to be at least 8 characters.' }
+  const chosen = typed.length > 0
+  const pw = chosen ? typed : tempPassword()
+
   const svc = createServiceClient()
-  const pw = tempPassword()
   const { data: created, error } = await svc.auth.admin.createUser({
     email,
     password: pw,
@@ -813,12 +832,16 @@ export async function createCoachAccount(
   })
 
   // A login may already exist \u2014 coaches set up by hand before this page existed.
-  // Those people don't need a new account or a password reset; they just need a
-  // staff record so they show up here and their access can be set.
+  // Record them so their access can be set; only touch the password if the owner
+  // deliberately typed a new one.
   if (error && /already|registered|exists/i.test(error.message ?? '')) {
     await writeStaff({ email, name: display_name, role, isOwner: false, permissions })
+    if (chosen) {
+      const existing = await findAuthUser(email)
+      if (existing) await svc.auth.admin.updateUserById(existing.id, { password: pw })
+    }
     revalidatePath('/admin/access')
-    return { ok: true, linked: true, email }
+    return { ok: true, outcome: chosen ? 'chosen' : 'linked', email, password: chosen ? pw : undefined }
   }
 
   if (error || !created?.user) {
@@ -826,14 +849,35 @@ export async function createCoachAccount(
   }
 
   await writeStaff({ email, name: display_name, role, isOwner: false, permissions })
-  // Force them onto their own password the first time they sign in.
-  await svc.from('app_settings').upsert(
-    { key: `must_reset:${created.user.id}`, value: '1' },
-    { onConflict: 'key' }
-  )
+
+  // Only force a change when the coach never chose the password themselves and
+  // the owner didn't pick one either.
+  if (!chosen) {
+    await svc.from('app_settings').upsert(
+      { key: `must_reset:${created.user.id}`, value: '1' },
+      { onConflict: 'key' }
+    )
+  }
 
   revalidatePath('/admin/access')
-  return { ok: true, tempPassword: pw, email }
+  return { ok: true, outcome: chosen ? 'chosen' : 'generated', email, password: pw }
+}
+
+// Set a coach's password from the Coach Access page.
+export async function setCoachPassword(formData: FormData) {
+  await requireOwner()
+  const email = str(formData.get('email')).toLowerCase()
+  const pw = str(formData.get('password'))
+  if (!email || pw.length < 8) return
+
+  const user = await findAuthUser(email)
+  if (!user) return
+
+  const svc = createServiceClient()
+  await svc.auth.admin.updateUserById(user.id, { password: pw })
+  // They know this password now, so drop any leftover forced-change flag.
+  await svc.from('app_settings').delete().eq('key', `must_reset:${user.id}`)
+  revalidatePath('/admin/access')
 }
 
 // Tick/untick which sections a coach may open.
