@@ -4,12 +4,31 @@ import { createCoachAccount } from '@/lib/actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { GRANTABLE } from '@/lib/sections'
 
-type State = { ok: boolean; error?: string; tempPassword?: string; email?: string }
+type State = { ok: boolean; error?: string; tempPassword?: string; email?: string; linked?: boolean }
 const initial: State = { ok: false }
 
 export function AddCoachForm({ loginUrl }: { loginUrl: string }) {
   const [state, formAction] = useActionState(createCoachAccount, initial)
   const [copied, setCopied] = useState(false)
+
+  // The login already existed — set up by hand before this page did. Nothing was
+  // created and no password was touched; we just recorded who they are.
+  if (state.ok && state.linked) {
+    return (
+      <div className="card p-5 mb-6 border-2" style={{ borderColor: 'var(--gh-green)' }}>
+        <h2 className="font-black mb-1" style={{ color: 'var(--gh-green-dk)' }}>
+          {state.email} added
+        </h2>
+        <p className="text-sm text-gray-600 mb-3">
+          They already had a sign-in, so nothing was created and their password is unchanged. Their
+          access is set below &mdash; adjust it any time.
+        </p>
+        <a href="/admin/access" className="text-sm font-bold text-[var(--gh-green)]">
+          Add another coach &rarr;
+        </a>
+      </div>
+    )
+  }
 
   // Shown once, right after the account is made. Nobody can read this password
   // back afterwards — Supabase stores only a hash of it.
@@ -57,8 +76,8 @@ You'll be asked to pick your own password the first time you sign in.`
     <form action={formAction} className="card p-5 mb-6">
       <h2 className="font-bold text-gray-700 mb-1">Add a coach</h2>
       <p className="text-xs text-gray-500 mb-4">
-        Creates their sign-in for you. Give them the temporary password that appears, and they
-        choose their own on first use.
+        Creates their sign-in and hands you a temporary password to pass on. If they already have
+        a login, this just records them here &mdash; their password stays as it is.
       </p>
 
       <div className="grid sm:grid-cols-2 gap-3">
