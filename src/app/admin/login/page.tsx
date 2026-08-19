@@ -47,9 +47,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-white/40 mt-4">
-          Admin accounts are created in the Supabase dashboard.
-        </p>
       </div>
     </div>
   )
