@@ -790,7 +790,7 @@ function tempPassword(): string {
 export async function createCoachAccount(
   _prev: FormState,
   formData: FormData
-): Promise<FormState & { tempPassword?: string; email?: string }> {
+): Promise<FormState & { tempPassword?: string; email?: string; linked?: boolean }> {
   await requireOwner()
 
   const raw = str(formData.get('email')).toLowerCase().trim()
@@ -812,14 +812,17 @@ export async function createCoachAccount(
     email_confirm: true,
   })
 
+  // A login may already exist \u2014 coaches set up by hand before this page existed.
+  // Those people don't need a new account or a password reset; they just need a
+  // staff record so they show up here and their access can be set.
+  if (error && /already|registered|exists/i.test(error.message ?? '')) {
+    await writeStaff({ email, name: display_name, role, isOwner: false, permissions })
+    revalidatePath('/admin/access')
+    return { ok: true, linked: true, email }
+  }
+
   if (error || !created?.user) {
-    const msg = error?.message ?? 'Could not create that login.'
-    return {
-      ok: false,
-      error: /already/i.test(msg)
-        ? 'A login already exists for that username \u2014 set their access below instead.'
-        : msg,
-    }
+    return { ok: false, error: error?.message ?? 'Could not create that login.' }
   }
 
   await writeStaff({ email, name: display_name, role, isOwner: false, permissions })
