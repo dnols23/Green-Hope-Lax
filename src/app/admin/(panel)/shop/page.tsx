@@ -4,6 +4,7 @@ import { getShopSettings } from '@/lib/queries'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import { formatPrice, SHOP_CATEGORY_ORDER, type Product } from '@/lib/types'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage Shop' }
 
@@ -69,6 +70,7 @@ function ProductFields({ p }: { p?: Product }) {
 }
 
 export default async function AdminShopPage() {
+  await requireSection('shop')
   const supabase = await createClient()
   const [{ data }, settings] = await Promise.all([
     supabase.from('products').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true }),

@@ -4,6 +4,7 @@ import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { NewsPost } from '@/lib/types'
 import { formatShortDate } from '@/lib/format'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage News' }
 
@@ -50,6 +51,7 @@ function NewsFields({ n }: { n?: NewsPost }) {
 }
 
 export default async function AdminNewsPage() {
+  await requireSection('news')
   const supabase = await createClient()
   const { data } = await supabase.from('news_posts').select('*').order('published_at', { ascending: false })
   const posts = (data as NewsPost[]) ?? []

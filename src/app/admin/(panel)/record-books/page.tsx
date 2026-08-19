@@ -3,6 +3,7 @@ import { upsertProgramStat, deleteProgramStat } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import { STAT_SECTION_META, type ProgramStat, type StatSection } from '@/lib/types'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage Record Books' }
 
@@ -59,6 +60,7 @@ function StatFields({ s }: { s?: ProgramStat }) {
 }
 
 export default async function AdminStatsPage() {
+  await requireSection('record-books')
   const supabase = await createClient()
   const { data } = await supabase
     .from('program_stats')

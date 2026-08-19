@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase-server'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { PageSetting } from '@/lib/types'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage Pages' }
 
 export default async function AdminPagesPage() {
+  await requireSection('pages')
   const supabase = await createClient()
   const { data } = await supabase
     .from('page_settings')
