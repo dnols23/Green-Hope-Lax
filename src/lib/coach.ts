@@ -1,10 +1,15 @@
 import { notFound } from 'next/navigation'
 import { createClient, createServiceClient } from './supabase-server'
 import type { CoachAccount, CoachRole } from './evaluations'
+import { readStaff } from './staff'
 
 // Who is the signed-in coach, and are they Head or Assistant? Coach identity is
-// their Supabase auth email (the synthetic `<username>@ghfalcons.local`). Role
-// comes from coach_accounts; a coach with no row is treated as an assistant.
+// their Supabase auth email (the synthetic `<username>@ghfalcons.local`).
+//
+// The role comes from the staff record the owner edits in Coach Access. The old
+// coach_accounts table is still consulted for anyone set up before that page
+// existed, so nobody loses their Head role mid-season; the owner is always Head,
+// since they run the program.
 
 export interface CurrentCoach {
   email: string
@@ -18,13 +23,25 @@ export async function getCurrentCoach(): Promise<CurrentCoach | null> {
   if (!user?.email) return null
   const email = user.email.toLowerCase()
 
+  // What the owner set on Coach Access wins.
+  const record = await readStaff(email)
+  if (record) {
+    return {
+      email,
+      name: record.name,
+      role: record.isOwner ? 'head' : record.role,
+    }
+  }
+
+  // Set up before Coach Access existed — fall back to the original table.
   const svc = createServiceClient()
   const { data } = await svc.from('coach_accounts').select('*').eq('email', email).maybeSingle()
   if (data) {
     const acct = data as CoachAccount
     return { email, name: acct.display_name, role: acct.role }
   }
-  // No account row yet — default to assistant; derive a friendly name from the login.
+
+  // Nothing recorded anywhere — default to assistant; derive a name from the login.
   const name = email.split('@')[0].replace(/^hc/i, '').replace(/[._-]+/g, ' ').trim() || email
   return { email, name: titleCase(name), role: 'assistant' }
 }
