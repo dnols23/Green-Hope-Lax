@@ -1,11 +1,18 @@
 import Link from 'next/link'
 import { getCurrentCoach } from '@/lib/coach'
+import { createServiceClient } from '@/lib/supabase-server'
 
 export const metadata = { title: 'Coaches Hub' }
 
 export default async function CoachesHub() {
   const coach = await getCurrentCoach()
   const isHead = coach?.role === 'head'
+
+  // Evaluations save into their own table. If it isn't there, saving fails
+  // silently — a coach fills in a whole evaluation and loses it — so say so up
+  // front rather than letting them find out the hard way.
+  const svc = createServiceClient()
+  const { error: evalError } = await svc.from('evaluations').select('id').limit(1)
 
   const cards = [
     { href: '/admin/hub/evaluate', emoji: '📝', title: 'Evaluate a player', desc: 'Rate a player across skill categories and add notes.', accent: 'var(--gh-green)' },
@@ -20,6 +27,18 @@ export default async function CoachesHub() {
 
   return (
     <div>
+      {evalError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-4">
+          <p className="text-sm text-amber-900 font-bold mb-1">Evaluations aren&rsquo;t switched on yet.</p>
+          <p className="text-sm text-amber-900">
+            The evaluations table hasn&rsquo;t been created in the database, so anything filled in
+            here would be lost when saved. Run{' '}
+            <code>supabase/migrations/0009_coaches_hub.sql</code> in the Supabase SQL editor to turn
+            it on. Nothing else on the site is affected.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
         <h1 className="text-xl font-black">Coaches Hub</h1>
         {coach && (
