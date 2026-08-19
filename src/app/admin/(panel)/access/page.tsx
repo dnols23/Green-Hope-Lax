@@ -119,6 +119,7 @@ export default async function CoachAccessPage() {
                       placeholder="At least 8 characters"
                       minLength={8}
                       autoComplete="new-password"
+                      hint="They’ll be asked to choose their own next time they sign in."
                     />
                   </div>
                   <button type="submit" className="btn btn-ghost text-sm">

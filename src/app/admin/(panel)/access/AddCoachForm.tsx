@@ -23,7 +23,7 @@ export function AddCoachForm({ loginUrl }: { loginUrl: string }) {
 
 Sign in: ${loginUrl}
 Username: ${state.email}${state.password ? `\nPassword: ${state.password}` : ''}
-${state.outcome === 'generated' ? "\nYou'll be asked to pick your own password the first time you sign in." : ''}`
+\nYou'll be asked to choose your own password the first time you sign in.`
 
     return (
       <div className="card p-5 mb-6 border-2" style={{ borderColor: 'var(--gh-green)' }}>
@@ -33,11 +33,11 @@ ${state.outcome === 'generated' ? "\nYou'll be asked to pick your own password t
 
         <p className="text-sm text-gray-600 mb-3">
           {state.outcome === 'linked' &&
-            'They already had a sign-in, so nothing was created and their password is unchanged.'}
+            'They keep their existing password. They’ll be asked to choose their own the next time they sign in.'}
           {state.outcome === 'chosen' &&
-            'They sign in with the password you set. Nothing else to do — tick their access below any time.'}
+            'Pass this on. They’ll be asked to choose their own password the first time they sign in.'}
           {state.outcome === 'generated' &&
-            "Copy this now — it can't be shown again. They'll pick their own password the first time they sign in."}
+            "Copy this now — it can’t be shown again. They’ll be asked to choose their own password the first time they sign in."}
         </p>
 
         {state.password && (
@@ -72,8 +72,9 @@ ${state.outcome === 'generated' ? "\nYou'll be asked to pick your own password t
     <form action={formAction} className="card p-5 mb-6">
       <h2 className="font-bold text-gray-700 mb-1">Add a coach</h2>
       <p className="text-xs text-gray-500 mb-4">
-        Set their username and password here and tell them what it is. If they already have a
-        login, this records them without changing anything &mdash; unless you type a new password.
+        Set their username and a starting password, and tell them what it is. They&rsquo;ll be
+        asked to choose their own the first time they sign in. If they already have a login, this
+        records them without changing their password &mdash; unless you type a new one.
       </p>
 
       <div className="grid sm:grid-cols-2 gap-3">
@@ -96,7 +97,7 @@ ${state.outcome === 'generated' ? "\nYou'll be asked to pick your own password t
             placeholder="Leave blank to generate one"
             minLength={8}
             autoComplete="new-password"
-            hint="At least 8 characters. Blank generates one and makes them change it on first sign-in."
+            hint="At least 8 characters, or leave blank to generate one. Either way they choose their own the first time they sign in."
           />
         </div>
         <div>
