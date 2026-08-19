@@ -1,6 +1,7 @@
 import { requireOwner, GRANTABLE } from '@/lib/permissions'
 import { listStaff } from '@/lib/staff'
-import { setCoachAccess, removeCoachAccount, claimOwnership } from '@/lib/actions'
+import { setCoachAccess, removeCoachAccount, claimOwnership, setCoachPassword } from '@/lib/actions'
+import { PasswordField } from '@/components/PasswordField'
 import { AddCoachForm } from './AddCoachForm'
 
 export const metadata = { title: 'Coach Access' }
@@ -102,6 +103,27 @@ export default async function CoachAccessPage() {
                       Save access
                     </button>
                   </div>
+                </form>
+              )}
+
+              {!c.isOwner && (
+                <form
+                  action={setCoachPassword}
+                  className="flex items-end gap-3 flex-wrap mt-4 pt-4 border-t border-gray-100"
+                >
+                  <input type="hidden" name="email" value={c.email} />
+                  <div className="min-w-[240px]">
+                    <PasswordField
+                      name="password"
+                      label="Set a new password"
+                      placeholder="At least 8 characters"
+                      minLength={8}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-ghost text-sm">
+                    Change password
+                  </button>
                 </form>
               )}
             </div>
