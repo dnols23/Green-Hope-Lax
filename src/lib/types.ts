@@ -248,3 +248,50 @@ export const EXPERIENCE_LABELS: Record<ExperienceLevel, string> = {
   some: 'Some experience',
   experienced: 'Experienced',
 }
+
+// ── Equipment inventory ──────────────────────────────────────────────────────
+export type InventoryTeam = 'program' | 'varsity' | 'jv'
+export type InventoryCondition = 'new' | 'good' | 'worn' | 'retire'
+
+export interface InventoryItem {
+  id: string
+  team: InventoryTeam
+  category: string
+  item: string
+  size: string | null
+  quantity: number
+  condition: InventoryCondition
+  location: string | null
+  notes: string | null
+  updated_at: string
+  created_at: string
+}
+
+export const INVENTORY_TEAM_LABELS: Record<InventoryTeam, string> = {
+  program: 'Program',
+  varsity: 'Varsity',
+  jv: 'JV',
+}
+
+export const INVENTORY_CONDITION_LABELS: Record<InventoryCondition, string> = {
+  new: 'New',
+  good: 'Good',
+  worn: 'Worn',
+  retire: 'Retire',
+}
+
+// Kept loose on purpose — a coach can type anything, these just seed the picker.
+export const INVENTORY_CATEGORIES = [
+  'Helmets',
+  'Shoulder pads',
+  'Gloves',
+  'Arm pads',
+  'Sticks',
+  'Goalie gear',
+  'Balls',
+  'Pinnies',
+  'Uniforms',
+  'Field equipment',
+  'Medical',
+  'Other',
+]
