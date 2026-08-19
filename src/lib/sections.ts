@@ -22,6 +22,9 @@ export const SECTIONS: AdminSection[] = [
   { key: 'team',         label: 'Team Hub',     href: '/admin/team' },
   { key: 'schedule',     label: 'Schedule',     href: '/admin/schedule' },
   { key: 'roster',       label: 'Roster',       href: '/admin/roster' },
+  { key: 'roster-jv',    label: 'JV Roster',    href: '/admin/roster' },
+  { key: 'inventory',    label: 'Inventory',    href: '/admin/inventory' },
+  { key: 'inventory-jv', label: 'JV Inventory', href: '/admin/inventory' },
   { key: 'news',         label: 'News',         href: '/admin/news' },
   { key: 'record-books', label: 'Record Books', href: '/admin/record-books' },
   { key: 'awards',       label: 'Awards',       href: '/admin/awards' },
@@ -56,7 +59,34 @@ export function canSee(viewer: Viewer | null, key: string): boolean {
   return viewer.permissions.includes(key)
 }
 
-/** Sections to show this viewer in the nav, in SECTIONS order. */
+/**
+ * Sections to show this viewer in the nav, in SECTIONS order.
+ *
+ * A JV-scoped section points at the same page as its full-team counterpart, so
+ * someone holding both would otherwise get the link twice. SECTIONS lists the
+ * broader one first, so keeping the first entry per page shows "Roster" to the
+ * head coach and "JV Roster" to the JV coach.
+ */
 export function visibleSections(viewer: Viewer | null): AdminSection[] {
-  return SECTIONS.filter((s) => canSee(viewer, s.key))
+  const seen = new Set<string>()
+  return SECTIONS.filter((s) => {
+    if (!canSee(viewer, s.key)) return false
+    if (seen.has(s.href)) return false
+    seen.add(s.href)
+    return true
+  })
+}
+
+/**
+ * A page reachable by either a full-team or a JV-only grant. Returns which one
+ * applies, so the page can lock a JV coach to their own team.
+ */
+export function teamScope(
+  viewer: Viewer | null,
+  fullKey: string,
+  jvKey: string
+): 'none' | 'jv' | 'all' {
+  if (canSee(viewer, fullKey)) return 'all'
+  if (canSee(viewer, jvKey)) return 'jv'
+  return 'none'
 }

@@ -13,7 +13,7 @@ import {
 } from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
-import { requireOwner, getViewer } from './permissions'
+import { requireOwner, getViewer, requireTeamScope } from './permissions'
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
@@ -503,10 +503,18 @@ export async function setVisibility(entity: keyof typeof VISIBILITY, id: string,
 
 // ── players ──
 export async function upsertPlayer(formData: FormData) {
+  // A JV-only coach may only touch JV players, whatever the form says.
+  const { scope } = await requireTeamScope('roster', 'roster-jv')
   const supabase = await createClient()
   const id = str(formData.get('id'))
+
+  if (scope === 'jv' && id) {
+    const { data: existing } = await supabase.from('players').select('team').eq('id', id).maybeSingle()
+    if (existing && (existing as { team: string }).team !== 'boys_jv') return
+  }
+
   const payload = {
-    team: str(formData.get('team')) || 'boys_varsity',
+    team: scope === 'jv' ? 'boys_jv' : str(formData.get('team')) || 'boys_varsity',
     name: str(formData.get('name')),
     number: str(formData.get('number')) || null,
     position: str(formData.get('position')) || null,
@@ -525,6 +533,13 @@ export async function upsertPlayer(formData: FormData) {
 }
 
 export async function deletePlayer(id: string) {
+  const { scope } = await requireTeamScope('roster', 'roster-jv')
+  if (scope === 'jv') {
+    const check = await createClient()
+    const { data: existing } = await check.from('players').select('team').eq('id', id).maybeSingle()
+    if (!existing || (existing as { team: string }).team !== 'boys_jv') return
+  }
+
   const supabase = await createClient()
   await supabase.from('players').delete().eq('id', id)
   revalidatePath('/roster')
@@ -948,4 +963,57 @@ export async function setCoachRole(formData: FormData) {
   const supabase = createServiceClient()
   await supabase.from('coach_accounts').upsert({ email, display_name, role }, { onConflict: 'email' })
   revalidatePath('/admin/hub/coaches')
+}
+
+// ── Equipment inventory ──────────────────────────────────────────────────────
+// A coach granted only "JV Inventory" can read and change JV rows and nothing
+// else, enforced here rather than only in the page, so a crafted form can't
+// reach varsity or program-wide gear.
+
+export async function upsertInventoryItem(formData: FormData) {
+  const { scope } = await requireTeamScope('inventory', 'inventory-jv')
+  const svc = createServiceClient()
+  const id = str(formData.get('id'))
+
+  if (scope === 'jv' && id) {
+    const { data: existing } = await svc.from('team_inventory').select('team').eq('id', id).maybeSingle()
+    if (!existing || (existing as { team: string }).team !== 'jv') return
+  }
+
+  const requested = str(formData.get('team'))
+  const team = scope === 'jv'
+    ? 'jv'
+    : (['program', 'varsity', 'jv'].includes(requested) ? requested : 'program')
+
+  const item = str(formData.get('item'))
+  if (!item) return
+
+  const payload = {
+    team,
+    category: str(formData.get('category')) || 'Other',
+    item,
+    size: str(formData.get('size')) || null,
+    quantity: Math.max(0, Number(formData.get('quantity') ?? 0) || 0),
+    condition: ['new', 'good', 'worn', 'retire'].includes(str(formData.get('condition')))
+      ? str(formData.get('condition'))
+      : 'good',
+    location: str(formData.get('location')) || null,
+    notes: str(formData.get('notes')) || null,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (id) await svc.from('team_inventory').update(payload).eq('id', id)
+  else await svc.from('team_inventory').insert(payload)
+  revalidatePath('/admin/inventory')
+}
+
+export async function deleteInventoryItem(id: string) {
+  const { scope } = await requireTeamScope('inventory', 'inventory-jv')
+  const svc = createServiceClient()
+  if (scope === 'jv') {
+    const { data: existing } = await svc.from('team_inventory').select('team').eq('id', id).maybeSingle()
+    if (!existing || (existing as { team: string }).team !== 'jv') return
+  }
+  await svc.from('team_inventory').delete().eq('id', id)
+  revalidatePath('/admin/inventory')
 }

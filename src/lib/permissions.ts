@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from './supabase-server'
 import { readStaff, hasOwner } from './staff'
-import { canSee, type Viewer } from './sections'
+import { canSee, teamScope, type Viewer } from './sections'
 
 // ── The three ways in ────────────────────────────────────────────────────────
 //   Parents & players  the Team Hub shared code (see teamAuth.ts)
@@ -15,7 +15,7 @@ import { canSee, type Viewer } from './sections'
 // Server-only — reads cookies and the database. Client components that just need
 // the section list should import from ./sections instead.
 
-export { SECTIONS, GRANTABLE, canSee, visibleSections } from './sections'
+export { SECTIONS, GRANTABLE, canSee, visibleSections, teamScope } from './sections'
 export type { AdminSection, Viewer, StaffRole } from './sections'
 
 export async function getViewer(): Promise<Viewer | null> {
@@ -61,6 +61,21 @@ export async function requireSection(key: string): Promise<Viewer> {
   const viewer = await getViewer()
   if (!canSee(viewer, key)) notFound()
   return viewer as Viewer
+}
+
+/**
+ * Guard for a page two grants can reach: the full-team one, or the JV-only one.
+ * Returns the viewer plus which scope applies, so the page can limit a JV coach
+ * to their own team rather than hiding the page entirely.
+ */
+export async function requireTeamScope(
+  fullKey: string,
+  jvKey: string
+): Promise<{ viewer: Viewer; scope: 'jv' | 'all' }> {
+  const viewer = await getViewer()
+  const scope = teamScope(viewer, fullKey, jvKey)
+  if (scope === 'none') notFound()
+  return { viewer: viewer as Viewer, scope }
 }
 
 export async function requireOwner(): Promise<Viewer> {

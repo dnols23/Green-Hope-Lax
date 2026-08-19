@@ -3,23 +3,25 @@ import { upsertPlayer, deletePlayer } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import { TEAM_LABELS, type Player } from '@/lib/types'
-import { requireSection } from '@/lib/permissions'
+import { requireTeamScope } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage Roster' }
 
-function PlayerFields({ p }: { p?: Player }) {
+function PlayerFields({ p, jvOnly }: { p?: Player; jvOnly: boolean }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       <div>
         <label className="field-label">Name *</label>
         <input name="name" required defaultValue={p?.name ?? ''} className="field" />
       </div>
-      <div>
-        <label className="field-label">Team *</label>
-        <select name="team" defaultValue={p?.team ?? 'boys_varsity'} className="field">
-          {Object.entries(TEAM_LABELS).filter(([v]) => v !== 'girls').map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-      </div>
+      {!jvOnly && (
+        <div>
+          <label className="field-label">Team *</label>
+          <select name="team" defaultValue={p?.team ?? 'boys_varsity'} className="field">
+            {Object.entries(TEAM_LABELS).filter(([v]) => v !== 'girls').map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+      )}
       <div>
         <label className="field-label">Number</label>
         <input name="number" defaultValue={p?.number ?? ''} className="field" />
@@ -64,19 +66,25 @@ function PlayerFields({ p }: { p?: Player }) {
 }
 
 export default async function AdminRosterPage() {
-  await requireSection('roster')
+  // Reachable with the full roster grant or the JV-only one; a JV coach sees and
+  // edits JV players only, enforced again in upsertPlayer/deletePlayer.
+  const { scope } = await requireTeamScope('roster', 'roster-jv')
+  const jvOnly = scope === 'jv'
+
   const supabase = await createClient()
-  const { data } = await supabase.from('players').select('*').order('team').order('sort_order')
+  let query = supabase.from('players').select('*').order('team').order('sort_order')
+  if (jvOnly) query = query.eq('team', 'boys_jv')
+  const { data } = await query
   const players = (data as Player[]) ?? []
 
   return (
     <div>
-      <h1 className="text-xl font-black mb-4">Roster</h1>
+      <h1 className="text-xl font-black mb-4">{jvOnly ? 'JV Roster' : 'Roster'}</h1>
 
       <div className="card p-5 mb-6">
         <h2 className="font-bold text-gray-700 mb-4">Add Player</h2>
         <form action={upsertPlayer} className="space-y-4">
-          <PlayerFields />
+          <PlayerFields jvOnly={jvOnly} />
           <button type="submit" className="btn btn-primary">Add player</button>
         </form>
       </div>
@@ -97,7 +105,7 @@ export default async function AdminRosterPage() {
             </summary>
             <form action={upsertPlayer} className="mt-4 space-y-4">
               <input type="hidden" name="id" value={p.id} />
-              <PlayerFields p={p} />
+              <PlayerFields p={p} jvOnly={jvOnly} />
               <button type="submit" className="btn btn-primary">Save changes</button>
             </form>
           </details>
