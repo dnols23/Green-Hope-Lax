@@ -20,10 +20,11 @@ export interface Tier {
   ink: string
 }
 
-// Falcon colours carry the meaning: pale for developing, program green for a
-// high-school starter, maroon at the top end.
+// Green Hope's own palette carries the meaning, start to finish: a pale tint of
+// the program green for developing, full forest green for a high-school starter,
+// maroon at the top end. No colour here is from outside the brand.
 export const TIERS: Tier[] = [
-  { key: 'developing', label: 'Developing',       min: 0,  color: '#93B4CE', soft: '#E8F0F6', ink: '#2C536F' },
+  { key: 'developing', label: 'Developing',       min: 0,  color: '#A9C6B4', soft: '#EAF2ED', ink: '#3D6B52' },
   { key: 'starter',    label: 'HS Starter',       min: 34, color: '#00693E', soft: '#DFEFE7', ink: '#00512F' },
   { key: 'collegiate', label: 'Collegiate Level', min: 67, color: '#7A1F2B', soft: '#F7E4E7', ink: '#7A1F2B' },
 ]
@@ -37,7 +38,7 @@ export function tierFor(score: number | null | undefined): Tier {
 
 /** The slider track: one continuous run from pale through green into maroon. */
 export const RATING_GRADIENT =
-  `linear-gradient(90deg, #F4F8FB 0%, ${TIERS[0].color} 22%, ${TIERS[1].color} 55%, ${TIERS[2].color} 88%, #5C1721 100%)`
+  `linear-gradient(90deg, #F2F7F4 0%, ${TIERS[0].color} 22%, ${TIERS[1].color} 55%, ${TIERS[2].color} 88%, #5C1721 100%)`
 
 export interface EvalCategory {
   key: string
