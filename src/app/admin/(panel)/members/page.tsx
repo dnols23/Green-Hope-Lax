@@ -1,6 +1,7 @@
 import { getTeamMembers } from '@/lib/queries'
 import { ExportCsvButton } from '@/components/admin/ExportCsvButton'
 import { formatShortDate } from '@/lib/format'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Team Members' }
 export const dynamic = 'force-dynamic'
@@ -8,6 +9,7 @@ export const dynamic = 'force-dynamic'
 const fmt = formatShortDate
 
 export default async function AdminMembersPage() {
+  await requireSection('members')
   const members = await getTeamMembers()
   const optedIn = members.filter((m) => m.email_opt_in).length
 

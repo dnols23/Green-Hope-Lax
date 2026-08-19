@@ -8,6 +8,7 @@ import { PublishToggle } from '@/components/admin/PublishToggle'
 import { TEAM_CATEGORY_META, type TeamPost, type TeamPostCategory } from '@/lib/types'
 import { formatShortDate } from '@/lib/format'
 import { PasswordField } from '@/components/PasswordField'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage Team Hub' }
 export const dynamic = 'force-dynamic'
@@ -74,6 +75,7 @@ function PostFields({ p }: { p?: TeamPost }) {
 }
 
 export default async function AdminTeamPage() {
+  await requireSection('team')
   const posts = await getTeamPosts(true) // include drafts
 
   // The join code, for the instructions a coach sends families. Null until the

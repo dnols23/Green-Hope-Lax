@@ -3,6 +3,7 @@ import { upsertCoach, deleteCoach } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { Coach } from '@/lib/types'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage Coaches' }
 
@@ -49,6 +50,7 @@ function CoachFields({ c }: { c?: Coach }) {
 }
 
 export default async function AdminCoachesPage() {
+  await requireSection('coaches')
   const supabase = await createClient()
   const { data } = await supabase.from('coaches').select('*').order('sort_order')
   const coaches = (data as Coach[]) ?? []

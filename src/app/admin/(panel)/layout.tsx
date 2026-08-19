@@ -2,26 +2,10 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { logout } from '@/lib/actions'
 import { createClient, createServiceClient } from '@/lib/supabase-server'
+import { getViewer, visibleSections } from '@/lib/permissions'
 import { FalconHead } from '@/components/Logo'
 
-const ADMIN_LINKS = [
-  { href: '/admin', label: 'Dashboard' },
-  { href: '/admin/hub', label: 'Coaches Hub' },
-  { href: '/admin/team', label: 'Team Hub' },
-  { href: '/admin/members', label: 'Members' },
-  { href: '/admin/submissions', label: 'Submissions' },
-  { href: '/admin/schedule', label: 'Schedule' },
-  { href: '/admin/record-books', label: 'Record Books' },
-  { href: '/admin/roster', label: 'Roster' },
-  { href: '/admin/coaches', label: 'Coaches' },
-  { href: '/admin/awards', label: 'Awards' },
-  { href: '/admin/news', label: 'News' },
-  { href: '/admin/shop', label: 'Shop' },
-  { href: '/admin/pages', label: 'Pages' },
-  // Coaches get into the Team Hub's Film Room with their admin session —
-  // no Team Hub registration needed.
-  { href: '/team/video', label: 'Film Room' },
-]
+// Nav comes from SECTIONS in lib/permissions, filtered per viewer.
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Force first-login password reset for coaches flagged with must_reset.
@@ -37,16 +21,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     if (flag) redirect('/admin/reset-password')
   }
 
+  // Nav is built from what this viewer may actually open. Pages enforce the same
+  // rule themselves via requireSection, so hiding a link is presentation only —
+  // typing the URL still gets a 404.
+  const viewer = await getViewer()
+  const links = visibleSections(viewer)
+  const tier = viewer?.isOwner ? 'Admin' : 'Coaches'
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="text-white" style={{ background: 'var(--gh-green-dk)' }}>
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/admin" className="flex items-center gap-2 font-black">
-              <FalconHead size={28} /> Falcons <span className="text-white/50 font-normal text-sm">Admin</span>
+              <FalconHead size={28} /> Falcons <span className="text-white/50 font-normal text-sm">{tier}</span>
             </Link>
             <nav className="hidden md:flex gap-1">
-              {ADMIN_LINKS.map(({ href, label }) => (
+              {links.map(({ href, label }) => (
                 <Link key={href} href={href} className="px-3 py-1.5 text-sm font-semibold text-white/75 hover:text-white hover:bg-white/10 rounded transition-colors">
                   {label}
                 </Link>
@@ -63,7 +54,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {/* Mobile nav */}
         <div className="md:hidden overflow-x-auto" style={{ background: 'var(--gh-green-darker)' }}>
           <div className="flex gap-1 px-3 py-2 min-w-max">
-            {ADMIN_LINKS.map(({ href, label }) => (
+            {links.map(({ href, label }) => (
               <Link key={href} href={href} className="px-3 py-1.5 text-xs font-semibold text-white/75 hover:text-white hover:bg-white/10 rounded whitespace-nowrap">
                 {label}
               </Link>

@@ -13,6 +13,8 @@ import {
 } from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
+import { requireOwner, getViewer } from './permissions'
+import { readStaff, writeStaff, deleteStaff } from './staff'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
 
@@ -47,9 +49,12 @@ export async function login(formData: FormData) {
 }
 
 export async function logout() {
+  // Send people back through the door they came in by.
+  const viewer = await getViewer()
+  const door = viewer?.isOwner ? '/admin/login' : '/staff'
   const supabase = await createClient()
   await supabase.auth.signOut()
-  redirect('/admin/login')
+  redirect(door)
 }
 
 // First-login forced reset: a coach with a `must_reset:<uid>` flag in app_settings
@@ -765,6 +770,113 @@ export async function deleteEvaluation(id: string) {
   }
   revalidatePath('/admin/hub/mine')
   revalidatePath('/admin/hub/board')
+}
+
+// ── Coach access: create logins and set what each coach may open (owner only) ──
+// Staff records live in app_settings (see lib/staff), so switching coach
+// sign-ins on needs no database migration.
+
+// Readable temp password: no ambiguous characters, so it survives being read
+// aloud or copied out of an email.
+function tempPassword(): string {
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  const bytes = crypto.getRandomValues(new Uint8Array(14))
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('')
+}
+
+// Creates the Supabase login AND the staff record, so the owner never has to
+// open the Supabase dashboard. Returns the temp password once, to hand over; the
+// coach is forced to replace it on first sign-in via the must_reset flag.
+export async function createCoachAccount(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState & { tempPassword?: string; email?: string }> {
+  await requireOwner()
+
+  const raw = str(formData.get('email')).toLowerCase().trim()
+  if (!raw) return { ok: false, error: 'Enter a login username for the coach.' }
+  // Bare usernames get the program's synthetic domain, matching existing logins.
+  const email = raw.includes('@') ? raw : `${raw.replace(/\s+/g, '')}@ghfalcons.local`
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+    return { ok: false, error: 'That login doesn\u2019t look valid.' }
+
+  const display_name = str(formData.get('display_name')) || email.split('@')[0]
+  const role = str(formData.get('role')) === 'head' ? 'head' : 'assistant'
+  const permissions = formData.getAll('permissions').map(String).filter(Boolean)
+
+  const svc = createServiceClient()
+  const pw = tempPassword()
+  const { data: created, error } = await svc.auth.admin.createUser({
+    email,
+    password: pw,
+    email_confirm: true,
+  })
+
+  if (error || !created?.user) {
+    const msg = error?.message ?? 'Could not create that login.'
+    return {
+      ok: false,
+      error: /already/i.test(msg)
+        ? 'A login already exists for that username \u2014 set their access below instead.'
+        : msg,
+    }
+  }
+
+  await writeStaff({ email, name: display_name, role, isOwner: false, permissions })
+  // Force them onto their own password the first time they sign in.
+  await svc.from('app_settings').upsert(
+    { key: `must_reset:${created.user.id}`, value: '1' },
+    { onConflict: 'key' }
+  )
+
+  revalidatePath('/admin/access')
+  return { ok: true, tempPassword: pw, email }
+}
+
+// Tick/untick which sections a coach may open.
+export async function setCoachAccess(formData: FormData) {
+  await requireOwner()
+  const email = str(formData.get('email')).toLowerCase()
+  if (!email) return
+  const existing = await readStaff(email)
+  if (!existing) return
+
+  await writeStaff({
+    ...existing,
+    role: str(formData.get('role')) === 'head' ? 'head' : 'assistant',
+    permissions: formData.getAll('permissions').map(String).filter(Boolean),
+  })
+  revalidatePath('/admin/access')
+}
+
+// Claim ownership, so the first-run stand-in ends and everyone else is a coach.
+export async function claimOwnership() {
+  const me = await requireOwner()
+  const existing = await readStaff(me.email)
+  await writeStaff({
+    email: me.email,
+    name: existing?.name ?? me.name,
+    role: existing?.role ?? 'head',
+    isOwner: true,
+    permissions: existing?.permissions ?? [],
+  })
+  revalidatePath('/admin/access')
+}
+
+// Removes the staff record and the Supabase login behind it.
+export async function removeCoachAccount(formData: FormData) {
+  const me = await requireOwner()
+  const email = str(formData.get('email')).toLowerCase()
+  if (!email || email === me.email) return // never remove yourself
+
+  await deleteStaff(email)
+
+  const svc = createServiceClient()
+  const { data: list } = await svc.auth.admin.listUsers()
+  const match = list?.users?.find((u) => u.email?.toLowerCase() === email)
+  if (match) await svc.auth.admin.deleteUser(match.id)
+
+  revalidatePath('/admin/access')
 }
 
 // ── Coaches Hub: manage coach roles (Head Coach only) ──

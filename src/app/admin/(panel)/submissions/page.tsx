@@ -19,6 +19,7 @@ import {
   type PlayerCollection,
 } from '@/lib/types'
 import { formatDateTime } from '@/lib/format'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Submissions' }
 
@@ -50,6 +51,7 @@ export default async function SubmissionsPage({
 }: {
   searchParams: Promise<{ tab?: string }>
 }) {
+  await requireSection('submissions')
   const { tab: tabParam } = await searchParams
   const supabase = await createClient()
   const [{ data: swfl }, { data: interest }, { data: contact }] = await Promise.all([

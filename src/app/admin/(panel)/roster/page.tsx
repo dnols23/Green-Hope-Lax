@@ -3,6 +3,7 @@ import { upsertPlayer, deletePlayer } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import { TEAM_LABELS, type Player } from '@/lib/types'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage Roster' }
 
@@ -63,6 +64,7 @@ function PlayerFields({ p }: { p?: Player }) {
 }
 
 export default async function AdminRosterPage() {
+  await requireSection('roster')
   const supabase = await createClient()
   const { data } = await supabase.from('players').select('*').order('team').order('sort_order')
   const players = (data as Player[]) ?? []

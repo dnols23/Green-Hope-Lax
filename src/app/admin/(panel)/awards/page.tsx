@@ -3,6 +3,7 @@ import { upsertAward, deleteAward } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { TeamAward } from '@/lib/types'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage Awards' }
 
@@ -34,6 +35,7 @@ function AwardFields({ a }: { a?: TeamAward }) {
 }
 
 export default async function AdminAwardsPage() {
+  await requireSection('awards')
   const awards = await getAwards()
 
   return (

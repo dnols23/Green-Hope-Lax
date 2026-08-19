@@ -3,6 +3,7 @@ import { upsertGame, deleteGame } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import type { Game } from '@/lib/types'
 import { formatShortDate } from '@/lib/format'
+import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Manage Schedule' }
 
@@ -69,6 +70,7 @@ function GameFields({ g }: { g?: Game }) {
 }
 
 export default async function AdminSchedulePage() {
+  await requireSection('schedule')
   const supabase = await createClient()
   const { data } = await supabase.from('games').select('*').order('game_date', { ascending: false })
   const games = (data as Game[]) ?? []
