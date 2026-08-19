@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation'
-import { createClient, createServiceClient } from './supabase-server'
-import { canSee, type StaffRole, type Viewer } from './sections'
+import { createClient } from './supabase-server'
+import { readStaff, hasOwner } from './staff'
+import { canSee, type Viewer } from './sections'
 
-// ── The three tiers ──────────────────────────────────────────────────────────
-//   Team Hub   parents & players, one shared code (see teamAuth.ts)
-//   Coach      signs in at /staff, reaches only the sections ticked for them
-//   Owner      the program owner: every section, plus managing coaches
+// ── The three ways in ────────────────────────────────────────────────────────
+//   Parents & players  the Team Hub shared code (see teamAuth.ts)
+//   Coaches            sign in at /staff, reach only what the owner ticked
+//   Owner              /admin, reaches everything and curates the coaches
 //
 // URL prefix is deliberately NOT the security boundary: coaches and the owner
 // share one management app, and a coach can be granted any section. The boundary
@@ -23,18 +24,14 @@ export async function getViewer(): Promise<Viewer | null> {
   if (!user?.email) return null
   const email = user.email.toLowerCase()
 
-  const svc = createServiceClient()
-  const [{ data: row }, { count: owners }] = await Promise.all([
-    svc.from('coach_accounts').select('*').eq('email', email).maybeSingle(),
-    svc.from('coach_accounts').select('email', { count: 'exact', head: true }).eq('is_owner', true),
-  ])
+  const [record, ownerExists] = await Promise.all([readStaff(email), hasOwner()])
 
-  // Nobody is an owner yet — the first sign-in after this ships would otherwise
-  // be locked out of the very screen that grants ownership. Stand in as owner
-  // until a real one is named.
-  const bootstrap = (owners ?? 0) === 0
+  // Nobody has been made owner yet, so whoever signs in stands in as one —
+  // otherwise the first sign-in would be locked out of the very screen that
+  // grants ownership. Ends the moment a real owner is saved.
+  const bootstrap = !ownerExists
 
-  if (!row) {
+  if (!record) {
     const guess = email.split('@')[0].replace(/^hc/i, '').replace(/[._-]+/g, ' ').trim() || email
     return {
       email,
@@ -46,18 +43,12 @@ export async function getViewer(): Promise<Viewer | null> {
     }
   }
 
-  const acct = row as {
-    display_name: string
-    role: StaffRole
-    is_owner: boolean
-    permissions: unknown
-  }
   return {
     email,
-    name: acct.display_name,
-    role: acct.role,
-    isOwner: acct.is_owner || bootstrap,
-    permissions: Array.isArray(acct.permissions) ? (acct.permissions as string[]) : [],
+    name: record.name,
+    role: record.role,
+    isOwner: record.isOwner || bootstrap,
+    permissions: record.permissions,
     bootstrap,
   }
 }
