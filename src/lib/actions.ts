@@ -836,9 +836,15 @@ export async function createCoachAccount(
   // deliberately typed a new one.
   if (error && /already|registered|exists/i.test(error.message ?? '')) {
     await writeStaff({ email, name: display_name, role, isOwner: false, permissions })
-    if (chosen) {
-      const existing = await findAuthUser(email)
-      if (existing) await svc.auth.admin.updateUserById(existing.id, { password: pw })
+    const existing = await findAuthUser(email)
+    if (existing) {
+      if (chosen) await svc.auth.admin.updateUserById(existing.id, { password: pw })
+      // Whatever password they have, it's one you handed them — so they pick
+      // their own the next time they sign in.
+      await svc.from('app_settings').upsert(
+        { key: `must_reset:${existing.id}`, value: '1' },
+        { onConflict: 'key' }
+      )
     }
     revalidatePath('/admin/access')
     return { ok: true, outcome: chosen ? 'chosen' : 'linked', email, password: chosen ? pw : undefined }
@@ -850,14 +856,12 @@ export async function createCoachAccount(
 
   await writeStaff({ email, name: display_name, role, isOwner: false, permissions })
 
-  // Only force a change when the coach never chose the password themselves and
-  // the owner didn't pick one either.
-  if (!chosen) {
-    await svc.from('app_settings').upsert(
-      { key: `must_reset:${created.user.id}`, value: '1' },
-      { onConflict: 'key' }
-    )
-  }
+  // The first password is one you handed them, so it's yours as much as theirs.
+  // They're prompted to replace it with their own the first time they sign in.
+  await svc.from('app_settings').upsert(
+    { key: `must_reset:${created.user.id}`, value: '1' },
+    { onConflict: 'key' }
+  )
 
   revalidatePath('/admin/access')
   return { ok: true, outcome: chosen ? 'chosen' : 'generated', email, password: pw }
@@ -875,8 +879,12 @@ export async function setCoachPassword(formData: FormData) {
 
   const svc = createServiceClient()
   await svc.auth.admin.updateUserById(user.id, { password: pw })
-  // They know this password now, so drop any leftover forced-change flag.
-  await svc.from('app_settings').delete().eq('key', `must_reset:${user.id}`)
+  // You know this password, so it's a hand-over, not their own: they're prompted
+  // to choose a new one next time they sign in.
+  await svc.from('app_settings').upsert(
+    { key: `must_reset:${user.id}`, value: '1' },
+    { onConflict: 'key' }
+  )
   revalidatePath('/admin/access')
 }
 
