@@ -14,14 +14,30 @@ export default async function CoachesHub() {
   const svc = createServiceClient()
   const { error: evalError } = await svc.from('evaluations').select('id').limit(1)
 
-  const cards = [
-    { href: '/admin/hub/evaluate', emoji: '📝', title: 'Evaluate a player', desc: 'Rate a player across skill categories and add notes.', accent: 'var(--gh-green)' },
-    { href: '/admin/hub/mine', emoji: '📋', title: 'My evaluations', desc: 'Review and update the evaluations you’ve submitted.', accent: 'var(--gh-green)' },
+  const groups: { title: string; items: { href: string; emoji: string; title: string; desc: string }[] }[] = [
+    {
+      title: 'Evaluating',
+      items: [
+        { href: '/admin/hub/evaluate', emoji: '📝', title: 'Evaluate a player', desc: 'Rate a player across every skill and leave notes.' },
+        { href: '/admin/hub/mine', emoji: '📋', title: 'My evaluations', desc: 'Review and update what you’ve submitted.' },
+        ...(isHead
+          ? [{ href: '/admin/hub/board', emoji: '📊', title: 'Team evaluation board', desc: 'Every coach’s scores compiled into a heat map.' }]
+          : []),
+      ],
+    },
+    {
+      title: 'Squads',
+      items: [
+        { href: '/admin/rosters', emoji: '🥍', title: 'Rosters', desc: 'Build and name your own lists — tryouts, fall ball, a season squad.' },
+      ],
+    },
     ...(isHead
-      ? [
-        { href: '/admin/hub/board', emoji: '📊', title: 'Team evaluation board', desc: 'Compiled scores from every coach — head coach only.', accent: 'var(--gh-maroon)' },
-        { href: '/admin/hub/coaches', emoji: '👥', title: 'Coaches & roles', desc: 'Add coaches and set who’s Head vs Assistant.', accent: 'var(--gh-maroon)' },
-      ]
+      ? [{
+          title: 'Staff',
+          items: [
+            { href: '/admin/hub/coaches', emoji: '👥', title: 'Coaches & roles', desc: 'Set who’s Head vs Assistant for evaluations.' },
+          ],
+        }]
       : []),
   ]
 
@@ -54,13 +70,27 @@ export default async function CoachesHub() {
         Player evaluations. Assistant coaches submit their own; the head coach sees the compiled board.
       </p>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((c) => (
-          <Link key={c.href} href={c.href} className="card p-5 hover:shadow-md transition-shadow">
-            <div className="text-3xl">{c.emoji}</div>
-            <div className="font-black text-lg mt-2" style={{ color: c.accent }}>{c.title}</div>
-            <div className="text-sm text-gray-500 mt-1">{c.desc}</div>
-          </Link>
+      <div className="space-y-6">
+        {groups.map((g) => (
+          <section key={g.title}>
+            <div className="section-label mb-2">{g.title}</div>
+            <div className="card divide-y">
+              {g.items.map((c) => (
+                <Link
+                  key={c.href}
+                  href={c.href}
+                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-[var(--surface-2)] transition-colors first:rounded-t-xl last:rounded-b-xl"
+                >
+                  <span className="text-xl shrink-0">{c.emoji}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-bold block leading-tight">{c.title}</span>
+                    <span className="text-sm text-gray-500 block">{c.desc}</span>
+                  </span>
+                  <span className="text-gray-300 shrink-0">›</span>
+                </Link>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
 
