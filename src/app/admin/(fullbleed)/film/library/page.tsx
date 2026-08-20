@@ -4,13 +4,14 @@ import { Library } from '@/components/videoboard/Library'
 
 export const metadata = { title: 'Film Library' }
 
-// The team library, inside the admin panel so coaches keep the menu bar.
+// The team library, inside the admin panel so coaches keep the menu bar. Full
+// width like the board it belongs to — see the (fullbleed) layout.
 export default async function AdminFilmLibrary() {
   await requireSection('film')
   // Turned off for coaches in Admin → Pages.
   await assertPageVisible('film-coaches')
   return (
-    <div className="-mx-4 -my-6" style={{ background: '#0b0d0c', minHeight: 'calc(100svh - 4.25rem)' }}>
+    <div className="flex-1 flex flex-col" style={{ background: '#0b0d0c' }}>
       <Library basePath="/admin/film" />
     </div>
   )

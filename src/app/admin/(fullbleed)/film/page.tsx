@@ -11,6 +11,9 @@ export const metadata = { title: 'Film Room' }
  * its own full-screen chrome and a single way out. Mounting it here instead means
  * staff keep the admin menu across the top and can move in and out of film the
  * same way they move between any other pages.
+ *
+ * It sits in the (fullbleed) route group, so the board runs edge to edge under
+ * the menu bar and takes every pixel the bar leaves.
  */
 export default async function AdminFilmRoom() {
   await requireSection('film')
@@ -18,12 +21,7 @@ export default async function AdminFilmRoom() {
   await assertPageVisible('film-coaches')
 
   return (
-    // Negative margins cancel the panel's page padding so the board runs to the
-    // edges; the height fills whatever the nav leaves.
-    <div
-      className="-mx-4 -my-6 flex flex-col overflow-hidden"
-      style={{ background: '#0b0d0c', height: 'calc(100svh - 4.25rem)' }}
-    >
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={{ background: '#0b0d0c' }}>
       <VideoBoard basePath="/admin/film" />
     </div>
   )
