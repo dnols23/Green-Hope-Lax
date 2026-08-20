@@ -1,4 +1,5 @@
 import { requireSection } from '@/lib/permissions'
+import { assertPageVisible } from '@/lib/pages'
 import { VideoBoard } from '@/components/videoboard/VideoBoard'
 
 export const metadata = { title: 'Film Room' }
@@ -13,6 +14,8 @@ export const metadata = { title: 'Film Room' }
  */
 export default async function AdminFilmRoom() {
   await requireSection('film')
+  // Turned off for coaches in Admin → Pages.
+  await assertPageVisible('film-coaches')
 
   return (
     // Negative margins cancel the panel's page padding so the board runs to the

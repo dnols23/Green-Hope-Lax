@@ -1,13 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Library } from '@/components/videoboard/Library'
+import { assertPageVisible } from '@/lib/pages'
 import { FalconHead } from '@/components/Logo'
 
 export const metadata: Metadata = {
   title: 'Library | Film Room | Green Hope Falcons Lacrosse',
 }
 
-export default function FilmLibraryPage() {
+export default async function FilmLibraryPage() {
+  // Turned off for the Team Hub in Admin → Pages.
+  await assertPageVisible('film-team')
   return (
     <div className="flex flex-col min-h-svh" style={{ background: '#0b0d0c' }}>
       {/* Header — dark chrome to match the board */}

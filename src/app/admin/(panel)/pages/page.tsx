@@ -18,9 +18,10 @@ export default async function AdminPagesPage() {
     <div>
       <h1 className="text-xl font-black mb-1">Pages</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Turn whole pages on or off. A <strong>Hidden</strong> page disappears from the site
-        menu and returns “not found” if visited directly — handy for building out a page
-        (like Record Books) before you’re ready to show it.
+        Turn whole pages on or off. A <strong>Hidden</strong> page disappears from the menu and
+        returns “not found” if visited directly — handy for building one out before you’re ready to
+        show it. The two <strong>Film Room</strong> switches are separate on purpose: one controls it
+        for your coaches, the other for parents and players in the Team Hub.
       </p>
 
       {pages.length === 0 ? (

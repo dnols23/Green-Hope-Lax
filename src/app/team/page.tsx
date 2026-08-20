@@ -5,10 +5,13 @@ import { TeamFeed } from '@/components/TeamFeed'
 import { FalconHead } from '@/components/Logo'
 import { formatDate, formatTime } from '@/lib/format'
 import { TEAM_CATEGORY_META } from '@/lib/types'
+import { isPageOn } from '@/lib/pages'
 
 export const dynamic = 'force-dynamic'
 
 export default async function TeamHubPage() {
+  // Film Room can be switched off for the Team Hub in Admin → Pages.
+  const filmOn = await isPageOn('film-team')
   const posts = await getTeamPosts()
   // Dynamic (force-dynamic) server render — current time is intentional here.
   // eslint-disable-next-line react-hooks/purity
@@ -75,7 +78,7 @@ export default async function TeamHubPage() {
               Watch game film side-by-side, control playback frame-by-frame, and mark clips
               on the multi-panel video board.
             </p>
-            <Link href="/team/video" className="btn btn-primary w-full">Open the Film Room</Link>
+            {filmOn && <Link href="/team/video" className="btn btn-primary w-full">Open the Film Room</Link>}
           </section>
 
           <section className="card p-5">
