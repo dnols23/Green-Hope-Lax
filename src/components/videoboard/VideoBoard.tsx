@@ -38,7 +38,10 @@ type UploadItem = {
   error?: string
 }
 
-export function VideoBoard() {
+// `basePath` is where this board is mounted — /admin/film for coaches inside the
+// admin panel, /team/video for the parent/player Team Hub. Links out of the board
+// use it so you stay on the side you came in on.
+export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } = {}) {
   const [videos, setVideos] = useState<LibVideo[]>([])
   const [clips, setClips] = useState<Clip[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -52,7 +55,7 @@ export function VideoBoard() {
   const [configured, setConfigured] = useState(false)
   const [canManage, setCanManage] = useState(false)
   const [uploads, setUploads] = useState<UploadItem[]>([])
-  // Deep link from the Library page: /team/video?v=<id> or ?clip=<id>
+  // Deep link from the Library page: <basePath>?v=<id> or ?clip=<id>
   const [autoLoad, setAutoLoad] = useState<{ videoId: number; clip?: Clip } | null>(null)
 
   const mainRef = useRef<HTMLDivElement>(null)
@@ -445,7 +448,7 @@ export function VideoBoard() {
 
         <div className={styles.toolGroup}>
           {configured && (
-            <Link href="/team/video/library" className={styles.iconBtn} title="Browse the team library">
+            <Link href={`${basePath}/library`} className={styles.iconBtn} title="Browse the team library">
               <IconFilm size={15} /> Library
             </Link>
           )}
