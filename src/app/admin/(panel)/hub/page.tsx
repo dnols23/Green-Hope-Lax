@@ -1,12 +1,15 @@
 import Link from 'next/link'
 import { getCurrentCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
+import { getViewer } from '@/lib/permissions'
 
 export const metadata = { title: 'Coaches Hub' }
 
 export default async function CoachesHub() {
   const coach = await getCurrentCoach()
   const isHead = coach?.role === 'head'
+  const viewer = await getViewer()
+  const isOwner = viewer?.isOwner ?? false
 
   // Evaluations save into their own table. If it isn't there, saving fails
   // silently — a coach fills in a whole evaluation and loses it — so say so up
@@ -31,11 +34,14 @@ export default async function CoachesHub() {
         { href: '/admin/rosters', emoji: '🥍', title: 'Rosters', desc: 'Build and name your own lists — tryouts, fall ball, a season squad.' },
       ],
     },
-    ...(isHead
+    // Coaches are managed in Admin → Coach Access, which owns both who they are
+    // and what they can reach. The Hub used to carry a second, separate screen
+    // for the same thing; keeping it meant two lists that disagreed.
+    ...(isOwner
       ? [{
           title: 'Staff',
           items: [
-            { href: '/admin/hub/coaches', emoji: '👥', title: 'Coaches & roles', desc: 'Set who’s Head vs Assistant for evaluations.' },
+            { href: '/admin/access', emoji: '👥', title: 'Coach Access', desc: 'Add coaches, set their pages, and choose who sees the compiled board.' },
           ],
         }]
       : []),
