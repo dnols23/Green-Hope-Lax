@@ -33,12 +33,13 @@ export default async function RostersPage() {
       <div>
         <h1 className="text-xl font-black mb-1">Rosters</h1>
         <p className="text-gray-500 text-sm">
-          Your own lists — a season squad, a tryout group, fall ball. Coaches evaluate through these.
-          Separate from the{' '}
+          Your own lists — a season squad, a tryout group, fall ball. Coaches evaluate through these,
+          and none of them reach the{' '}
           <Link href="/roster" target="_blank" className="text-[var(--gh-green)] font-semibold">
             public roster ↗
-          </Link>
-          , which only ever shows players you&rsquo;ve marked active.
+          </Link>{' '}
+          unless you publish one. Open a roster and tick <b>Publish this roster to the public site</b>
+          {' '}to make it the public list.
         </p>
       </div>
 
@@ -74,7 +75,10 @@ export default async function RostersPage() {
             {live.map((r) => (
               <Link key={r.id} href={`/admin/rosters/${r.id}`} className="card p-4 flex items-center justify-between gap-3 hover:shadow-md transition-shadow">
                 <div>
-                  <div className="font-bold">{r.name}</div>
+                  <div className="font-bold flex items-center gap-2 flex-wrap">
+                    {r.name}
+                    {r.is_public && <span className="badge badge-win">On the public site</span>}
+                  </div>
                   <div className="text-xs text-gray-500">
                     {[r.season, r.notes].filter(Boolean).join(' · ') || 'No season set'}
                   </div>

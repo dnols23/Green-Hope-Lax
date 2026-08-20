@@ -12,6 +12,7 @@ export interface PlayerList {
   season: string | null
   notes: string | null
   is_archived: boolean
+  is_public: boolean
   created_at: string
   updated_at: string
 }

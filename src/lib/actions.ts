@@ -1056,11 +1056,13 @@ export async function renameRoster(formData: FormData) {
       season: str(formData.get('season')) || null,
       notes: str(formData.get('notes')) || null,
       is_archived: str(formData.get('is_archived')) === 'true',
+      is_public: str(formData.get('is_public')) === 'true',
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
   revalidatePath('/admin/rosters')
   revalidatePath(`/admin/rosters/${id}`)
+  revalidatePath('/roster') // the public page reads from published rosters
 }
 
 export async function deleteRoster(id: string) {
