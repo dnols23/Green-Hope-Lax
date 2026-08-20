@@ -13,8 +13,9 @@ import {
 } from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
-import { requireOwner, getViewer, requireTeamScope } from './permissions'
+import { requireOwner, getViewer, requireTeamScope, requireSection } from './permissions'
 import { readStaff, writeStaff, deleteStaff } from './staff'
+import { parseRosterPaste } from './rosters'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
 
@@ -1022,4 +1023,152 @@ export async function deleteInventoryItem(id: string) {
   }
   await svc.from('team_inventory').delete().eq('id', id)
   revalidatePath('/admin/inventory')
+}
+
+// ── Named rosters ────────────────────────────────────────────────────────────
+// Coaches' own lists, separate from the public roster page. Anyone imported is
+// created inactive, so a tryout player is evaluable all season without ever
+// appearing publicly until the owner marks them active on the Roster page.
+
+export async function createRoster(formData: FormData) {
+  await requireSection('rosters')
+  const name = str(formData.get('name'))
+  if (!name) return
+  const svc = createServiceClient()
+  await svc.from('player_lists').insert({
+    name,
+    season: str(formData.get('season')) || null,
+    notes: str(formData.get('notes')) || null,
+  })
+  revalidatePath('/admin/rosters')
+}
+
+export async function renameRoster(formData: FormData) {
+  await requireSection('rosters')
+  const id = str(formData.get('id'))
+  const name = str(formData.get('name'))
+  if (!id || !name) return
+  const svc = createServiceClient()
+  await svc
+    .from('player_lists')
+    .update({
+      name,
+      season: str(formData.get('season')) || null,
+      notes: str(formData.get('notes')) || null,
+      is_archived: str(formData.get('is_archived')) === 'true',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+  revalidatePath('/admin/rosters')
+  revalidatePath(`/admin/rosters/${id}`)
+}
+
+export async function deleteRoster(id: string) {
+  await requireSection('rosters')
+  const svc = createServiceClient()
+  // Members go with it; the player rows themselves stay put.
+  await svc.from('player_lists').delete().eq('id', id)
+  revalidatePath('/admin/rosters')
+}
+
+// Paste from a spreadsheet or a CSV file. Each new name becomes an inactive
+// player row, then joins the roster.
+export async function importRosterPlayers(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState & { added?: number; matched?: number }> {
+  await requireSection('rosters')
+  const listId = str(formData.get('list_id'))
+  const raw = str(formData.get('paste'))
+  if (!listId) return { ok: false, error: 'Pick a roster first.' }
+  if (!raw) return { ok: false, error: 'Paste some names, or choose a file.' }
+
+  const parsed = parseRosterPaste(raw)
+  if (parsed.length === 0)
+    return { ok: false, error: 'Couldn’t find any names in that. One player per line.' }
+
+  const svc = createServiceClient()
+  const team = str(formData.get('team')) || 'boys_varsity'
+
+  // Match on name so re-importing an updated sheet doesn't duplicate anyone.
+  const { data: existingRows } = await svc.from('players').select('id, name')
+  const byName = new Map(
+    ((existingRows ?? []) as { id: string; name: string }[]).map((p) => [p.name.trim().toLowerCase(), p.id])
+  )
+
+  const { data: memberRows } = await svc
+    .from('player_list_members')
+    .select('player_id')
+    .eq('list_id', listId)
+  const already = new Set(((memberRows ?? []) as { player_id: string }[]).map((m) => m.player_id))
+
+  let added = 0
+  let matched = 0
+  let order = already.size
+
+  for (const p of parsed) {
+    let playerId = byName.get(p.name.trim().toLowerCase())
+
+    if (playerId) {
+      matched++
+    } else {
+      const { data: created, error } = await svc
+        .from('players')
+        .insert({
+          name: p.name,
+          number: p.number,
+          position: p.position,
+          class_year: p.class_year,
+          team,
+          is_active: false, // never public until the owner says so
+          sort_order: 0,
+        })
+        .select('id')
+        .single()
+      if (error || !created) continue
+      playerId = (created as { id: string }).id
+      byName.set(p.name.trim().toLowerCase(), playerId)
+      added++
+    }
+
+    if (!already.has(playerId)) {
+      await svc.from('player_list_members').insert({
+        list_id: listId,
+        player_id: playerId,
+        sort_order: order++,
+      })
+      already.add(playerId)
+    }
+  }
+
+  revalidatePath('/admin/rosters')
+  revalidatePath(`/admin/rosters/${listId}`)
+  return { ok: true, added, matched }
+}
+
+export async function addPlayerToRoster(formData: FormData) {
+  await requireSection('rosters')
+  const listId = str(formData.get('list_id'))
+  const playerId = str(formData.get('player_id'))
+  if (!listId || !playerId) return
+  const svc = createServiceClient()
+  const { count } = await svc
+    .from('player_list_members')
+    .select('id', { count: 'exact', head: true })
+    .eq('list_id', listId)
+  await svc
+    .from('player_list_members')
+    .upsert({ list_id: listId, player_id: playerId, sort_order: count ?? 0 }, { onConflict: 'list_id,player_id' })
+  revalidatePath(`/admin/rosters/${listId}`)
+}
+
+export async function removePlayerFromRoster(formData: FormData) {
+  await requireSection('rosters')
+  const listId = str(formData.get('list_id'))
+  const playerId = str(formData.get('player_id'))
+  if (!listId || !playerId) return
+  const svc = createServiceClient()
+  // Only their place on this roster — the player row and any evaluations stay.
+  await svc.from('player_list_members').delete().eq('list_id', listId).eq('player_id', playerId)
+  revalidatePath(`/admin/rosters/${listId}`)
 }
