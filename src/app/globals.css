@@ -240,3 +240,9 @@ body {
   cursor: grab;
 }
 .rating-range:focus-visible { outline: 2px solid var(--gh-green); outline-offset: 3px; }
+
+/* Disclosure caret on a collapsible card. Scoped to .caret so it can't catch
+   the muted date text other <details> summaries put beside their titles. */
+.caret { display: inline-block; transition: transform .15s; color: var(--text-muted); }
+details[open] > summary .caret { transform: rotate(90deg); }
+summary::-webkit-details-marker { display: none; }

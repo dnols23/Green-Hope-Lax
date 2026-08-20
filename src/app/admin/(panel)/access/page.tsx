@@ -45,12 +45,17 @@ export default async function CoachAccessPage() {
           No coaches yet. Add one above and hand them the temporary password.
         </div>
       ) : (
-        <div className="space-y-3">
-          {coaches.map((c) => (
-            <div key={c.email} className="card p-4">
-              <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+        <div className="space-y-2">
+          {coaches.map((c) => {
+            // Summarised on the closed card so the list stays scannable — you can
+            // see who reaches what without opening fifteen tick-boxes.
+            const granted = GRANTABLE.filter((s) => c.permissions.includes(s.key)).map((s) => s.label)
+            return (
+            <details key={c.email} className="card p-4">
+              <summary className="cursor-pointer list-none flex items-start justify-between gap-3 flex-wrap">
                 <div>
                   <div className="font-bold flex items-center gap-2">
+                    <span className="caret text-sm">▸</span>
                     {c.name}
                     {c.isOwner && (
                       <span
@@ -61,17 +66,26 @@ export default async function CoachAccessPage() {
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500">{c.email}</div>
+                  <div className="text-xs text-gray-500 ml-5">{c.email}</div>
+                  <div className="text-xs text-gray-500 ml-5 mt-0.5">
+                    {c.isOwner
+                      ? 'Every page'
+                      : granted.length === 0
+                        ? 'Coaches Hub and Film Room only'
+                        : `Plus ${granted.join(', ')}`}
+                  </div>
                 </div>
-                {!c.isOwner && (
-                  <form action={removeCoachAccount}>
-                    <input type="hidden" name="email" value={c.email} />
-                    <button type="submit" className="text-xs font-bold text-red-600 hover:text-red-800">
-                      Remove coach
-                    </button>
-                  </form>
-                )}
-              </div>
+              </summary>
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
+              {!c.isOwner && (
+                <form action={removeCoachAccount} className="flex justify-end -mt-1 mb-3">
+                  <input type="hidden" name="email" value={c.email} />
+                  <button type="submit" className="text-xs font-bold text-red-600 hover:text-red-800">
+                    Remove coach
+                  </button>
+                </form>
+              )}
 
               {c.isOwner ? (
                 <p className="text-sm text-gray-500">Owners reach every page. Nothing to tick.</p>
@@ -127,8 +141,10 @@ export default async function CoachAccessPage() {
                   </button>
                 </form>
               )}
-            </div>
-          ))}
+              </div>
+            </details>
+            )
+          })}
         </div>
       )}
     </div>
