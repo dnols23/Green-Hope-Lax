@@ -56,7 +56,7 @@ export default async function AdminDashboard() {
         <div className="card p-6">
           <p className="text-sm text-gray-600">
             Head to the <Link href="/admin/hub" className="font-bold text-[var(--gh-green)]">Coaches Hub</Link> for
-            player evaluations, or the <Link href="/team/video" className="font-bold text-[var(--gh-green)]">Film Room</Link> for video.
+            player evaluations, or the <Link href="/admin/film" className="font-bold text-[var(--gh-green)]">Film Room</Link> for video.
           </p>
         </div>
       )}

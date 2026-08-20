@@ -40,7 +40,9 @@ function dayLabel(iso?: string): string {
   return d.toLocaleDateString('en-US', { timeZone: TEAM_TIME_ZONE, month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export function Library() {
+// Mounted under both /admin/film and /team/video; `basePath` keeps every link
+// pointing back at the side the viewer came from.
+export function Library({ basePath = '/team/video' }: { basePath?: string } = {}) {
   const [loaded, setLoaded] = useState(false)
   const [configured, setConfigured] = useState(false)
   const [canManage, setCanManage] = useState(false)
@@ -86,7 +88,7 @@ export function Library() {
       sub: 'Game film',
       thumb: v.thumb,
       createdAt: v.createdAt,
-      href: `/team/video?v=${v.id}`,
+      href: `${basePath}?v=${v.id}`,
     }))
     const clipItems: Item[] = clips.map((c) => {
       const parent = videos.find((v) => v.id === c.videoId)
@@ -99,7 +101,7 @@ export function Library() {
         thumb: parent?.thumb,
         clipTime: c.start,
         createdAt: c.createdAt,
-        href: `/team/video?clip=${c.id}`,
+        href: `${basePath}?clip=${c.id}`,
       }
     })
     const all = [...films, ...clipItems]
@@ -108,7 +110,7 @@ export function Library() {
     // Newest first; undated items sink to the bottom.
     all.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
     return all
-  }, [videos, clips, filter, query])
+  }, [videos, clips, filter, query, basePath])
 
   // Group into month sections, preserving the newest-first order.
   const sections = useMemo(() => {
@@ -175,14 +177,14 @@ export function Library() {
         <div className={styles.libNote}>
           The library shows the team&apos;s cloud film, and cloud storage isn&apos;t connected yet.
           Film loaded on the board stays on that device.
-          <Link href="/team/video" className={styles.libNoteBtn}>Open the board</Link>
+          <Link href={basePath} className={styles.libNoteBtn}>Open the board</Link>
         </div>
       ) : items.length === 0 ? (
         <div className={styles.libNote}>
           {query || filter !== 'all'
             ? 'Nothing matches that search.'
             : 'Nothing in the team library yet — upload film from the board and it will show up here.'}
-          <Link href="/team/video" className={styles.libNoteBtn}>Open the board</Link>
+          <Link href={basePath} className={styles.libNoteBtn}>Open the board</Link>
         </div>
       ) : (
         sections.map((section) => (
