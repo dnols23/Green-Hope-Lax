@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { logout } from '@/lib/actions'
 import { createClient, createServiceClient } from '@/lib/supabase-server'
 import { getViewer, visibleSections } from '@/lib/permissions'
+import { isPageOn } from '@/lib/pages'
 import { FalconHead } from '@/components/Logo'
 
 // Nav comes from SECTIONS in lib/permissions, filtered per viewer.
@@ -25,7 +26,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // rule themselves via requireSection, so hiding a link is presentation only —
   // typing the URL still gets a 404.
   const viewer = await getViewer()
-  const links = visibleSections(viewer)
+  // Film Room can be switched off for coaches in Admin → Pages; the page itself
+  // 404s either way, this just stops advertising a door that's shut.
+  const filmOn = await isPageOn('film-coaches')
+  const links = visibleSections(viewer).filter((s) => s.key !== 'film' || filmOn)
   const tier = viewer?.isOwner ? 'Admin' : 'Coaches'
 
   return (
