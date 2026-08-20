@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getPlayers } from '@/lib/queries'
+import { getAllPlayers } from '@/lib/queries'
 import { getCurrentCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
 import { TEAM_LABELS, type Player, type TeamGroup } from '@/lib/types'
@@ -10,7 +10,7 @@ const SEASON = '2026'
 
 export default async function EvaluatePicker() {
   const coach = await getCurrentCoach()
-  const players = await getPlayers()
+  const players = await getAllPlayers()
 
   // Which players has THIS coach already evaluated this season?
   const done = new Set<string>()

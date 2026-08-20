@@ -27,12 +27,59 @@ export async function getNextGame(gender?: ProgramGender): Promise<Game | null> 
   return (data?.[0] as Game) ?? null
 }
 
+/**
+ * Players for the public roster page.
+ *
+ * If any roster is marked "publish to the public site", that roster's members
+ * are the public list — coaches pick a squad rather than flipping players one
+ * at a time. With none published, this falls back to the is_active flag, which
+ * is how it worked before rosters existed, so publishing nothing changes
+ * nothing.
+ */
 export async function getPlayers(team?: TeamGroup): Promise<Player[]> {
   const supabase = await createClient()
+
+  const publishedIds = await publishedRosterPlayerIds()
+
   let q = supabase
     .from('players')
     .select('*')
-    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true })
+
+  if (publishedIds === null) q = q.eq('is_active', true)
+  else if (publishedIds.length === 0) return []
+  else q = q.in('id', publishedIds)
+
+  if (team) q = q.eq('team', team)
+  const { data } = await q
+  return (data as Player[]) ?? []
+}
+
+/**
+ * Player ids on every published roster, or null when no roster is published.
+ * Read with the service client because player_lists is coach-only.
+ */
+async function publishedRosterPlayerIds(): Promise<string[] | null> {
+  const svc = createServiceClient()
+  const { data: lists, error } = await svc.from('player_lists').select('id').eq('is_public', true)
+  // Rosters not installed yet, or none published — keep the old behaviour.
+  if (error || !lists || lists.length === 0) return null
+
+  const { data: members } = await svc
+    .from('player_list_members')
+    .select('player_id')
+    .in('list_id', (lists as { id: string }[]).map((l) => l.id))
+
+  return [...new Set(((members ?? []) as { player_id: string }[]).map((m) => m.player_id))]
+}
+
+/** Every player, public or not — for the admin and the Coaches Hub. */
+export async function getAllPlayers(team?: TeamGroup): Promise<Player[]> {
+  const svc = createServiceClient()
+  let q = svc
+    .from('players')
+    .select('*')
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
   if (team) q = q.eq('team', team)

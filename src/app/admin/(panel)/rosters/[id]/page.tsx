@@ -23,9 +23,8 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
         <Link href="/admin/rosters" className="text-sm font-bold text-[var(--gh-green)]">← Rosters</Link>
         <div className="flex items-center gap-2 mt-2 mb-1 flex-wrap">
           <h1 className="text-xl font-black">{roster.name}</h1>
-          {roster.is_archived && (
-            <span className="badge badge-sched">Archived</span>
-          )}
+          {roster.is_public && <span className="badge badge-win">Public</span>}
+          {roster.is_archived && <span className="badge badge-sched">Archived</span>}
         </div>
         <p className="text-gray-500 text-sm">
           {players.length} {players.length === 1 ? 'player' : 'players'}
@@ -118,6 +117,23 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
                 <option value="false">Active</option>
                 <option value="true">Archived</option>
               </select>
+            </div>
+            <div className="sm:col-span-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="is_public"
+                  value="true"
+                  defaultChecked={roster.is_public}
+                  className="mt-0.5"
+                />
+                <span>
+                  <b>Publish this roster to the public site</b>
+                  <span className="block text-xs text-gray-500">
+                    Everyone on it appears on the public roster page. Untick and they come off.
+                  </span>
+                </span>
+              </label>
             </div>
             <div className="sm:col-span-3">
               <button type="submit" className="btn btn-primary">Save roster</button>
