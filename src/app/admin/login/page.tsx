@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { login } from '@/lib/actions'
 import { FalconHead } from '@/components/Logo'
@@ -22,7 +23,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--gh-green-darker)' }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8 text-white">
-          <FalconHead size={56} className="mx-auto mb-3" />
+          {/* The falcon is the way back out to the public site for anyone who
+              landed here by mistake. */}
+          <Link href="/" aria-label="Green Hope Lacrosse home" className="inline-block mb-3 opacity-90 hover:opacity-100 transition-opacity">
+            <FalconHead size={56} />
+          </Link>
           <h1 className="text-2xl font-black">Falcons Admin</h1>
           <p className="text-white/60 text-sm mt-1">Sign in to manage the site</p>
         </div>
