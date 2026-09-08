@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { TeamPost, TeamPostCategory } from '@/lib/types'
 import { TEAM_CATEGORY_META, parseAttachments } from '@/lib/types'
 import { formatDate, formatTime } from '@/lib/format'
+import { RichText } from './RichText'
 
 const FILTERS: ('all' | TeamPostCategory)[] = [
   'all', 'announcement', 'practice', 'game', 'forms', 'event', 'gear', 'general',
@@ -32,7 +33,7 @@ function PostCard({ post }: { post: TeamPost }) {
         </div>
       )}
 
-      {post.body && <p className="prose-body mt-2 text-[0.95rem]">{post.body}</p>}
+      {post.body && <RichText text={post.body} className="prose-body mt-2 text-[0.95rem]" />}
 
       {attachments.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
