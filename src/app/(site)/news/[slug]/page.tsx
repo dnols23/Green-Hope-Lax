@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { getNewsBySlug } from '@/lib/queries'
 import { assertPageVisible } from '@/lib/pages'
 import { formatDate } from '@/lib/format'
+import { RichText } from '@/components/RichText'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -26,7 +27,7 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
         // eslint-disable-next-line @next/next/no-img-element
         <img src={post.image_url} alt={post.title} className="w-full rounded-xl mt-6" />
       )}
-      <div className="prose-body mt-6">{post.body}</div>
+      <RichText text={post.body} className="prose-body mt-6" />
     </article>
   )
 }
