@@ -102,6 +102,16 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
               {label}
             </Link>
           ))}
+          {/* Staff door, last and set apart so it reads as a utility link rather
+              than another section of the site. */}
+          <Link
+            href="/admin"
+            onClick={() => setOpen(false)}
+            className="mt-2 pt-3 px-3 pb-2 border-t text-xs font-bold tracking-wide"
+            style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)' }}
+          >
+            Admin
+          </Link>
         </div>
       )}
     </nav>
