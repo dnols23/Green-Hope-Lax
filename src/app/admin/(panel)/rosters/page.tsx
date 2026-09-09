@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { requireSection } from '@/lib/permissions'
 import { listRosters, rostersReady, playersOnNoRoster } from '@/lib/rosters'
-import { createRoster, adoptPublicRoster } from '@/lib/actions'
+import { createRoster } from '@/lib/actions'
+import { AdoptCard } from './AdoptCard'
 
 export const metadata = { title: 'Rosters' }
 export const dynamic = 'force-dynamic'
@@ -60,38 +61,7 @@ export default async function RostersPage() {
         </div>
       )}
 
-      {unadopted && (
-        <section className="card p-5 border-l-4" style={{ borderLeftColor: 'var(--gh-green)' }}>
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h2 className="font-bold text-gray-700">
-                {loose.length} {loose.length === 1 ? 'player isn’t' : 'players aren’t'} on any roster
-              </h2>
-              <p className="text-sm text-gray-500 mt-1 max-w-lg">
-                They&rsquo;re in the program but not on one of the lists below — last season&rsquo;s
-                squad, most likely, from before rosters existed. Gather them into one and you can
-                evaluate through it, publish it, or keep it as history.
-                {!published && ' Nothing is published right now, so this one will be.'}
-              </p>
-            </div>
-          </div>
-          <form action={adoptPublicRoster} className="grid sm:grid-cols-3 gap-3 items-end mt-4">
-            <div className="sm:col-span-2">
-              <label className="field-label">Call it</label>
-              <input name="name" defaultValue="2025-2026 Season" className="field" />
-            </div>
-            <div>
-              <label className="field-label">Season</label>
-              <input name="season" defaultValue="2025-2026" className="field" />
-            </div>
-            <div className="sm:col-span-3">
-              <button type="submit" className="btn btn-primary">
-                Make a roster from {loose.length} {loose.length === 1 ? 'player' : 'players'}
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
+      {unadopted && <AdoptCard count={loose.length} published={Boolean(published)} />}
 
       <section className="card p-5">
         <h2 className="font-bold text-gray-700 mb-4">New roster</h2>
