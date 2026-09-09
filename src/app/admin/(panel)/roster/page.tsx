@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { upsertPlayer, deletePlayer } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
@@ -79,7 +80,13 @@ export default async function AdminRosterPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-black mb-4">{jvOnly ? 'JV Roster' : 'Roster'}</h1>
+      <h1 className="text-xl font-black mb-1">{jvOnly ? 'JV Roster' : 'Roster'}</h1>
+      <p className="text-sm text-gray-500 mb-4">
+        Everyone in the program, including players who aren&rsquo;t on the public site. Who the
+        public sees is decided in{' '}
+        <Link href="/admin/rosters" className="font-semibold text-[var(--gh-green)]">Rosters</Link>{' '}
+        by publishing one roster.
+      </p>
 
       <div className="card p-5 mb-6">
         <h2 className="font-bold text-gray-700 mb-4">Add Player</h2>
