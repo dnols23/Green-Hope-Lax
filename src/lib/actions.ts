@@ -17,7 +17,7 @@ import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection } from './permissions'
 import { readStaff, writeStaff, deleteStaff } from './staff'
-import { parseRosterPaste, publicPlayers } from './rosters'
+import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
@@ -1245,19 +1245,26 @@ export async function sendTestNotification(
  */
 export async function adoptPublicRoster(formData: FormData) {
   await requireSection('rosters')
-  const players = await publicPlayers()
+  const players = await playersOnNoRoster()
   if (players.length === 0) return
 
   const svc = createServiceClient()
   const name = str(formData.get('name')) || 'Current Roster'
   const season = str(formData.get('season')) || null
 
-  // Adopting makes this the published roster, so nothing else can be.
-  await svc.from('player_lists').update({ is_public: false }).eq('is_public', true)
+  // Publish it only when nothing else is published — this is usually the season
+  // that's already on the public site, but it must never quietly replace a
+  // roster the coach deliberately published.
+  const { data: alreadyPublic } = await svc
+    .from('player_lists')
+    .select('id')
+    .eq('is_public', true)
+    .limit(1)
+  const isPublic = !alreadyPublic || alreadyPublic.length === 0
 
   const { data: list, error } = await svc
     .from('player_lists')
-    .insert({ name, season, notes: 'Adopted from the public roster', is_public: true })
+    .insert({ name, season, notes: 'Built from players who were not on a roster', is_public: isPublic })
     .select('id')
     .single()
   if (error || !list) {
