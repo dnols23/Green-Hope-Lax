@@ -17,7 +17,7 @@ import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection } from './permissions'
 import { readStaff, writeStaff, deleteStaff } from './staff'
-import { parseRosterPaste } from './rosters'
+import { parseRosterPaste, publicPlayers } from './rosters'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
 
@@ -1216,4 +1216,39 @@ export async function sendTestNotification(
   return sent
     ? { ok: true, message: `Test sent to ${status.recipients.join(', ')}. Check your inbox (and spam).` }
     : { ok: false, error: 'Resend rejected the send. Check the API key and that the from address uses a domain verified in Resend.' }
+}
+
+/**
+ * Turn the players already on the public site into a roster.
+ *
+ * The public list predates named rosters, so a coach with a live roster still
+ * saw an empty Rosters screen. This adopts it: one list holding exactly those
+ * players, marked as the published one, so nothing changes for visitors.
+ */
+export async function adoptPublicRoster(formData: FormData) {
+  await requireSection('rosters')
+  const players = await publicPlayers()
+  if (players.length === 0) return
+
+  const svc = createServiceClient()
+  const name = str(formData.get('name')) || 'Current Roster'
+  const season = str(formData.get('season')) || null
+
+  const { data: list, error } = await svc
+    .from('player_lists')
+    .insert({ name, season, notes: 'Adopted from the public roster', is_public: true })
+    .select('id')
+    .single()
+  if (error || !list) {
+    console.error('[adoptPublicRoster]', error)
+    return
+  }
+
+  await svc.from('player_list_members').insert(
+    players.map((p, i) => ({ list_id: (list as { id: string }).id, player_id: p.id, sort_order: i }))
+  )
+
+  revalidatePath('/admin/rosters')
+  revalidatePath('/roster')
+  redirect(`/admin/rosters/${(list as { id: string }).id}`)
 }

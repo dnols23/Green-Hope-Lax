@@ -67,3 +67,22 @@ export async function rostersReady(): Promise<boolean> {
   const { error } = await svc.from('player_lists').select('id').limit(1)
   return !error
 }
+
+/**
+ * The roster the public /roster page is showing right now.
+ *
+ * Before named rosters existed, the public list was just the players marked
+ * active — and that list is still there. The Rosters screen would otherwise say
+ * "0 rosters" to a coach looking at a live public roster, so it reports this one
+ * and offers to take it over.
+ */
+export async function publicPlayers(): Promise<Player[]> {
+  const svc = createServiceClient()
+  const { data } = await svc
+    .from('players')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order')
+    .order('name')
+  return ((data as Player[]) ?? [])
+}
