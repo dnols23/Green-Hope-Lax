@@ -34,6 +34,7 @@ export const SECTIONS: AdminSection[] = [
   { key: 'submissions',  label: 'Submissions',  href: '/admin/submissions' },
   { key: 'shop',         label: 'Shop',         href: '/admin/shop' },
   { key: 'pages',        label: 'Pages',        href: '/admin/pages' },
+  { key: 'notifications', label: 'Notifications', href: '/admin/notifications', ownerOnly: true },
   { key: 'access',       label: 'Coach Access', href: '/admin/access', ownerOnly: true },
 ]
 
