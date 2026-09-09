@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient, createServiceClient } from './supabase-server'
-import { sendCoachEmail, sendEmail, postEmailHtml, emailShell, row } from './email'
+import { sendEmail, postEmailHtml, emailShell, row } from './email'
+import { notifyCoaches, notifyStatus, writeNotifySettings } from './notify'
+import { NOTIFY_EVENTS, parseRecipients } from './notifyEvents'
 import {
   EXPERIENCE_LABELS,
   type ExperienceLevel,
@@ -25,7 +27,7 @@ const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v.trim() 
 const numOrNull = (v: FormDataEntryValue | null) =>
   v != null && v !== '' ? Number(v) : null
 
-export type FormState = { ok: boolean; error?: string }
+export type FormState = { ok: boolean; error?: string; message?: string }
 
 // ═══ AUTH ═══════════════════════════════════════════════════════════════════════
 
@@ -241,7 +243,8 @@ export async function submitInterest(
     return { ok: false, error: 'Something went wrong saving your form. Please try again.' }
   }
 
-  await sendCoachEmail({
+  await notifyCoaches({
+    event: 'interest',
     subject: `New ${isMiddle ? 'GREEN MACHINE ' : ''}lacrosse interest: ${data.player_first} ${data.player_last}`,
     replyTo: data.parent_email,
     html: emailShell(
@@ -285,7 +288,8 @@ export async function submitContact(
     return { ok: false, error: 'Something went wrong. Please try again.' }
   }
 
-  await sendCoachEmail({
+  await notifyCoaches({
+    event: 'contact',
     subject: `New contact message from ${data.name}`,
     replyTo: data.email,
     html: emailShell(
@@ -337,7 +341,8 @@ export async function submitSwfl(
     return { ok: false, error: 'Something went wrong saving your signup. Please try again.' }
   }
 
-  await sendCoachEmail({
+  await notifyCoaches({
+    event: 'swfl',
     subject: `New SWFL fall league signup: ${data.player_first} ${data.player_last}`,
     replyTo: data.parent_email,
     html: emailShell(
@@ -1158,4 +1163,57 @@ export async function removePlayerFromRoster(formData: FormData) {
   // Only their place on this roster — the player row and any evaluations stay.
   await svc.from('player_list_members').delete().eq('list_id', listId).eq('player_id', playerId)
   revalidatePath(`/admin/rosters/${listId}`)
+}
+
+// ── Notification settings ──
+// Who gets emailed when a form comes in, and which forms count. Owner only:
+// this decides where parent contact details land.
+
+export async function saveNotifySettings(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireOwner()
+  const { valid, invalid } = parseRecipients(str(formData.get('recipients')))
+  const off = NOTIFY_EVENTS.filter((e) => !formData.get(`on:${e.key}`)).map((e) => e.key)
+
+  // Save what parsed rather than throwing the whole list away, then say which
+  // entry didn't look like an address.
+  await writeNotifySettings({ recipients: valid, off })
+  revalidatePath('/admin/notifications')
+
+  if (invalid.length)
+    return {
+      ok: false,
+      error: `Saved, but these didn\u2019t look like email addresses: ${invalid.join(', ')}`,
+    }
+  if (!valid.length)
+    return { ok: true, message: 'Saved. With no addresses listed, nothing will be emailed.' }
+  return { ok: true, message: `Saved. Notifications go to ${valid.join(', ')}.` }
+}
+
+export async function sendTestNotification(
+  _prev: FormState,
+  _formData: FormData
+): Promise<FormState> {
+  await requireOwner()
+  const status = await notifyStatus()
+  if (!status.connected)
+    return { ok: false, error: 'Resend isn\u2019t connected yet — add RESEND_API_KEY and EMAIL_FROM in Vercel, then redeploy.' }
+  if (!status.recipients.length)
+    return { ok: false, error: 'Add at least one email address above and save first.' }
+
+  const sent = await sendEmail({
+    to: status.recipients,
+    subject: 'Test — Green Hope Lacrosse notifications',
+    html: emailShell(
+      'Notifications are working',
+      row('Sent to', status.recipients.join(', ')) +
+        row('From', status.from ?? '') +
+        row('Meaning', 'Interest forms, fall league signups and contact messages will arrive here.')
+    ),
+  })
+  return sent
+    ? { ok: true, message: `Test sent to ${status.recipients.join(', ')}. Check your inbox (and spam).` }
+    : { ok: false, error: 'Resend rejected the send. Check the API key and that the from address uses a domain verified in Resend.' }
 }
