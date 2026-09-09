@@ -1,29 +1,70 @@
 import { createClient, createServiceClient } from './supabase-server'
+import { VISIBLE_TO } from './schedule'
 import type { Game, Player, Coach, NewsPost, PageSetting, ProgramGender, ProgramStat, TeamGroup, TeamPost, TeamMember, TeamAward, Product } from './types'
 
 // All public-site reads live here. They use the anon (RLS-respecting) client, so
 // they only ever return data the public is allowed to see.
 
-export async function getGames(gender?: ProgramGender): Promise<Game[]> {
+/**
+ * Games for one surface.
+ *
+ * A game carries the audience it's for; the public site sees only public ones,
+ * the Team Hub sees those plus team-only, the admin sees everything. Before the
+ * audience migration has been run the column doesn't exist and the filter would
+ * error, so that case falls back to showing everything — which is what every
+ * game was before the column existed.
+ */
+export async function getGames(
+  gender?: ProgramGender,
+  surface: 'public' | 'team' | 'admin' = 'admin'
+): Promise<Game[]> {
   const supabase = await createClient()
-  let q = supabase.from('games').select('*').order('game_date', { ascending: true })
-  if (gender) q = q.eq('gender', gender)
-  const { data } = await q
+  const base = () => {
+    let q = supabase.from('games').select('*').order('game_date', { ascending: true })
+    if (gender) q = q.eq('gender', gender)
+    return q
+  }
+
+  if (surface === 'admin') {
+    const { data } = await base()
+    return (data as Game[]) ?? []
+  }
+
+  const { data, error } = await base().in('audience', VISIBLE_TO[surface])
+  if (error) {
+    const { data: all } = await base()
+    return (all as Game[]) ?? []
+  }
   return (data as Game[]) ?? []
 }
 
 // The next not-yet-final game, optionally for one program.
-export async function getNextGame(gender?: ProgramGender): Promise<Game | null> {
+export async function getNextGame(
+  gender?: ProgramGender,
+  surface: 'public' | 'team' | 'admin' = 'public'
+): Promise<Game | null> {
   const supabase = await createClient()
-  let q = supabase
-    .from('games')
-    .select('*')
-    .eq('status', 'scheduled')
-    .gte('game_date', new Date().toISOString())
-    .order('game_date', { ascending: true })
-    .limit(1)
-  if (gender) q = q.eq('gender', gender)
-  const { data } = await q
+  const base = () => {
+    let q = supabase
+      .from('games')
+      .select('*')
+      .eq('status', 'scheduled')
+      .gte('game_date', new Date().toISOString())
+      .order('game_date', { ascending: true })
+      .limit(1)
+    if (gender) q = q.eq('gender', gender)
+    return q
+  }
+  if (surface === 'admin') {
+    const { data } = await base()
+    return (data?.[0] as Game) ?? null
+  }
+  // Same fallback as getGames: no column yet means everything is public.
+  const { data, error } = await base().in('audience', VISIBLE_TO[surface])
+  if (error) {
+    const { data: all } = await base()
+    return (all?.[0] as Game) ?? null
+  }
   return (data?.[0] as Game) ?? null
 }
 

@@ -18,6 +18,7 @@ import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection } from './permissions'
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, publicPlayers } from './rosters'
+import { normalizeAudience } from './schedule'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
 
@@ -568,9 +569,20 @@ export async function upsertGame(formData: FormData) {
     is_conference: str(formData.get('is_conference')) !== 'false',
     notes: str(formData.get('notes')) || null,
   }
-  if (id) await supabase.from('games').update(payload).eq('id', id)
-  else await supabase.from('games').insert(payload)
+  // Audience is a newer column. Write it when it's there, and fall back to a
+  // plain save when the migration hasn't been run yet, so editing a game never
+  // breaks on a database that's a step behind the code.
+  const withAudience = { ...payload, audience: normalizeAudience(str(formData.get('audience'))) }
+
+  const save = async (row: Record<string, unknown>) =>
+    id
+      ? await supabase.from('games').update(row).eq('id', id)
+      : await supabase.from('games').insert(row)
+
+  const { error } = await save(withAudience)
+  if (error) await save(payload)
   revalidatePath('/schedule')
+  revalidatePath('/team')
   revalidatePath('/admin/schedule')
 }
 
@@ -1050,6 +1062,12 @@ export async function renameRoster(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
+  // One published roster at a time. Two would show up on the public page as one
+  // combined list, which is how a new season's roster ends up merged with last
+  // season's.
+  if (str(formData.get('is_public')) === 'true') {
+    await svc.from('player_lists').update({ is_public: false }).neq('id', id)
+  }
   revalidatePath('/admin/rosters')
   revalidatePath(`/admin/rosters/${id}`)
   revalidatePath('/roster') // the public page reads from published rosters
@@ -1233,6 +1251,9 @@ export async function adoptPublicRoster(formData: FormData) {
   const svc = createServiceClient()
   const name = str(formData.get('name')) || 'Current Roster'
   const season = str(formData.get('season')) || null
+
+  // Adopting makes this the published roster, so nothing else can be.
+  await svc.from('player_lists').update({ is_public: false }).eq('is_public', true)
 
   const { data: list, error } = await svc
     .from('player_lists')

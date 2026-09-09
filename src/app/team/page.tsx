@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getTeamPosts } from '@/lib/queries'
+import { getTeamPosts, getGames } from '@/lib/queries'
 import { teamLogout } from '@/lib/actions'
 import { TeamFeed } from '@/components/TeamFeed'
 import { FalconHead } from '@/components/Logo'
@@ -13,9 +13,15 @@ export default async function TeamHubPage() {
   // Film Room can be switched off for the Team Hub in Admin → Pages.
   const filmOn = await isPageOn('film-team')
   const posts = await getTeamPosts()
+  // Games marked for everyone or for players and parents — coaches-only ones stay
+  // in the admin.
+  const games = await getGames(undefined, 'team')
   // Dynamic (force-dynamic) server render — current time is intentional here.
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
+  const nextGames = games
+    .filter((g) => +new Date(g.game_date) >= now && g.status !== 'final')
+    .slice(0, 5)
   const upcoming = posts
     .filter((p) => p.event_date && +new Date(p.event_date) >= now)
     .sort((a, b) => +new Date(a.event_date!) - +new Date(b.event_date!))
@@ -56,6 +62,27 @@ export default async function TeamHubPage() {
 
         {/* Sidebar */}
         <aside className="space-y-6">
+          <section className="card p-5">
+            <h2 className="font-black mb-3">🥍 Next games</h2>
+            {nextGames.length === 0 ? (
+              <p className="text-sm text-gray-500">No games scheduled yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {nextGames.map((g) => (
+                  <li key={g.id} className="text-sm">
+                    <div className="font-semibold leading-snug">
+                      {g.home_away === 'away' ? '@' : 'vs'} {g.opponent}
+                    </div>
+                    <div className="text-gray-500">
+                      {formatDate(g.game_date)} · {formatTime(g.game_date)}
+                      {g.location ? ` · ${g.location}` : ''}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section className="card p-5">
             <h2 className="font-black mb-3">📅 Upcoming</h2>
             {upcoming.length === 0 ? (
