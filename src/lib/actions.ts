@@ -1243,10 +1243,14 @@ export async function sendTestNotification(
  * saw an empty Rosters screen. This adopts it: one list holding exactly those
  * players, marked as the published one, so nothing changes for visitors.
  */
-export async function adoptPublicRoster(formData: FormData) {
+export async function adoptPublicRoster(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
   await requireSection('rosters')
   const players = await playersOnNoRoster()
-  if (players.length === 0) return
+  if (players.length === 0)
+    return { ok: false, error: 'Every player is already on a roster — nothing left to gather.' }
 
   const svc = createServiceClient()
   const name = str(formData.get('name')) || 'Current Roster'
@@ -1268,17 +1272,24 @@ export async function adoptPublicRoster(formData: FormData) {
     .select('id')
     .single()
   if (error || !list) {
-    console.error('[adoptPublicRoster]', error)
-    return
+    console.error('[adoptPublicRoster] creating the roster', error)
+    return { ok: false, error: `Couldn’t create the roster: ${error?.message ?? 'unknown error'}` }
   }
 
-  await svc.from('player_list_members').insert(
-    players.map((p, i) => ({ list_id: (list as { id: string }).id, player_id: p.id, sort_order: i }))
+  const listId = (list as { id: string }).id
+  const { error: memberError } = await svc.from('player_list_members').insert(
+    players.map((p, i) => ({ list_id: listId, player_id: p.id, sort_order: i }))
   )
+  if (memberError) {
+    // The roster exists but is empty, which is worse than not having made it.
+    console.error('[adoptPublicRoster] adding players', memberError)
+    await svc.from('player_lists').delete().eq('id', listId)
+    return { ok: false, error: `Couldn’t add the players: ${memberError.message}` }
+  }
 
   revalidatePath('/admin/rosters')
   revalidatePath('/roster')
-  redirect(`/admin/rosters/${(list as { id: string }).id}`)
+  redirect(`/admin/rosters/${listId}`)
 }
 
 /**
