@@ -1273,3 +1273,28 @@ export async function adoptPublicRoster(formData: FormData) {
   revalidatePath('/roster')
   redirect(`/admin/rosters/${(list as { id: string }).id}`)
 }
+
+/**
+ * Repair players whose surname landed in the jersey-number column.
+ *
+ * A spreadsheet with first and last names in separate columns used to import as
+ * name "Cayden", number "Staley". The importer handles that now; this fixes the
+ * rows that came in before it did. Only rows whose number isn't a number are
+ * touched, so a real jersey is never disturbed.
+ */
+export async function mergeSplitNames() {
+  await requireTeamScope('roster', 'roster-jv')
+  const svc = createServiceClient()
+  const { data } = await svc.from('players').select('id, name, number')
+  const rows = ((data ?? []) as { id: string; name: string; number: string | null }[]).filter(
+    (p) => p.number && !/^#?\d{1,3}$/.test(p.number.trim())
+  )
+  for (const p of rows) {
+    await svc
+      .from('players')
+      .update({ name: `${p.name} ${(p.number ?? '').trim()}`.trim(), number: null })
+      .eq('id', p.id)
+  }
+  revalidatePath('/admin/roster')
+  revalidatePath('/roster')
+}

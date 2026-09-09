@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { upsertPlayer, deletePlayer } from '@/lib/actions'
+import { upsertPlayer, deletePlayer, mergeSplitNames } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import { TEAM_LABELS, type Player } from '@/lib/types'
@@ -77,6 +77,9 @@ export default async function AdminRosterPage() {
   if (jvOnly) query = query.eq('team', 'boys_jv')
   const { data } = await query
   const players = (data as Player[]) ?? []
+  // Players imported from a first-name/last-name spreadsheet before the importer
+  // understood that shape: the surname sits in the number column.
+  const splitNames = players.filter((p) => p.number && !/^#?\d{1,3}$/.test(p.number.trim()))
 
   return (
     <div>
@@ -87,6 +90,26 @@ export default async function AdminRosterPage() {
         <Link href="/admin/rosters" className="font-semibold text-[var(--gh-green)]">Rosters</Link>{' '}
         by publishing one roster.
       </p>
+
+      {splitNames.length > 0 && (
+        <div className="card p-5 mb-6 border-l-4" style={{ borderLeftColor: 'var(--gh-maroon)' }}>
+          <h2 className="font-bold text-gray-700">
+            {splitNames.length} {splitNames.length === 1 ? 'player has' : 'players have'} a surname in
+            the number column
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            They came in from a spreadsheet with first and last names in separate columns —{' '}
+            <b>{splitNames[0].name}</b> is showing jersey &ldquo;{splitNames[0].number}&rdquo;. This
+            joins the two into one name and clears the number. Jerseys that really are numbers are
+            left alone.
+          </p>
+          <form action={mergeSplitNames} className="mt-3">
+            <button type="submit" className="btn btn-primary">
+              Fix {splitNames.length} {splitNames.length === 1 ? 'name' : 'names'}
+            </button>
+          </form>
+        </div>
+      )}
 
       <div className="card p-5 mb-6">
         <h2 className="font-bold text-gray-700 mb-4">Add Player</h2>
