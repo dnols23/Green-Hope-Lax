@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function StatsPage() {
   await assertPageVisible('stats')
-  const games = await getGames()
+  const games = await getGames(undefined, 'public')
 
   // Seasons present in the schedule, newest first.
   const years = [...new Set(games.map((g) => seasonYear(g.game_date)))].sort((a, b) => b - a)

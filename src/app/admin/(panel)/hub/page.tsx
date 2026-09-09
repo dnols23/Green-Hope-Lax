@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getCurrentCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
-import { getViewer } from '@/lib/permissions'
+import { getViewer, canSee } from '@/lib/permissions'
 
 export const metadata = { title: 'Coaches Hub' }
 
@@ -32,6 +32,13 @@ export default async function CoachesHub() {
       title: 'Squads',
       items: [
         { href: '/admin/rosters', emoji: '🥍', title: 'Rosters', desc: 'Build and name your own lists — tryouts, fall ball, a season squad.' },
+        ...(canSee(viewer, 'schedule')
+          ? [{ href: '/admin/schedule', emoji: '📅', title: 'Schedule', desc: 'Games and results, each one marked for the public, the team, or just coaches.' }]
+          : []),
+        { href: '/admin/film', emoji: '🎬', title: 'Film Room', desc: 'Watch game film side by side and cut clips for the team.' },
+        ...(canSee(viewer, 'inventory') || canSee(viewer, 'inventory-jv')
+          ? [{ href: '/admin/inventory', emoji: '📦', title: 'Inventory', desc: 'What gear you have, what went out, and what came back.' }]
+          : []),
       ],
     },
     // Coaches are managed in Admin → Coach Access, which owns both who they are

@@ -130,7 +130,9 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
                 <span>
                   <b>Publish this roster to the public site</b>
                   <span className="block text-xs text-gray-500">
-                    Everyone on it appears on the public roster page. Untick and they come off.
+                    Everyone on it appears on the public roster page, and any roster that was
+                    published before comes off — one roster is the public list, so this season&rsquo;s
+                    can&rsquo;t blend into last season&rsquo;s.
                   </span>
                 </span>
               </label>

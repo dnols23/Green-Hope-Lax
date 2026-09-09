@@ -7,9 +7,9 @@
 export type StaffRole = 'head' | 'assistant'
 
 /** Which heading a section sits under in the admin menu. */
-export type SectionGroup = 'Coaching' | 'Team' | 'Content' | 'Admin'
+export type SectionGroup = 'Coaches Hub' | 'Team' | 'Content' | 'Admin'
 
-export const SECTION_GROUPS: SectionGroup[] = ['Coaching', 'Team', 'Content', 'Admin']
+export const SECTION_GROUPS: SectionGroup[] = ['Coaches Hub', 'Team', 'Content', 'Admin']
 
 export interface AdminSection {
   key: string
@@ -23,13 +23,13 @@ export interface AdminSection {
 }
 
 export const SECTIONS: AdminSection[] = [
-  { key: 'hub',          label: 'Coaches Hub',  href: '/admin/hub',          group: 'Coaching', always: true },
-  { key: 'film',         label: 'Film Room',    href: '/admin/film',         group: 'Coaching', always: true },
-  { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaching', always: true },
-  { key: 'inventory',    label: 'Inventory',    href: '/admin/inventory',    group: 'Coaching' },
-  { key: 'inventory-jv', label: 'JV Inventory', href: '/admin/inventory',    group: 'Coaching' },
+  { key: 'hub',          label: 'Coaches Hub',  href: '/admin/hub',          group: 'Coaches Hub', always: true },
+  { key: 'film',         label: 'Film Room',    href: '/admin/film',         group: 'Coaches Hub', always: true },
+  { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaches Hub', always: true },
+  { key: 'inventory',    label: 'Inventory',    href: '/admin/inventory',    group: 'Coaches Hub' },
+  { key: 'inventory-jv', label: 'JV Inventory', href: '/admin/inventory',    group: 'Coaches Hub' },
+  { key: 'schedule',     label: 'Schedule',     href: '/admin/schedule',     group: 'Coaches Hub' },
   { key: 'team',         label: 'Team Hub',     href: '/admin/team',         group: 'Team' },
-  { key: 'schedule',     label: 'Schedule',     href: '/admin/schedule',     group: 'Team' },
   { key: 'roster',       label: 'Roster',       href: '/admin/roster',       group: 'Team' },
   { key: 'roster-jv',    label: 'JV Roster',    href: '/admin/roster',       group: 'Team' },
   { key: 'members',      label: 'Members',      href: '/admin/members',      group: 'Team' },

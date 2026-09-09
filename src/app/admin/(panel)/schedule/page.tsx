@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { upsertGame, deleteGame } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import type { Game } from '@/lib/types'
+import { GAME_AUDIENCES, audienceLabel, normalizeAudience } from '@/lib/schedule'
 import { formatShortDate } from '@/lib/format'
 import { requireSection } from '@/lib/permissions'
 
@@ -61,6 +62,17 @@ function GameFields({ g }: { g?: Game }) {
           <option value="false">No</option>
         </select>
       </div>
+      <div>
+        <label className="field-label">Who sees it</label>
+        <select name="audience" defaultValue={normalizeAudience((g as { audience?: string } | undefined)?.audience)} className="field">
+          {GAME_AUDIENCES.map((a) => (
+            <option key={a.key} value={a.key}>{a.label}</option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-1">
+          {GAME_AUDIENCES.map((a) => `${a.label}: ${a.description}`).join(' ')}
+        </p>
+      </div>
       <div className="sm:col-span-2 lg:col-span-3">
         <label className="field-label">Notes</label>
         <input name="notes" defaultValue={g?.notes ?? ''} className="field" />
@@ -95,6 +107,11 @@ export default async function AdminSchedulePage() {
                 {formatShortDate(g.game_date)} — {g.home_away === 'away' ? '@' : 'vs'} {g.opponent}
                 {g.status === 'final' && g.team_score != null && (
                   <span className="ml-2 text-gray-500">({g.team_score}–{g.opp_score})</span>
+                )}
+                {normalizeAudience((g as { audience?: string }).audience) !== 'public' && (
+                  <span className="badge badge-sched ml-2">
+                    {audienceLabel((g as { audience?: string }).audience)}
+                  </span>
                 )}
               </span>
               <DeleteButton id={g.id} action={deleteGame} />

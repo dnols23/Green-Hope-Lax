@@ -20,7 +20,7 @@ function seasonLabel(years: number[]): string {
 
 export default async function SchedulePage() {
   await assertPageVisible('schedule')
-  const games = await getGames()
+  const games = await getGames(undefined, 'public')
   const years = [...new Set(games.map((g) => seasonYear(g.game_date)))].sort((a, b) => a - b)
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-10">
