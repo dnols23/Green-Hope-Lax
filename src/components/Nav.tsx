@@ -41,22 +41,10 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
           </span>
         </Link>
 
-        {/* One menu at every width. The link list is driven by what's switched
-            on in Admin -> Pages, so a bar that fits today overflows the moment
-            another page goes live; a menu never does. */}
-        <div className="ml-auto flex items-center gap-2">
-          {/* Wrapped, because .btn sets its own display and would win over a
-              `hidden` utility on the link itself. */}
-          <div className="hidden sm:block">
-            <Link href="/join" className="btn btn-maroon !py-2 !px-3 text-sm">
-              Join Green Hope Lacrosse
-            </Link>
-          </div>
-          <div className="hidden md:block">
-            <Link href="/join/green-machine" className="btn btn-maroon !py-2 !px-3 text-sm">
-              Join the Green Machine
-            </Link>
-          </div>
+        {/* Brand and one button, nothing else. The Join calls to action live in
+            the hero and in the menu; a third copy bolted to the bar was the
+            same two buttons twice on one screen. */}
+        <div className="ml-auto flex items-center">
           <button
             className="flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-lg"
             style={{ background: 'rgba(255,255,255,0.1)' }}
@@ -111,17 +99,11 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
                   </Link>
                 ))}
 
-                {/* The Join buttons live in the bar on a wide screen; on a phone
-                    there is no room for them there, so they come in here. */}
-                <div className="sm:hidden flex flex-col gap-2 mt-2">
+                {/* Both ways in, once, where someone goes looking for them. */}
+                <div className="flex flex-col gap-2 mt-2">
                   <Link href="/join" onClick={() => setOpen(false)} className="btn btn-maroon w-full">
                     Join Green Hope Lacrosse
                   </Link>
-                  <Link href="/join/green-machine" onClick={() => setOpen(false)} className="btn btn-maroon w-full">
-                    Join the Green Machine
-                  </Link>
-                </div>
-                <div className="hidden sm:block md:hidden mt-2">
                   <Link href="/join/green-machine" onClick={() => setOpen(false)} className="btn btn-maroon w-full">
                     Join the Green Machine
                   </Link>
