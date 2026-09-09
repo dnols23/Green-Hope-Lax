@@ -6,10 +6,16 @@
 
 export type StaffRole = 'head' | 'assistant'
 
+/** Which heading a section sits under in the admin menu. */
+export type SectionGroup = 'Coaching' | 'Team' | 'Content' | 'Admin'
+
+export const SECTION_GROUPS: SectionGroup[] = ['Coaching', 'Team', 'Content', 'Admin']
+
 export interface AdminSection {
   key: string
   label: string
   href: string
+  group: SectionGroup
   /** Only the owner may ever open this, no matter what is ticked. */
   ownerOnly?: boolean
   /** Every coach gets this without it being ticked — it's the job. */
@@ -17,25 +23,25 @@ export interface AdminSection {
 }
 
 export const SECTIONS: AdminSection[] = [
-  { key: 'hub',          label: 'Coaches Hub',  href: '/admin/hub',          always: true },
-  { key: 'film',         label: 'Film Room',    href: '/admin/film',         always: true },
-  { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      always: true },
-  { key: 'team',         label: 'Team Hub',     href: '/admin/team' },
-  { key: 'schedule',     label: 'Schedule',     href: '/admin/schedule' },
-  { key: 'roster',       label: 'Roster',       href: '/admin/roster' },
-  { key: 'roster-jv',    label: 'JV Roster',    href: '/admin/roster' },
-  { key: 'inventory',    label: 'Inventory',    href: '/admin/inventory' },
-  { key: 'inventory-jv', label: 'JV Inventory', href: '/admin/inventory' },
-  { key: 'news',         label: 'News',         href: '/admin/news' },
-  { key: 'record-books', label: 'Record Books', href: '/admin/record-books' },
-  { key: 'awards',       label: 'Awards',       href: '/admin/awards' },
-  { key: 'coaches',      label: 'Coaches',      href: '/admin/coaches' },
-  { key: 'members',      label: 'Members',      href: '/admin/members' },
-  { key: 'submissions',  label: 'Submissions',  href: '/admin/submissions' },
-  { key: 'shop',         label: 'Shop',         href: '/admin/shop' },
-  { key: 'pages',        label: 'Pages',        href: '/admin/pages' },
-  { key: 'notifications', label: 'Notifications', href: '/admin/notifications', ownerOnly: true },
-  { key: 'access',       label: 'Coach Access', href: '/admin/access', ownerOnly: true },
+  { key: 'hub',          label: 'Coaches Hub',  href: '/admin/hub',          group: 'Coaching', always: true },
+  { key: 'film',         label: 'Film Room',    href: '/admin/film',         group: 'Coaching', always: true },
+  { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaching', always: true },
+  { key: 'inventory',    label: 'Inventory',    href: '/admin/inventory',    group: 'Coaching' },
+  { key: 'inventory-jv', label: 'JV Inventory', href: '/admin/inventory',    group: 'Coaching' },
+  { key: 'team',         label: 'Team Hub',     href: '/admin/team',         group: 'Team' },
+  { key: 'schedule',     label: 'Schedule',     href: '/admin/schedule',     group: 'Team' },
+  { key: 'roster',       label: 'Roster',       href: '/admin/roster',       group: 'Team' },
+  { key: 'roster-jv',    label: 'JV Roster',    href: '/admin/roster',       group: 'Team' },
+  { key: 'members',      label: 'Members',      href: '/admin/members',      group: 'Team' },
+  { key: 'coaches',      label: 'Coaches',      href: '/admin/coaches',      group: 'Team' },
+  { key: 'news',         label: 'News',         href: '/admin/news',         group: 'Content' },
+  { key: 'awards',       label: 'Awards',       href: '/admin/awards',       group: 'Content' },
+  { key: 'record-books', label: 'Record Books', href: '/admin/record-books', group: 'Content' },
+  { key: 'shop',         label: 'Shop',         href: '/admin/shop',         group: 'Content' },
+  { key: 'pages',        label: 'Pages',        href: '/admin/pages',        group: 'Content' },
+  { key: 'submissions',  label: 'Submissions',  href: '/admin/submissions',  group: 'Admin' },
+  { key: 'notifications', label: 'Notifications', href: '/admin/notifications', group: 'Admin', ownerOnly: true },
+  { key: 'access',       label: 'Coach Access', href: '/admin/access',       group: 'Admin', ownerOnly: true },
 ]
 
 /** Sections an owner can hand out — everything a coach doesn't already have. */

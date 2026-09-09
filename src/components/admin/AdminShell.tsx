@@ -1,10 +1,8 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { logout } from '@/lib/actions'
 import { createClient, createServiceClient } from '@/lib/supabase-server'
 import { getViewer, visibleSections } from '@/lib/permissions'
 import { isPageOn } from '@/lib/pages'
-import { FalconHead } from '@/components/Logo'
+import { AdminMenu } from './AdminMenu'
 
 /**
  * The admin chrome: green menu bar across the top, then the page.
@@ -47,41 +45,10 @@ export async function AdminShell({
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <div className="text-white shrink-0" style={{ background: 'var(--gh-green-dk)' }}>
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/admin" className="flex items-center gap-2 font-black">
-              <FalconHead size={28} /> Falcons <span className="text-white/50 font-normal text-sm">{tier}</span>
-            </Link>
-            <nav className="hidden md:flex gap-1">
-              {links.map(({ href, label }) => (
-                <Link key={href} href={href} className="px-3 py-1.5 text-sm font-semibold text-white/75 hover:text-white hover:bg-white/10 rounded transition-colors">
-                  {label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/" target="_blank" className="text-xs text-white/60 hover:text-white">View site ↗</Link>
-            <form action={logout}>
-              <button type="submit" className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded transition-colors">Sign out</button>
-            </form>
-          </div>
-        </div>
-        {/* Mobile nav */}
-        <div className="md:hidden overflow-x-auto" style={{ background: 'var(--gh-green-darker)' }}>
-          <div className="flex gap-1 px-3 py-2 min-w-max">
-            {links.map(({ href, label }) => (
-              <Link key={href} href={href} className="px-3 py-1.5 text-xs font-semibold text-white/75 hover:text-white hover:bg-white/10 rounded whitespace-nowrap">
-                {label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
+      <AdminMenu links={links} tier={tier} />
 
-      {/* A full-bleed page takes whatever height the bar leaves — no magic numbers,
-          so the taller mobile menu doesn't push it off the bottom. */}
+      {/* A full-bleed page takes whatever height the bar leaves, measured rather
+          than assumed, so nothing hangs off the bottom of the screen. */}
       {fullBleed ? (
         <div className="flex-1 min-h-0 flex flex-col">{children}</div>
       ) : (
