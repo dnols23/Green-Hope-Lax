@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { requireSection } from '@/lib/permissions'
-import { listRosters, rostersReady, publicPlayers } from '@/lib/rosters'
+import { listRosters, rostersReady, playersOnNoRoster } from '@/lib/rosters'
 import { createRoster, adoptPublicRoster } from '@/lib/actions'
 
 export const metadata = { title: 'Rosters' }
@@ -24,13 +24,15 @@ export default async function RostersPage() {
     )
   }
 
-  const [rosters, onSite] = await Promise.all([listRosters(true), publicPlayers()])
+  const [rosters, loose] = await Promise.all([listRosters(true), playersOnNoRoster()])
   const live = rosters.filter((r) => !r.is_archived)
   const archived = rosters.filter((r) => r.is_archived)
   // The public page still runs off the players marked active until a roster is
   // published, so say so rather than reporting an empty screen.
   const published = rosters.find((r) => r.is_public)
-  const unadopted = !published && onSite.length > 0
+  // Players who exist but aren't on any roster — last season's squad, before it
+  // was ever a roster, or anyone added straight to the player list.
+  const unadopted = loose.length > 0
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -63,14 +65,13 @@ export default async function RostersPage() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h2 className="font-bold text-gray-700">
-                Already on the public site: {onSite.length} players
+                {loose.length} {loose.length === 1 ? 'player isn’t' : 'players aren’t'} on any roster
               </h2>
               <p className="text-sm text-gray-500 mt-1 max-w-lg">
-                That list was built player by player, before rosters existed, so it isn&rsquo;t one
-                of the lists below yet. Adopt it and you get the same players as a roster you can
-                evaluate through and build next season from — visitors see exactly what they see
-                now. From then on the public page follows this roster rather than the active tick
-                on each player.
+                They&rsquo;re in the program but not on one of the lists below — last season&rsquo;s
+                squad, most likely, from before rosters existed. Gather them into one and you can
+                evaluate through it, publish it, or keep it as history.
+                {!published && ' Nothing is published right now, so this one will be.'}
               </p>
             </div>
           </div>
@@ -85,7 +86,7 @@ export default async function RostersPage() {
             </div>
             <div className="sm:col-span-3">
               <button type="submit" className="btn btn-primary">
-                Adopt these {onSite.length} players
+                Make a roster from {loose.length} {loose.length === 1 ? 'player' : 'players'}
               </button>
             </div>
           </form>

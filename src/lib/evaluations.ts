@@ -137,3 +137,33 @@ export interface Evaluation {
   created_at: string
   updated_at: string
 }
+
+/** One coach's overall for a player: their own overall, else their skill mean. */
+export function evaluationScore(e: Evaluation): number {
+  if (e.overall && e.overall > 0) return e.overall
+  return ratingsAverage(e.ratings)
+}
+
+export interface PlayerScore {
+  /** Mean of every coach's overall, rounded to one decimal. 0 when unrated. */
+  average: number
+  /** How many coaches have submitted one. */
+  count: number
+}
+
+/** Compile every coach's evaluations into one score per player. */
+export function compileScores(evals: Evaluation[]): Map<string, PlayerScore> {
+  const byPlayer = new Map<string, number[]>()
+  for (const e of evals) {
+    const score = evaluationScore(e)
+    if (score <= 0) continue
+    if (!byPlayer.has(e.player_id)) byPlayer.set(e.player_id, [])
+    byPlayer.get(e.player_id)!.push(score)
+  }
+  const out = new Map<string, PlayerScore>()
+  for (const [playerId, scores] of byPlayer) {
+    const mean = scores.reduce((a, b) => a + b, 0) / scores.length
+    out.set(playerId, { average: Math.round(mean * 10) / 10, count: scores.length })
+  }
+  return out
+}

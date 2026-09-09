@@ -76,6 +76,18 @@ export async function rostersReady(): Promise<boolean> {
  * "0 rosters" to a coach looking at a live public roster, so it reports this one
  * and offers to take it over.
  */
+export async function playersOnNoRoster(): Promise<Player[]> {
+  const svc = createServiceClient()
+  const { data: members } = await svc.from('player_list_members').select('player_id')
+  const taken = new Set(((members ?? []) as { player_id: string }[]).map((m) => m.player_id))
+  const { data } = await svc
+    .from('players')
+    .select('*')
+    .order('sort_order')
+    .order('name')
+  return ((data as Player[]) ?? []).filter((p) => !taken.has(p.id))
+}
+
 export async function publicPlayers(): Promise<Player[]> {
   const svc = createServiceClient()
   const { data } = await svc
