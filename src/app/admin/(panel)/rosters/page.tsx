@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireSection } from '@/lib/permissions'
-import { listRosters, rostersReady } from '@/lib/rosters'
-import { createRoster } from '@/lib/actions'
+import { listRosters, rostersReady, publicPlayers } from '@/lib/rosters'
+import { createRoster, adoptPublicRoster } from '@/lib/actions'
 
 export const metadata = { title: 'Rosters' }
 export const dynamic = 'force-dynamic'
@@ -24,9 +24,12 @@ export default async function RostersPage() {
     )
   }
 
-  const rosters = await listRosters(true)
+  const [rosters, onSite] = await Promise.all([listRosters(true), publicPlayers()])
   const live = rosters.filter((r) => !r.is_archived)
   const archived = rosters.filter((r) => r.is_archived)
+  // The public page still runs off the players marked active until a roster is
+  // published, so say so rather than reporting an empty screen.
+  const unadopted = !rosters.some((r) => r.is_public) && onSite.length > 0
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -42,6 +45,40 @@ export default async function RostersPage() {
           {' '}to make it the public list.
         </p>
       </div>
+
+      {unadopted && (
+        <section className="card p-5 border-l-4" style={{ borderLeftColor: 'var(--gh-green)' }}>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="font-bold text-gray-700">
+                Already on the public site: {onSite.length} players
+              </h2>
+              <p className="text-sm text-gray-500 mt-1 max-w-lg">
+                That list was built player by player, before rosters existed, so it isn&rsquo;t one
+                of the lists below yet. Adopt it and you get the same players as a roster you can
+                evaluate through and build next season from — visitors see exactly what they see
+                now. From then on the public page follows this roster rather than the active tick
+                on each player.
+              </p>
+            </div>
+          </div>
+          <form action={adoptPublicRoster} className="grid sm:grid-cols-3 gap-3 items-end mt-4">
+            <div className="sm:col-span-2">
+              <label className="field-label">Call it</label>
+              <input name="name" defaultValue="2025-2026 Season" className="field" />
+            </div>
+            <div>
+              <label className="field-label">Season</label>
+              <input name="season" defaultValue="2025-2026" className="field" />
+            </div>
+            <div className="sm:col-span-3">
+              <button type="submit" className="btn btn-primary">
+                Adopt these {onSite.length} players
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       <section className="card p-5">
         <h2 className="font-bold text-gray-700 mb-4">New roster</h2>
@@ -68,7 +105,9 @@ export default async function RostersPage() {
         <h2 className="font-bold text-gray-700 mb-3">Your rosters ({live.length})</h2>
         {live.length === 0 ? (
           <div className="card p-6 text-sm text-gray-500">
-            No rosters yet. Create one above, then paste your players into it.
+            {unadopted
+              ? 'No rosters here yet — the public roster above is still a plain list of players. Adopt it, or create a separate one.'
+              : 'No rosters yet. Create one above, then paste your players into it.'}
           </div>
         ) : (
           <div className="space-y-2">
