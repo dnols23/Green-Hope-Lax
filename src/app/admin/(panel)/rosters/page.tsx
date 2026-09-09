@@ -29,15 +29,16 @@ export default async function RostersPage() {
   const archived = rosters.filter((r) => r.is_archived)
   // The public page still runs off the players marked active until a roster is
   // published, so say so rather than reporting an empty screen.
-  const unadopted = !rosters.some((r) => r.is_public) && onSite.length > 0
+  const published = rosters.find((r) => r.is_public)
+  const unadopted = !published && onSite.length > 0
 
   return (
     <div className="max-w-3xl space-y-8">
       <div>
         <h1 className="text-xl font-black mb-1">Rosters</h1>
         <p className="text-gray-500 text-sm">
-          Your own lists — a season squad, a tryout group, fall ball. Coaches evaluate through these,
-          and none of them reach the{' '}
+          Your own lists — a season squad, a tryout group, an off-season group. Coaches evaluate
+          through these, and none of them reach the{' '}
           <Link href="/roster" target="_blank" className="text-[var(--gh-green)] font-semibold">
             public roster ↗
           </Link>{' '}
@@ -45,6 +46,17 @@ export default async function RostersPage() {
           {' '}to make it the public list.
         </p>
       </div>
+
+      {!published && !unadopted && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-900 font-bold mb-1">No roster is published.</p>
+          <p className="text-sm text-amber-900">
+            The public roster page is empty until you open a roster and tick{' '}
+            <b>Publish this roster to the public site</b>. Everything you build here stays between
+            the coaches and the Team Hub until then.
+          </p>
+        </div>
+      )}
 
       {unadopted && (
         <section className="card p-5 border-l-4" style={{ borderLeftColor: 'var(--gh-green)' }}>

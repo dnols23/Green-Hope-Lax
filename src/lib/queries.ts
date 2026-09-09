@@ -69,13 +69,17 @@ export async function getNextGame(
 }
 
 /**
- * Players for the public roster page.
+ * Players for the public roster page: the members of the published roster, and
+ * nobody else.
  *
- * If any roster is marked "publish to the public site", that roster's members
- * are the public list — coaches pick a squad rather than flipping players one
- * at a time. With none published, this falls back to the is_active flag, which
- * is how it worked before rosters existed, so publishing nothing changes
- * nothing.
+ * A roster has to be published to reach the public site. Off-season groups —
+ * winter workouts, tournament squads, anyone who hasn't made the team yet —
+ * live on their own rosters and stay inside the Coaches Hub and Team Hub, even
+ * though their player records are the same records.
+ *
+ * With nothing published the public page is empty rather than falling back to
+ * every active player, which is what used to quietly put next season's names on
+ * the public roster.
  */
 export async function getPlayers(team?: TeamGroup): Promise<Player[]> {
   const supabase = await createClient()
@@ -88,6 +92,8 @@ export async function getPlayers(team?: TeamGroup): Promise<Player[]> {
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
 
+  // null means the rosters tables aren't installed at all; on a site without
+  // them the active flag is still the only signal there is.
   if (publishedIds === null) q = q.eq('is_active', true)
   else if (publishedIds.length === 0) return []
   else q = q.in('id', publishedIds)
@@ -104,8 +110,10 @@ export async function getPlayers(team?: TeamGroup): Promise<Player[]> {
 async function publishedRosterPlayerIds(): Promise<string[] | null> {
   const svc = createServiceClient()
   const { data: lists, error } = await svc.from('player_lists').select('id').eq('is_public', true)
-  // Rosters not installed yet, or none published — keep the old behaviour.
-  if (error || !lists || lists.length === 0) return null
+  // Only a missing table falls back to the active flag. No roster published is
+  // an answer, not a gap: the public roster is empty until one is published.
+  if (error) return null
+  if (!lists || lists.length === 0) return []
 
   const { data: members } = await svc
     .from('player_list_members')

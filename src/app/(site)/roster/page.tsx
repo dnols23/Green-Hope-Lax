@@ -23,7 +23,11 @@ export default async function RosterPage() {
     <div className="max-w-screen-xl mx-auto px-4 py-10">
       <div className="section-label">Falcons Lacrosse</div>
       <h1 className="page-title mb-6">Roster</h1>
-      <RosterView players={players} awards={awardMap} />
+      {players.length === 0 ? (
+        <p className="text-gray-500">This season&rsquo;s roster hasn&rsquo;t been posted yet. Check back soon.</p>
+      ) : (
+        <RosterView players={players} awards={awardMap} />
+      )}
     </div>
   )
 }
