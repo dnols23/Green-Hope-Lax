@@ -25,6 +25,7 @@ export interface AdminSection {
 export const SECTIONS: AdminSection[] = [
   { key: 'hub',          label: 'Coaches Hub',  href: '/admin/hub',          group: 'Coaches Hub', always: true },
   { key: 'film',         label: 'Film Room',    href: '/admin/film',         group: 'Coaches Hub', always: true },
+  { key: 'planner',      label: 'Planner',      href: '/admin/planner',      group: 'Coaches Hub', always: true },
   { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaches Hub', always: true },
   { key: 'inventory',    label: 'Inventory',    href: '/admin/inventory',    group: 'Coaches Hub' },
   { key: 'inventory-jv', label: 'JV Inventory', href: '/admin/inventory',    group: 'Coaches Hub' },

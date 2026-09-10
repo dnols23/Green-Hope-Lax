@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { getCurrentCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
 import { getViewer, canSee } from '@/lib/permissions'
+import { readModesOff } from '@/lib/hubSettings'
+import { HUB_MODES, isModeOn } from '@/lib/hubModes'
+import { saveHubModes } from '@/lib/actions'
 
 export const metadata = { title: 'Coaches Hub' }
 
@@ -10,6 +13,7 @@ export default async function CoachesHub() {
   const isHead = coach?.role === 'head'
   const viewer = await getViewer()
   const isOwner = viewer?.isOwner ?? false
+  const modesOff = await readModesOff()
 
   // Evaluations save into their own table. If it isn't there, saving fails
   // silently — a coach fills in a whole evaluation and loses it — so say so up
@@ -111,6 +115,40 @@ export default async function CoachesHub() {
         <p className="text-xs text-gray-400 mt-6">
           The compiled team board is visible to the head coach only.
         </p>
+      )}
+      {isOwner && (
+        <details className="card p-4 mt-8">
+          <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
+            <span className="caret text-sm">▸</span> Modes in the hub
+            <span className="font-normal text-xs text-gray-400">head coach only</span>
+          </summary>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-sm text-gray-500 mb-3">
+              What the sidebar carries for your staff. Switching a mode off hides it for everyone —
+              a coach still only sees the ones their own access allows, and each coach can drag
+              theirs into whatever order they like.
+            </p>
+            <form action={saveHubModes} className="space-y-2">
+              <div className="divide-y border rounded-lg" style={{ borderColor: '#e5e7eb' }}>
+                {HUB_MODES.map((m) => (
+                  <label key={m.key} className="flex items-center gap-3 p-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name={`mode:${m.key}`}
+                      defaultChecked={isModeOn(modesOff, m.key)}
+                      disabled={m.fixed}
+                      className="w-4 h-4 accent-[var(--gh-green)]"
+                    />
+                    <span aria-hidden>{m.icon}</span>
+                    <span className="font-semibold text-sm">{m.label}</span>
+                    {m.fixed && <span className="text-xs text-gray-400">always on</span>}
+                  </label>
+                ))}
+              </div>
+              <button type="submit" className="btn btn-primary">Save modes</button>
+            </form>
+          </div>
+        </details>
       )}
     </div>
   )
