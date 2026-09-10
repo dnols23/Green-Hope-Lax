@@ -19,6 +19,8 @@ import { requireOwner, getViewer, requireTeamScope, requireSection } from './per
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
+import { readBlocks, type PlanKind } from './planner'
+import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
 
@@ -1333,4 +1335,128 @@ export async function setRosterPublic(formData: FormData) {
   revalidatePath('/admin/rosters')
   revalidatePath(`/admin/rosters/${id}`)
   revalidatePath('/roster')
+}
+
+// ── Planner ──
+// Practice plans, game plans and coaching notes. Every coach may write them;
+// they never reach the public site.
+
+export async function createPlan(formData: FormData) {
+  await requireSection('planner')
+  const viewer = await getViewer()
+  const kindRaw = str(formData.get('kind'))
+  const kind: PlanKind = kindRaw === 'game' || kindRaw === 'note' ? kindRaw : 'practice'
+  const title = str(formData.get('title')) || (kind === 'game' ? 'New game plan' : kind === 'note' ? 'New note' : 'New practice')
+
+  const svc = createServiceClient()
+  const { data, error } = await svc
+    .from('plans')
+    .insert({
+      kind,
+      title,
+      plan_date: str(formData.get('plan_date')) || null,
+      season: str(formData.get('season')) || null,
+      roster_id: str(formData.get('roster_id')) || null,
+      created_by: viewer?.email ?? null,
+      blocks: [],
+    })
+    .select('id')
+    .single()
+  if (error || !data) {
+    console.error('[createPlan]', error)
+    return
+  }
+  revalidatePath('/admin/planner')
+  redirect(`/admin/planner/${(data as { id: string }).id}`)
+}
+
+/**
+ * Save a plan — heading and every block in one go.
+ *
+ * The editor holds the whole plan in the browser and sends it back whole, so a
+ * coach dragging blocks around isn't racing a save per keystroke.
+ */
+export async function savePlan(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireSection('planner')
+  const id = str(formData.get('id'))
+  if (!id) return { ok: false, error: 'Missing plan.' }
+
+  let blocks: unknown = []
+  try {
+    blocks = JSON.parse(str(formData.get('blocks')) || '[]')
+  } catch {
+    return { ok: false, error: 'That plan could not be read back — nothing was saved.' }
+  }
+
+  const svc = createServiceClient()
+  const { error } = await svc
+    .from('plans')
+    .update({
+      title: str(formData.get('title')) || 'Untitled',
+      plan_date: str(formData.get('plan_date')) || null,
+      season: str(formData.get('season')) || null,
+      summary: str(formData.get('summary')) || null,
+      roster_id: str(formData.get('roster_id')) || null,
+      blocks: readBlocks(blocks),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+  if (error) {
+    console.error('[savePlan]', error)
+    return { ok: false, error: `Couldn\u2019t save: ${error.message}` }
+  }
+
+  revalidatePath('/admin/planner')
+  revalidatePath(`/admin/planner/${id}`)
+  return { ok: true, message: 'Saved.' }
+}
+
+export async function deletePlan(id: string) {
+  await requireSection('planner')
+  const svc = createServiceClient()
+  await svc.from('plans').delete().eq('id', id)
+  revalidatePath('/admin/planner')
+  redirect('/admin/planner')
+}
+
+/** Copy a plan, blocks and all — last Tuesday's practice as today's starting point. */
+export async function duplicatePlan(formData: FormData) {
+  await requireSection('planner')
+  const id = str(formData.get('id'))
+  if (!id) return
+  const viewer = await getViewer()
+  const svc = createServiceClient()
+  const { data: original } = await svc.from('plans').select('*').eq('id', id).maybeSingle()
+  if (!original) return
+  const o = original as Record<string, unknown>
+  const { data: copy } = await svc
+    .from('plans')
+    .insert({
+      kind: o.kind,
+      title: `${String(o.title)} (copy)`,
+      season: o.season,
+      summary: o.summary,
+      roster_id: o.roster_id,
+      blocks: o.blocks,
+      created_by: viewer?.email ?? null,
+    })
+    .select('id')
+    .single()
+  revalidatePath('/admin/planner')
+  if (copy) redirect(`/admin/planner/${(copy as { id: string }).id}`)
+}
+
+// ── Which modes a coach sees in the hub ──
+// The head coach decides what the sidebar carries; a JV coach doesn't need the
+// game planner in their way. Stored with the other settings, no migration.
+
+export async function saveHubModes(formData: FormData) {
+  await requireOwner()
+  const off = HUB_MODE_KEYS.filter((k) => !formData.get(`mode:${k}`))
+  const svc = createServiceClient()
+  await svc
+    .from('app_settings')
+    .upsert({ key: HUB_MODES_KEY, value: JSON.stringify(off) }, { onConflict: 'key' })
+  revalidatePath('/admin/hub')
+  revalidatePath('/admin/planner')
 }
