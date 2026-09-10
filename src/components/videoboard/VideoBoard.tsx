@@ -364,6 +364,18 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
           />
         </label>
 
+        {/* A head coach loading a game film reasonably assumes the team can see
+            it. Without cloud storage they cannot, and the only sign of that used
+            to be a Library button that wasn't there. */}
+        {!configured && canManage && (
+          <span
+            className={styles.localOnly}
+            title="Film storage isn't set up, so anything you load stays in this browser for this session. Other coaches don't see it."
+          >
+            This device only
+          </span>
+        )}
+
         <div className={styles.libraryStrip}>
           {videos.length === 0 ? (
             <span className={styles.libEmpty}>
