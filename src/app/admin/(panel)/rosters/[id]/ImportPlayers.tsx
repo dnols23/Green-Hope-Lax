@@ -22,11 +22,11 @@ export function ImportPlayers({ listId }: { listId: string }) {
   const lineCount = text.split(/\r?\n/).filter((l) => l.trim()).length
 
   return (
-    <form action={formAction} className="card p-5 space-y-3">
+    // The card is the parent's — this sits inside a collapsible panel.
+    <form action={formAction} className="space-y-3">
       <input type="hidden" name="list_id" value={listId} />
 
       <div>
-        <h2 className="font-bold text-gray-700 mb-1">Add players in bulk</h2>
         <p className="text-xs text-gray-500">
           Paste straight from Google Sheets or Excel — select the cells, copy, paste below. Or pick a
           CSV. One player per line: <b>Name, Number, Position, Grad year</b>. Only the name is

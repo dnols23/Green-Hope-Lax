@@ -18,7 +18,7 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
   const players = await rosterMembers(id)
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="max-w-3xl space-y-4">
       <div>
         <Link href="/admin/rosters" className="text-sm font-bold text-[var(--gh-green)]">← Rosters</Link>
         <div className="flex items-center gap-2 mt-2 mb-1 flex-wrap">
@@ -26,71 +26,12 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
           {roster.is_public && <span className="badge badge-win">Public</span>}
           {roster.is_archived && <span className="badge badge-sched">Archived</span>}
         </div>
-        <p className="text-gray-500 text-sm">
+        <p className="text-gray-500 text-sm mb-2">
           {players.length} {players.length === 1 ? 'player' : 'players'}
           {roster.season ? ` · ${roster.season}` : ''}
           {roster.notes ? ` · ${roster.notes}` : ''}
         </p>
       </div>
-
-      <ImportPlayers listId={roster.id} />
-
-      <section>
-        <h2 className="font-bold text-gray-700 mb-3">On this roster ({players.length})</h2>
-        {players.length === 0 ? (
-          <div className="card p-6 text-sm text-gray-500">
-            Nobody yet. Paste your list above to fill it.
-          </div>
-        ) : (
-          <div className="card table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>#</th><th>Player</th><th>Position</th><th>Grad</th><th>Team</th><th>Public</th>
-                  <th className="col-actions">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {players.map((p) => (
-                  <tr key={p.id}>
-                    <td className="font-black tabular-nums" style={{ color: 'var(--gh-green)' }}>{p.number ?? '–'}</td>
-                    <td className="font-semibold whitespace-nowrap">{p.name}</td>
-                    <td>{p.position ?? '—'}</td>
-                    <td>{p.class_year ?? '—'}</td>
-                    <td className="text-gray-500 text-xs">{TEAM_LABELS[p.team as TeamGroup]}</td>
-                    <td>
-                      <span className={`badge ${p.is_active ? 'badge-win' : 'badge-sched'}`}>
-                        {p.is_active ? 'Public' : 'Hidden'}
-                      </span>
-                    </td>
-                    <td className="col-actions">
-                      <div className="flex items-center gap-3">
-                        <Link href={`/admin/hub/evaluate/${p.id}`} className="text-xs font-bold text-[var(--gh-green)]">
-                          Evaluate
-                        </Link>
-                        <form action={removePlayerFromRoster}>
-                          <input type="hidden" name="list_id" value={roster.id} />
-                          <input type="hidden" name="player_id" value={p.id} />
-                          <button type="submit" className="text-xs font-bold text-gray-400 hover:text-red-700">
-                            Remove
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {players.length > 0 && (
-          <p className="text-xs text-gray-400 mt-2">
-            &ldquo;Remove&rdquo; takes them off this roster only — the player and their evaluations stay.
-            &ldquo;Hidden&rdquo; means they don&rsquo;t appear on the public roster page; change that on{' '}
-            <Link href="/admin/roster" className="font-semibold text-[var(--gh-green)]">Roster</Link>.
-          </p>
-        )}
-      </section>
 
       <details className="card p-4">
         <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
@@ -150,6 +91,78 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
           </div>
         </div>
       </details>
+
+      <details className="card p-4">
+        <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
+          <span className="caret text-sm">▸</span> Add players
+          <span className="font-normal text-xs text-gray-400">paste a list, or pick a CSV</span>
+        </summary>
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <ImportPlayers listId={roster.id} />
+        </div>
+      </details>
+
+      <details open className="card p-4">
+        <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
+          <span className="caret text-sm">▸</span> Players on this roster ({players.length})
+        </summary>
+        <div className="mt-4 pt-4 border-t border-gray-100">
+        {players.length === 0 ? (
+          <div className="card p-6 text-sm text-gray-500">
+            Nobody yet. Paste your list above to fill it.
+          </div>
+        ) : (
+          <div className="card table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Player</th><th>Position</th><th>Grad</th><th>Team</th><th>Public</th>
+                  <th className="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {players.map((p) => (
+                  <tr key={p.id}>
+                    <td className="font-black tabular-nums" style={{ color: 'var(--gh-green)' }}>{p.number ?? '–'}</td>
+                    <td className="font-semibold whitespace-nowrap">{p.name}</td>
+                    <td>{p.position ?? '—'}</td>
+                    <td>{p.class_year ?? '—'}</td>
+                    <td className="text-gray-500 text-xs">{TEAM_LABELS[p.team as TeamGroup]}</td>
+                    <td>
+                      <span className={`badge ${p.is_active ? 'badge-win' : 'badge-sched'}`}>
+                        {p.is_active ? 'Public' : 'Hidden'}
+                      </span>
+                    </td>
+                    <td className="col-actions">
+                      <div className="flex items-center gap-3">
+                        <Link href={`/admin/hub/evaluate/${p.id}`} className="text-xs font-bold text-[var(--gh-green)]">
+                          Evaluate
+                        </Link>
+                        <form action={removePlayerFromRoster}>
+                          <input type="hidden" name="list_id" value={roster.id} />
+                          <input type="hidden" name="player_id" value={p.id} />
+                          <button type="submit" className="text-xs font-bold text-gray-400 hover:text-red-700">
+                            Remove
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {players.length > 0 && (
+          <p className="text-xs text-gray-400 mt-2">
+            &ldquo;Remove&rdquo; takes them off this roster only — the player and their evaluations stay.
+            &ldquo;Hidden&rdquo; means they don&rsquo;t appear on the public roster page; change that on{' '}
+            <Link href="/admin/roster" className="font-semibold text-[var(--gh-green)]">Roster</Link>.
+          </p>
+        )}
+        </div>
+      </details>
+
     </div>
   )
 }
