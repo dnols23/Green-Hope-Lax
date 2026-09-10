@@ -1316,3 +1316,30 @@ export async function mergeSplitNames() {
   revalidatePath('/admin/roster')
   revalidatePath('/roster')
 }
+
+/**
+ * Publish a roster to the public site, or take it off, from the Rosters list.
+ *
+ * The same rule as the tick inside a roster: publishing one unpublishes the
+ * rest, because the public page shows the members of every published roster and
+ * two of them read as one merged squad.
+ */
+export async function setRosterPublic(formData: FormData) {
+  await requireSection('rosters')
+  const id = str(formData.get('id'))
+  const makePublic = str(formData.get('public')) === 'true'
+  if (!id) return
+
+  const svc = createServiceClient()
+  if (makePublic) {
+    await svc.from('player_lists').update({ is_public: false }).neq('id', id)
+  }
+  await svc
+    .from('player_lists')
+    .update({ is_public: makePublic, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  revalidatePath('/admin/rosters')
+  revalidatePath(`/admin/rosters/${id}`)
+  revalidatePath('/roster')
+}

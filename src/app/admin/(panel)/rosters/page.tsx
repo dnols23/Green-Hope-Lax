@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireSection } from '@/lib/permissions'
 import { listRosters, rostersReady, playersOnNoRoster } from '@/lib/rosters'
-import { createRoster } from '@/lib/actions'
+import { createRoster, setRosterPublic } from '@/lib/actions'
 import { AdoptCard } from './AdoptCard'
 
 export const metadata = { title: 'Rosters' }
@@ -95,21 +95,33 @@ export default async function RostersPage() {
         ) : (
           <div className="space-y-2">
             {live.map((r) => (
-              <Link key={r.id} href={`/admin/rosters/${r.id}`} className="card p-4 flex items-center justify-between gap-3 hover:shadow-md transition-shadow">
-                <div>
-                  <div className="font-bold flex items-center gap-2 flex-wrap">
+              <div key={r.id} className="card p-4 flex items-center justify-between gap-3">
+                <Link href={`/admin/rosters/${r.id}`} className="min-w-0 flex-1 group">
+                  <div className="font-bold flex items-center gap-2 flex-wrap group-hover:underline">
                     {r.name}
                     {r.is_public && <span className="badge badge-win">On the public site</span>}
                   </div>
                   <div className="text-xs text-gray-500">
                     {[r.season, r.notes].filter(Boolean).join(' · ') || 'No season set'}
                   </div>
-                </div>
+                </Link>
                 <div className="text-right shrink-0">
                   <div className="text-2xl font-black" style={{ color: 'var(--gh-green)' }}>{r.memberCount}</div>
                   <div className="text-xs text-gray-400">players</div>
                 </div>
-              </Link>
+                {/* The one thing you come to this page to change, on the page
+                    rather than three clicks inside the roster. */}
+                <form action={setRosterPublic} className="shrink-0">
+                  <input type="hidden" name="id" value={r.id} />
+                  <input type="hidden" name="public" value={r.is_public ? 'false' : 'true'} />
+                  <button
+                    type="submit"
+                    className={`btn text-xs !py-1.5 !px-3 ${r.is_public ? 'btn-ghost' : 'btn-primary'}`}
+                  >
+                    {r.is_public ? 'Take off public site' : 'Publish'}
+                  </button>
+                </form>
+              </div>
             ))}
           </div>
         )}
