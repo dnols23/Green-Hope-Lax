@@ -99,16 +99,6 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
                   </Link>
                 ))}
 
-                {/* Both ways in, once, where someone goes looking for them. */}
-                <div className="flex flex-col gap-2 mt-2">
-                  <Link href="/join" onClick={() => setOpen(false)} className="btn btn-maroon w-full">
-                    Join Green Hope Lacrosse
-                  </Link>
-                  <Link href="/join/green-machine" onClick={() => setOpen(false)} className="btn btn-maroon w-full">
-                    Join the Green Machine
-                  </Link>
-                </div>
-
                 {/* Staff door, last and set apart so it reads as a utility link
                     rather than another section of the site. */}
                 <Link
