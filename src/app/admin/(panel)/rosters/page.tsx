@@ -45,8 +45,8 @@ export default async function RostersPage() {
           <Link href="/roster" target="_blank" className="text-[var(--gh-green)] font-semibold">
             public roster ↗
           </Link>{' '}
-          unless you publish one. Open a roster and tick <b>Publish this roster to the public site</b>
-          {' '}to make it the public list.
+          unless you publish them. Publish one and it is the roster; publish several and visitors
+          pick between them by name.
         </p>
       </div>
 
