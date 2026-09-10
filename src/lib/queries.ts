@@ -69,6 +69,42 @@ export async function getNextGame(
 }
 
 /**
+ * Every published roster, each with its own players.
+ *
+ * More than one can be published at a time — a season squad and an off-season
+ * group, say — and the public page shows them as separate lists rather than one
+ * merged one. Returns null when the rosters tables aren't installed at all, so
+ * callers can fall back to the active flag.
+ */
+export async function getPublishedRosters(): Promise<
+  { id: string; name: string; season: string | null; players: Player[] }[] | null
+> {
+  const svc = createServiceClient()
+  const { data: lists, error } = await svc
+    .from('player_lists')
+    .select('id, name, season')
+    .eq('is_public', true)
+    .order('name')
+  if (error) return null
+  const rows = (lists ?? []) as { id: string; name: string; season: string | null }[]
+  if (rows.length === 0) return []
+
+  const { data: members } = await svc
+    .from('player_list_members')
+    .select('list_id, sort_order, players(*)')
+    .in('list_id', rows.map((l) => l.id))
+    .order('sort_order')
+
+  const byList = new Map<string, Player[]>()
+  for (const m of (members ?? []) as unknown as { list_id: string; players: Player | null }[]) {
+    if (!m.players) continue
+    if (!byList.has(m.list_id)) byList.set(m.list_id, [])
+    byList.get(m.list_id)!.push(m.players)
+  }
+  return rows.map((l) => ({ ...l, players: byList.get(l.id) ?? [] }))
+}
+
+/**
  * Players for the public roster page: the members of the published roster, and
  * nobody else.
  *

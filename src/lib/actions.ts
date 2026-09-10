@@ -1062,12 +1062,6 @@ export async function renameRoster(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
-  // One published roster at a time. Two would show up on the public page as one
-  // combined list, which is how a new season's roster ends up merged with last
-  // season's.
-  if (str(formData.get('is_public')) === 'true') {
-    await svc.from('player_lists').update({ is_public: false }).neq('id', id)
-  }
   revalidatePath('/admin/rosters')
   revalidatePath(`/admin/rosters/${id}`)
   revalidatePath('/roster') // the public page reads from published rosters
@@ -1320,9 +1314,9 @@ export async function mergeSplitNames() {
 /**
  * Publish a roster to the public site, or take it off, from the Rosters list.
  *
- * The same rule as the tick inside a roster: publishing one unpublishes the
- * rest, because the public page shows the members of every published roster and
- * two of them read as one merged squad.
+ * Any number can be published: the public page lists them side by side under
+ * their own names, so a season squad and an off-season group stay distinct
+ * rather than reading as one merged list.
  */
 export async function setRosterPublic(formData: FormData) {
   await requireSection('rosters')
@@ -1331,9 +1325,6 @@ export async function setRosterPublic(formData: FormData) {
   if (!id) return
 
   const svc = createServiceClient()
-  if (makePublic) {
-    await svc.from('player_lists').update({ is_public: false }).neq('id', id)
-  }
   await svc
     .from('player_lists')
     .update({ is_public: makePublic, updated_at: new Date().toISOString() })
