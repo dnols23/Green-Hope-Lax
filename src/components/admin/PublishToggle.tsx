@@ -9,10 +9,19 @@ export function PublishToggle({
   entity,
   id,
   live,
+  onLabel = '● Live',
+  offLabel = '○ Hidden',
+  onTitle = 'Live on the public site — click to hide',
+  offTitle = 'Hidden — click to make it live',
 }: {
   entity: VisibilityEntity
   id: string
   live: boolean
+  /** What the two states are called, for switches that aren't about publishing. */
+  onLabel?: string
+  offLabel?: string
+  onTitle?: string
+  offTitle?: string
 }) {
   const [on, setOn] = useState(live)
   const [pending, startTransition] = useTransition()
@@ -21,7 +30,7 @@ export function PublishToggle({
     <button
       type="button"
       disabled={pending}
-      title={on ? 'Live on the public site — click to hide' : 'Hidden — click to make it live'}
+      title={on ? onTitle : offTitle}
       aria-pressed={on}
       onClick={() => {
         const next = !on
@@ -41,7 +50,7 @@ export function PublishToggle({
           : { background: '#f3f4f6', color: '#6b7280', borderColor: '#d1d5db' }
       }
     >
-      {on ? '● Live' : '○ Hidden'}
+      {on ? onLabel : offLabel}
     </button>
   )
 }

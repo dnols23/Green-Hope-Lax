@@ -21,6 +21,13 @@ import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
 import { readBlocks, type PlanKind } from './planner'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
+import {
+  SIGNUPS,
+  SIGNUP_KEYS,
+  SIGNUP_STATUS_KEY,
+  SIGNUP_STATUS_META,
+  parseSignupStatus,
+} from './signups'
 import { parseDrillPaste } from './drills'
 import { listDrills } from './drillsData'
 import { buildDrillSet, positionGroup } from './prescribe'
@@ -370,6 +377,109 @@ export async function submitSwfl(
   return { ok: true }
 }
 
+// One-day event signup (playdays, clinics) — used by /barton-playday. Which
+// event it is rides on the form, checked against the list rather than trusted.
+export async function submitEventSignup(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const event = str(formData.get('event'))
+  if (!SIGNUP_KEYS.includes(event)) {
+    return { ok: false, error: 'That signup form is no longer available.' }
+  }
+
+  const rawNotes = str(formData.get('notes'))
+  const data = {
+    event,
+    player_first: str(formData.get('player_first')),
+    player_last: str(formData.get('player_last')),
+    grad_year: str(formData.get('grad_year')) || null,
+    position: str(formData.get('position')) || null,
+    parent_name: str(formData.get('parent_name')),
+    parent_email: str(formData.get('parent_email')),
+    parent_phone: str(formData.get('parent_phone')),
+    player_email: str(formData.get('player_email')) || null,
+    notes: rawNotes || null,
+  }
+
+  if (str(formData.get('company'))) return { ok: true } // honeypot
+  if (!data.player_first || !data.player_last)
+    return { ok: false, error: 'Please enter the player\u2019s first and last name.' }
+  if (!data.parent_name)
+    return { ok: false, error: 'Please enter a parent/guardian name.' }
+  if (!EMAIL_RE.test(data.parent_email))
+    return { ok: false, error: 'Please enter a valid parent email address.' }
+  if (data.parent_phone.replace(/\D/g, '').length < 10)
+    return { ok: false, error: 'Please enter a valid phone number.' }
+  if (data.player_email && !EMAIL_RE.test(data.player_email))
+    return { ok: false, error: 'Player email looks invalid \u2014 leave it blank or fix it.' }
+
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('event_signups').insert(data)
+  if (error) {
+    console.error('[submitEventSignup]', error)
+    return { ok: false, error: 'Something went wrong saving your signup. Please try again.' }
+  }
+
+  const label = SIGNUPS.find((s) => s.key === event)?.label ?? event
+  await notifyCoaches({
+    event: 'event-signup',
+    subject: `New ${label} signup: ${data.player_first} ${data.player_last}`,
+    replyTo: data.parent_email,
+    html: emailShell(
+      `New ${label} Signup`,
+      row('Player', `${data.player_first} ${data.player_last}`) +
+        row('Grad year', data.grad_year) +
+        row('Position', data.position) +
+        row('Parent/Guardian', data.parent_name) +
+        row('Parent email', data.parent_email) +
+        row('Parent phone', data.parent_phone) +
+        row('Player email', data.player_email) +
+        row('Notes', rawNotes || null)
+    ),
+  })
+
+  revalidatePath('/admin/submissions')
+  return { ok: true }
+}
+
+export async function deleteEventSignup(id: string) {
+  const supabase = createServiceClient()
+  await supabase.from('event_signups').delete().eq('id', id)
+  revalidatePath('/admin/submissions')
+}
+
+/**
+ * Open, close, or mark a signup underway. Coach only.
+ *
+ * Stored as one settings row rather than a column per page, so next season's
+ * playday needs a page and a list entry, not a migration.
+ */
+export async function setSignupStatus(formData: FormData) {
+  await requireSection('submissions')
+  const key = str(formData.get('key'))
+  const status = str(formData.get('status'))
+  if (!SIGNUP_KEYS.includes(key) || !(status in SIGNUP_STATUS_META)) return
+
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', SIGNUP_STATUS_KEY)
+    .maybeSingle()
+  const next = { ...parseSignupStatus(data?.value as string | undefined), [key]: status }
+  await supabase
+    .from('app_settings')
+    .upsert({ key: SIGNUP_STATUS_KEY, value: JSON.stringify(next) }, { onConflict: 'key' })
+
+  // Every surface that shows the badge: the page itself, the home callout, and
+  // the screen the coach just clicked on.
+  const href = SIGNUPS.find((s) => s.key === key)?.href
+  if (href) revalidatePath(href)
+  revalidatePath('/')
+  revalidatePath('/admin/submissions')
+}
+
 // Admin: delete a single submission (spam cleanup). Service client so RLS
 // can't block the cleanup.
 export async function deleteInterestSubmission(id: string) {
@@ -501,6 +611,9 @@ const VISIBILITY = {
   player:   { table: 'players',       column: 'is_active',    paths: ['/roster', '/admin/roster'] },
   product:  { table: 'products',       column: 'is_published', paths: ['/shop', '/admin/shop'] },
   teampost: { table: 'team_posts',    column: 'published',    paths: ['/team', '/admin/team'], service: true },
+  // Not a visibility flag at all — the same one-click switch, pointed at
+  // "has this player paid", which is the other thing a coach flips in a list.
+  eventpaid: { table: 'event_signups', column: 'paid',        paths: ['/admin/submissions'], service: true },
   // Whole-page on/off. Revalidates the site layout so the nav updates everywhere.
   page:     { table: 'page_settings', column: 'is_published', paths: ['/admin/pages'], layout: true },
 } as const

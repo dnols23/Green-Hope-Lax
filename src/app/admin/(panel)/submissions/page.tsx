@@ -3,11 +3,14 @@ import { createClient } from '@/lib/supabase-server'
 import { ExportCsvButton } from '@/components/admin/ExportCsvButton'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { MoveSubmission } from '@/components/admin/MoveSubmission'
+import { PublishToggle } from '@/components/admin/PublishToggle'
+import { SignupStatusControls } from '@/components/admin/SignupStatusControls'
 import { SweepLegacyButton } from '@/components/admin/SweepLegacyButton'
 import {
   deleteInterestSubmission,
   deleteContactSubmission,
   deleteSwflSignup,
+  deleteEventSignup,
   moveSubmission,
   sweepLegacySubmissions,
 } from '@/lib/actions'
@@ -16,16 +19,19 @@ import {
   type InterestSubmission,
   type ContactSubmission,
   type SwflSignup,
+  type EventSignup,
   type PlayerCollection,
 } from '@/lib/types'
 import { formatDateTime } from '@/lib/format'
 import { requireSection } from '@/lib/permissions'
+import { readSignupStatus } from '@/lib/signupSettings'
 
 export const metadata = { title: 'Submissions' }
 
 const fmt = formatDateTime
 
 const TABS = [
+  { key: 'barton-playday', label: 'Barton Playday' },
   { key: 'swfl', label: 'SWFL Fall League' },
   { key: 'high_school', label: 'High School Interest' },
   { key: 'green_machine', label: 'Green Machine' },
@@ -36,6 +42,11 @@ type TabKey = (typeof TABS)[number]['key']
 // What each collection is fed by, so an empty tab explains itself rather than
 // just reading zero.
 const SOURCE: Record<TabKey, { blurb: string; href?: string; linkText?: string }> = {
+  'barton-playday': {
+    blurb: 'Signups for the December 5 playday at Barton College. Returners only, $50 by Venmo — tick Paid as the money comes in.',
+    href: '/barton-playday',
+    linkText: 'Playday page',
+  },
   swfl: { blurb: 'Signups from the fall league page.', href: '/swfl', linkText: 'SWFL page' },
   high_school: { blurb: 'Interest forms from the join page.', href: '/join', linkText: 'Join the Team page' },
   green_machine: {
@@ -54,12 +65,17 @@ export default async function SubmissionsPage({
   await requireSection('submissions')
   const { tab: tabParam } = await searchParams
   const supabase = await createClient()
-  const [{ data: swfl }, { data: interest }, { data: contact }] = await Promise.all([
-    supabase.from('swfl_signups').select('*').order('created_at', { ascending: false }),
-    supabase.from('interest_form_submissions').select('*').order('created_at', { ascending: false }),
-    supabase.from('contact_submissions').select('*').order('created_at', { ascending: false }),
-  ])
+  const [{ data: swfl }, { data: interest }, { data: contact }, { data: events }, statuses] =
+    await Promise.all([
+      supabase.from('swfl_signups').select('*').order('created_at', { ascending: false }),
+      supabase.from('interest_form_submissions').select('*').order('created_at', { ascending: false }),
+      supabase.from('contact_submissions').select('*').order('created_at', { ascending: false }),
+      supabase.from('event_signups').select('*').order('created_at', { ascending: false }),
+      readSignupStatus(),
+    ])
   const swfls = (swfl as SwflSignup[]) ?? []
+  const eventRows = (events as EventSignup[]) ?? []
+  const barton = eventRows.filter((r) => r.event === 'barton-playday')
   const interests = (interest as InterestSubmission[]) ?? []
   const contacts = (contact as ContactSubmission[]) ?? []
 
@@ -74,17 +90,20 @@ export default async function SubmissionsPage({
   const legacy = interests.filter((r) => /^\[[^\]]*\]/.test(r.notes ?? ''))
 
   const counts: Record<TabKey, number> = {
+    'barton-playday': barton.length,
     swfl: swfls.length,
     high_school: highSchool.length,
     green_machine: greenMachine.length,
     contact: contacts.length,
   }
-  const tab: TabKey = (TABS.some((t) => t.key === tabParam) ? tabParam : 'swfl') as TabKey
+  const tab: TabKey = (TABS.some((t) => t.key === tabParam) ? tabParam : 'barton-playday') as TabKey
   const source = SOURCE[tab]
 
   return (
     <div>
       <h1 className="text-xl font-black mb-4">Submissions</h1>
+
+      <SignupStatusControls statuses={statuses} />
 
       {/* Tab chooser — one form type per view */}
       <div className="flex gap-2 flex-wrap mb-6">
@@ -118,6 +137,8 @@ export default async function SubmissionsPage({
 
       {tab === 'contact' ? (
         <ContactTable rows={contacts} />
+      ) : tab === 'barton-playday' ? (
+        <EventTable rows={barton} title="Barton College Playday" csvName="falcons-barton-playday.csv" />
       ) : tab === 'swfl' ? (
         <PlayerTable
           rows={swfls}
@@ -201,6 +222,87 @@ function PlayerTable({ rows, collection, title, csvName, showProgram, onDelete }
                       <MoveSubmission id={r.id} current={collection} action={moveSubmission} />
                       <DeleteButton id={r.id} action={onDelete} />
                     </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function EventTable({ rows, title, csvName }: {
+  rows: EventSignup[]
+  title: string
+  csvName: string
+}) {
+  const paid = rows.filter((r) => r.paid).length
+  return (
+    <section>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <h2 className="text-lg font-black">
+          {title}
+          <span className="ml-2 text-sm font-normal text-gray-400">
+            {rows.length} signed up · {paid} paid
+          </span>
+        </h2>
+        {rows.length > 0 && (
+          <ExportCsvButton
+            rows={rows.map((r) => ({
+              submitted: fmt(r.created_at),
+              player_first: r.player_first,
+              player_last: r.player_last,
+              grad_year: r.grad_year,
+              position: r.position,
+              paid: r.paid ? 'yes' : 'no',
+              parent_name: r.parent_name,
+              parent_email: r.parent_email,
+              parent_phone: r.parent_phone,
+              player_email: r.player_email,
+              notes: r.notes,
+            }))}
+            filename={csvName}
+          />
+        )}
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-gray-500 text-sm">Nobody has signed up yet.</p>
+      ) : (
+        <div className="card table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Submitted</th><th>Player</th><th>Grad</th><th>Position</th><th>Paid</th>
+                <th>Parent</th><th>Email</th><th>Phone</th><th>Notes</th>
+                <th className="col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="whitespace-nowrap text-gray-500">{fmt(r.created_at)}</td>
+                  <td className="font-semibold whitespace-nowrap">{r.player_first} {r.player_last}</td>
+                  <td>{r.grad_year ?? '—'}</td>
+                  <td>{r.position ?? '—'}</td>
+                  <td>
+                    <PublishToggle
+                      entity="eventpaid"
+                      id={r.id}
+                      live={r.paid}
+                      onLabel="● Paid"
+                      offLabel="○ Unpaid"
+                      onTitle="Paid — click if that was wrong"
+                      offTitle="Not paid yet — click when the Venmo lands"
+                    />
+                  </td>
+                  <td className="whitespace-nowrap">{r.parent_name}</td>
+                  <td><a href={`mailto:${r.parent_email}`} className="text-[var(--gh-green)]">{r.parent_email}</a></td>
+                  <td className="whitespace-nowrap">{r.parent_phone}</td>
+                  <td className="max-w-xs text-gray-600">{r.notes || '—'}</td>
+                  <td className="col-actions">
+                    <DeleteButton id={r.id} action={deleteEventSignup} />
                   </td>
                 </tr>
               ))}

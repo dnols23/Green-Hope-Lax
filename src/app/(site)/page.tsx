@@ -1,9 +1,12 @@
 import Link from 'next/link'
 import { getNews } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
+import { SignupStatusBadge } from '@/components/SignupStatusBadge'
+import { readSignupStatus } from '@/lib/signupSettings'
+import { SIGNUPS, SIGNUP_STATUS_META, statusOf } from '@/lib/signups'
 
 export default async function HomePage() {
-  const news = await getNews(3)
+  const [news, statuses] = await Promise.all([getNews(3), readSignupStatus()])
 
   return (
     <>
@@ -33,24 +36,28 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── SWFL callout ── */}
-      <section className="max-w-screen-xl mx-auto px-4 mt-8">
-        <Link
-          href="/swfl"
-          className="card p-5 sm:p-6 flex flex-wrap items-center gap-4 hover:shadow-md transition-shadow"
-          style={{ borderLeft: '4px solid var(--gh-maroon)' }}
-        >
-          <div className="flex-1 min-w-60">
-            <div className="section-label">Falcons Fall Ball · Sign-ups open</div>
-            <div className="font-black text-lg sm:text-xl mt-1">
-              South Wake Fall High School League at Seymour Park
-            </div>
-            <p className="text-sm text-gray-500 mt-1">
-              Six Monday nights, 6–9 PM · Aug 17 – Sep 28 · $75 per player
-            </p>
-          </div>
-          <span className="btn btn-maroon">Sign up to play</span>
-        </Link>
+      {/* ── Sign-up callouts ── */}
+      <section className="max-w-screen-xl mx-auto px-4 mt-8 space-y-4">
+        {SIGNUPS.map((s) => {
+          const status = statusOf(statuses, s.key)
+          return (
+            <Link
+              key={s.key}
+              href={s.href}
+              className="card p-5 sm:p-6 flex flex-wrap items-center gap-4 hover:shadow-md transition-shadow"
+              style={{ borderLeft: '4px solid var(--gh-maroon)' }}
+            >
+              <div className="flex-1 min-w-60">
+                <SignupStatusBadge signupKey={s.key} status={status} />
+                <div className="font-black text-lg sm:text-xl mt-2">{s.headline}</div>
+                <p className="text-sm text-gray-500 mt-1">{s.detail}</p>
+              </div>
+              <span className="btn btn-maroon">
+                {SIGNUP_STATUS_META[status].accepting ? 'Sign up to play' : 'See details'}
+              </span>
+            </Link>
+          )
+        })}
       </section>
 
       {/* ── Latest news ── */}
