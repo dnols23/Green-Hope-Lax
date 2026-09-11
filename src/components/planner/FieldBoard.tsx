@@ -37,10 +37,13 @@ export function FieldBoard({
 }: {
   board: Board
   onChange?: (next: Board) => void
+  /** Players already picked for this block — the only ones offered for the field. */
   players?: BoardPlayer[]
   readOnly?: boolean
 }) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [full, setFull] = useState(false)
   const [tool, setTool] = useState<'move' | PathKind>('move')
   const [dragId, setDragId] = useState<string | null>(null)
   const [draft, setDraft] = useState<{ x: number; y: number }[] | null>(null)
@@ -119,13 +122,32 @@ export function FieldBoard({
     emit({ ...board, tokens: board.tokens.filter((t) => t.id !== id) })
   }
 
+  /* Full screen is how this gets used on a phone: turn it sideways and the field
+     fills the glass. The board is an SVG in yards, so it simply scales. */
+  async function toggleFullscreen() {
+    const el = wrapRef.current
+    if (!el) return
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+        setFull(false)
+      } else {
+        await el.requestFullscreen()
+        setFull(true)
+      }
+    } catch {
+      // Some browsers refuse without a gesture they recognise; the board still
+      // works at its normal size.
+    }
+  }
+
   const toolBtn = (active: boolean) =>
     `px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
       active ? 'text-white' : 'text-gray-600 bg-white hover:bg-gray-50'
     }`
 
   return (
-    <div>
+    <div ref={wrapRef} className={full ? 'p-3 bg-white flex flex-col h-full' : ''}>
       {!readOnly && (
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
           <button
@@ -176,6 +198,14 @@ export function FieldBoard({
 
           <button
             type="button"
+            onClick={toggleFullscreen}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 bg-white hover:bg-gray-50"
+            title="Fill the screen — turn a phone sideways"
+          >
+            {full ? '⤡ Exit full screen' : '⤢ Full screen'}
+          </button>
+          <button
+            type="button"
             onClick={() => emit({ tokens: [], paths: [] })}
             className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-500 bg-white hover:bg-gray-50"
           >
@@ -196,7 +226,7 @@ export function FieldBoard({
       {!readOnly && players.length > 0 && (
         <div className="mb-2">
           <div className="text-[0.65rem] font-black tracking-wider uppercase text-gray-400 mb-1">
-            Roster — tap to put on the field
+            In this block — tap to put on the field
           </div>
           <div className="flex flex-wrap gap-1">
             {players.map((p) => {
@@ -240,7 +270,7 @@ export function FieldBoard({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${viewW} ${viewH}`}
-        className="w-full rounded-xl select-none touch-none"
+        className={`w-full rounded-xl select-none touch-none ${full ? 'flex-1 min-h-0' : ''}`}
         style={{ background: '#4a7f52', cursor: tool === 'move' ? 'default' : 'crosshair' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

@@ -41,6 +41,8 @@ export interface Game {
   gender: ProgramGender
   game_date: string
   opponent: string
+  /** Who may see it: everyone, the Team Hub, or coaches only. Added in 0016. */
+  audience?: 'public' | 'team' | 'coaches'
   home_away: HomeAway
   location: string | null
   status: GameStatus
