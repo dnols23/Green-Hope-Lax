@@ -21,6 +21,7 @@ export const HUB_MODES: HubMode[] = [
   { key: 'warroom',   label: 'War Room',         section: 'hub',      icon: '🎛', href: '/admin/hub', fixed: true },
   { key: 'planner',   label: 'Planner',          section: 'planner',  icon: '🗒', href: '/admin/planner' },
   { key: 'drills',    label: 'Drill Bank',       section: 'drills',   icon: '📓', href: '/admin/drills' },
+  { key: 'team',      label: 'Team Hub',         section: 'team',     icon: '🗣', href: '/admin/team' },
   { key: 'players',   label: 'Players',          section: 'hub',      icon: '🧍', href: '/admin/hub/players' },
   { key: 'evaluate',  label: 'Evaluate',         section: 'hub',      icon: '📝', href: '/admin/hub/evaluate' },
   { key: 'mine',      label: 'My evaluations',   section: 'hub',      icon: '📋', href: '/admin/hub/mine' },
