@@ -1513,6 +1513,9 @@ export async function upsertDrill(formData: FormData) {
     name: str(formData.get('name')),
     category: str(formData.get('category')) || 'stickwork',
     minutes: Math.max(0, Math.min(240, Number(formData.get('minutes')) || 10)),
+    setting: ['wall', 'solo', 'partner', 'team', 'film'].includes(str(formData.get('setting')))
+      ? str(formData.get('setting'))
+      : 'team',
     description: str(formData.get('description')) || null,
     link: str(formData.get('link')) || null,
     link_label: str(formData.get('link_label')) || null,

@@ -5,7 +5,7 @@
 // them every time they open it.
 
 import { EVAL_CATEGORIES, readRating, type Evaluation } from './evaluations'
-import { DRILL_CATEGORIES, type Drill } from './drills'
+import { DRILL_CATEGORIES, isHomework, type Drill } from './drills'
 
 export type PositionGroup = 'attack' | 'midfield' | 'defense' | 'lsm' | 'goalie' | 'fogo'
 
@@ -60,10 +60,10 @@ const SKILL_TO_DRILLS: Record<string, string[]> = {
   strength: ['strength', 'conditioning'],
   motor:    ['conditioning', 'strength'],
 
-  iq:           ['mental', 'planning', 'offense'],
-  coachability: ['mental'],
-  team:         ['leadership', 'mental'],
-  compete:      ['mental', 'conditioning'],
+  /* Lacrosse IQ, coachability, team-first and competitiveness are deliberately
+     absent. Nothing in a drill bank fixes them, and mapping them anywhere sent a
+     kid an ESPN story about a Tottenham midfielder as his homework. They still
+     show on his evaluation, and they are what a coach talks to him about. */
 }
 
 /**
@@ -95,6 +95,8 @@ export interface DrillSetItem {
   drillId: string
   name: string
   category: string
+  /** Wall, on your own, or with a friend — never anything else. */
+  setting?: string
   link: string | null
   /** Which focus area it answers. */
   focusKey: string
@@ -136,9 +138,12 @@ function reasonFor(focus: FocusArea, position: PositionGroup): string {
 export function ratedSkills(evaluation: Evaluation): { key: string; label: string; score: number }[] {
   return EVAL_CATEGORIES.map((c) => {
     const rating = readRating(evaluation.ratings?.[c.key])
-    return { key: c.key, label: c.label, score: rating?.score ?? 0 }
+    // A skill nobody scored is absent; a skill scored zero is a rating, and the
+    // worst one there is. Reading them as the same thing hid the players who
+    // most needed the work.
+    return rating ? { key: c.key, label: c.label, score: rating.score } : null
   })
-    .filter((r) => r.score > 0)
+    .filter((r): r is { key: string; label: string; score: number } => r !== null)
     .sort((a, b) => b.score - a.score)
 }
 
@@ -174,17 +179,28 @@ export function buildDrillSet(
   const uncovered: string[] = []
 
   for (const area of focus) {
+    const skillCats = SKILL_TO_DRILLS[area.key]
+    /* A skill with no drill categories behind it is not drillable at all — the
+       intangibles. Falling through to the position's categories would answer
+       "Lacrosse IQ" with a dodging drill, which is worse than answering
+       nothing. */
+    if (!skillCats) {
+      uncovered.push(area.label)
+      continue
+    }
     const positionFirst = position === 'goalie' || position === 'fogo'
-    const skillCats = SKILL_TO_DRILLS[area.key] ?? []
     const posCats = POSITION_FIRST[position] ?? []
     const preferred = [...new Set(positionFirst ? [...posCats, ...skillCats] : [...skillCats, ...posCats])]
 
     /* Category order is the prescription; inside a category, a coach's favourite
        comes first and a drill a player can actually watch beats one they can only
        read the name of. */
+    /* Only work a player can actually do on their own. A team install or a film
+       breakdown is a fine drill and a terrible piece of homework — those stay in
+       the plan, where a coach runs them. */
     const ranked = preferred.flatMap((cat) =>
       drills
-        .filter((d) => d.category === cat && !used.has(d.id))
+        .filter((d) => d.category === cat && !used.has(d.id) && isHomework(d.setting))
         .sort((a, b) => {
           const fav = Number(b.is_favorite) - Number(a.is_favorite)
           if (fav) return fav
@@ -194,6 +210,7 @@ export function buildDrillSet(
 
     const picked = ranked.slice(0, DRILLS_PER_FOCUS)
     if (picked.length === 0) {
+      // Named rather than dropped: a coach can see the gap and fill the bank.
       uncovered.push(area.label)
       continue
     }
@@ -203,6 +220,7 @@ export function buildDrillSet(
         drillId: d.id,
         name: d.name,
         category: d.category,
+        setting: d.setting,
         link: d.link,
         focusKey: area.key,
         focusLabel: area.label,
