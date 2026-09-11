@@ -5,6 +5,7 @@ import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { NewsPost } from '@/lib/types'
 import { formatShortDate } from '@/lib/format'
 import { requireSection } from '@/lib/permissions'
+import { ImageField } from '@/components/admin/ImageField'
 
 export const metadata = { title: 'Manage News' }
 
@@ -38,8 +39,12 @@ function NewsFields({ n }: { n?: NewsPost }) {
           </select>
         </div>
         <div className="sm:col-span-2">
-          <label className="field-label">Image URL (optional)</label>
-          <input name="image_url" defaultValue={n?.image_url ?? ''} className="field" />
+          <ImageField
+            name="image_url"
+            defaultValue={n?.image_url}
+            folder="news"
+            label="Photo (optional)"
+          />
         </div>
       </div>
       <div>

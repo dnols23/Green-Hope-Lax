@@ -4,6 +4,7 @@ import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { Coach } from '@/lib/types'
 import { requireSection } from '@/lib/permissions'
+import { ImageField } from '@/components/admin/ImageField'
 
 export const metadata = { title: 'Manage Coaches' }
 
@@ -34,8 +35,7 @@ function CoachFields({ c }: { c?: Coach }) {
         <input name="phone" defaultValue={c?.phone ?? ''} className="field" />
       </div>
       <div>
-        <label className="field-label">Photo URL</label>
-        <input name="photo_url" defaultValue={c?.photo_url ?? ''} className="field" />
+        <ImageField name="photo_url" defaultValue={c?.photo_url} folder="coaches" label="Photo" />
       </div>
       <div>
         <label className="field-label">Sort order</label>
