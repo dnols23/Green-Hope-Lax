@@ -10,7 +10,7 @@ import { formatShortDate } from '@/lib/format'
 import { PasswordField } from '@/components/PasswordField'
 import { requireSection } from '@/lib/permissions'
 
-export const metadata = { title: 'Manage Team Hub' }
+export const metadata = { title: 'Team Hub' }
 export const dynamic = 'force-dynamic'
 
 const CATEGORIES = Object.keys(TEAM_CATEGORY_META) as TeamPostCategory[]
@@ -25,11 +25,15 @@ function toLocalInput(iso: string | null) {
 function PostFields({ p }: { p?: TeamPost }) {
   return (
     <div className="space-y-3">
+      <div>
+        <label className="field-label">Title *</label>
+        <input name="title" required defaultValue={p?.title ?? ''} className="field" />
+      </div>
+      <div>
+        <label className="field-label">Message *</label>
+        <textarea name="body" rows={4} defaultValue={p?.body ?? ''} className="field" />
+      </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        <div className="sm:col-span-2">
-          <label className="field-label">Title *</label>
-          <input name="title" required defaultValue={p?.title ?? ''} className="field" />
-        </div>
         <div>
           <label className="field-label">Category *</label>
           <select name="category" defaultValue={p?.category ?? 'announcement'} className="field">
@@ -52,24 +56,27 @@ function PostFields({ p }: { p?: TeamPost }) {
         <div>
           <label className="field-label">Published?</label>
           <select name="published" defaultValue={String(p?.published ?? true)} className="field">
-            <option value="true">Published</option>
-            <option value="false">Draft (hidden)</option>
+            <option value="true">Published — the team sees it</option>
+            <option value="false">Draft — only coaches see it</option>
           </select>
         </div>
       </div>
-      <div>
-        <label className="field-label">Message *</label>
-        <textarea name="body" rows={4} defaultValue={p?.body ?? ''} className="field" />
-      </div>
-      <div>
-        <label className="field-label">Attachments / links — one per line as “Label | https://link”</label>
-        <textarea name="attachments" rows={2} defaultValue={p?.attachments ?? ''} className="field"
-          placeholder="Physical Form | https://example.com/form.pdf" />
-      </div>
-      <div>
-        <label className="field-label">Posted by</label>
-        <input name="author" defaultValue={p?.author ?? 'Coach'} className="field" />
-      </div>
+      <details className="rounded-lg border border-gray-200 px-3 py-2">
+        <summary className="cursor-pointer text-sm font-semibold text-gray-600">
+          Attachments &amp; byline
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div>
+            <label className="field-label">Links — one per line as “Label | https://link”</label>
+            <textarea name="attachments" rows={2} defaultValue={p?.attachments ?? ''} className="field"
+              placeholder="Physical Form | https://example.com/form.pdf" />
+          </div>
+          <div>
+            <label className="field-label">Posted by</label>
+            <input name="author" defaultValue={p?.author ?? 'Coach'} className="field" />
+          </div>
+        </div>
+      </details>
     </div>
   )
 }
@@ -77,6 +84,7 @@ function PostFields({ p }: { p?: TeamPost }) {
 export default async function AdminTeamPage() {
   await requireSection('team')
   const posts = await getTeamPosts(true) // include drafts
+  const live = posts.filter((p) => p.published).length
 
   // The join code, for the instructions a coach sends families. Null until the
   // password is next set — earlier ones were only ever stored as a hash.
@@ -90,51 +98,50 @@ export default async function AdminTeamPage() {
   const joinUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://greenhopelacrosse.com'}/team/login`
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-black mb-1">Team Hub</h1>
+        <h1 className="text-xl font-black mb-1">Team Hub editor</h1>
         <p className="text-gray-500 text-sm">
-          Post to the private parent/player feed at{' '}
+          The board in your locker room. You write it here, the team reads it at{' '}
           <a href="/team" target="_blank" className="text-[var(--gh-green)] font-semibold">/team ↗</a>.
         </p>
       </div>
 
-      {/* Team password */}
-      <section className="card p-5">
-        <h2 className="font-bold text-gray-700 mb-1">Team Login Password</h2>
-        <p className="text-sm text-gray-500 mb-3">
-          One shared password for all parents &amp; players. Copy the join instructions below to send to
-          families, or set a new password anytime (e.g. each season).
+      {/* Who can read this — the question a coach should never have to guess at. */}
+      <div className="rounded-xl border border-[var(--gh-green)]/30 bg-[var(--gh-green)]/5 p-4 text-sm">
+        <p className="font-bold text-[var(--gh-green)] mb-1">🔒 Private — not on the public site</p>
+        <p className="text-gray-600">
+          Only people who sign in with the team password, players who followed their own invite
+          link, and signed-in coaches can read these posts. Nothing here ever reaches the public
+          news feed or shows up in a search — that feed is written separately under{' '}
+          <strong>News</strong>.
         </p>
-        <TeamCodePanel code={teamCode} joinUrl={joinUrl} />
-        <form action={setTeamPassword} className="flex flex-wrap items-end gap-3">
-          <div>
-            <PasswordField
-              name="team_password"
-              label="New team password"
-              placeholder="Type a new team password"
-              required
-              minLength={4}
-              autoComplete="new-password"
-            />
-          </div>
-          <button type="submit" className="btn btn-maroon">Update password</button>
-        </form>
-      </section>
+      </div>
 
-      {/* Add post */}
+      {/* Post */}
       <section className="card p-5">
-        <h2 className="font-bold text-gray-700 mb-4">New Post</h2>
+        <h2 className="font-bold text-gray-700 mb-4">New post</h2>
         <form action={upsertTeamPost} className="space-y-4">
           <PostFields />
-          <button type="submit" className="btn btn-primary">Post to team feed</button>
+          <button type="submit" className="btn btn-primary">Post to the team</button>
         </form>
       </section>
 
-      {/* Existing posts */}
+      {/* The feed as the team sees it */}
       <section>
-        <h2 className="font-bold text-gray-700 mb-3">All Posts ({posts.length})</h2>
+        <h2 className="font-bold text-gray-700 mb-1">
+          The feed <span className="font-normal text-gray-400 text-sm">
+            — {live} live{posts.length - live > 0 && `, ${posts.length - live} draft`}
+          </span>
+        </h2>
+        <p className="text-xs text-gray-400 mb-3">Tap a post to edit it.</p>
         <div className="space-y-2">
+          {posts.length === 0 && (
+            <p className="card p-5 text-sm text-gray-500">
+              Nothing posted yet. The first thing your team sees when they sign in is whatever you
+              write above.
+            </p>
+          )}
           {posts.map((p) => (
             <details key={p.id} className="card p-4">
               <summary className="flex items-center justify-between cursor-pointer list-none gap-3">
@@ -159,6 +166,33 @@ export default async function AdminTeamPage() {
           ))}
         </div>
       </section>
+
+      {/* Who gets in — needed a few times a season, so it stays folded away */}
+      <details className="card p-5">
+        <summary className="cursor-pointer font-bold text-gray-700 list-none">
+          🔑 Who can get in — team password &amp; join instructions
+        </summary>
+        <div className="mt-4 space-y-4">
+          <p className="text-sm text-gray-500">
+            One shared password for all parents &amp; players. Copy the join instructions to send to
+            families, or set a new password anytime — e.g. each season, so last year’s group drops off.
+          </p>
+          <TeamCodePanel code={teamCode} joinUrl={joinUrl} />
+          <form action={setTeamPassword} className="flex flex-wrap items-end gap-3">
+            <div>
+              <PasswordField
+                name="team_password"
+                label="New team password"
+                placeholder="Type a new team password"
+                required
+                minLength={4}
+                autoComplete="new-password"
+              />
+            </div>
+            <button type="submit" className="btn btn-maroon">Update password</button>
+          </form>
+        </div>
+      </details>
     </div>
   )
 }
