@@ -285,3 +285,25 @@ summary::-webkit-details-marker { display: none; }
   .print-bar span { background: #444 !important; }
   a { text-decoration: none; color: inherit; }
 }
+
+/* ── Sign-up status dot ──
+   A live sign-up gets a pulsing green dot. Reduced-motion users get the dot
+   without the pulse, which still reads as green-means-go. */
+.status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: currentColor;
+  flex: none;
+}
+.status-dot-live {
+  background: #16a34a;
+  animation: status-glow 1.8s ease-in-out infinite;
+}
+@keyframes status-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55); opacity: 1; }
+  50%      { box-shadow: 0 0 0 5px rgba(22, 163, 74, 0); opacity: 0.75; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-dot-live { animation: none; }
+}

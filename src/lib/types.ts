@@ -5,7 +5,7 @@ export type ProgramGender = 'boys' | 'girls'
 
 // Content types that support a one-click live/hidden toggle in the admin panel.
 // Each maps (in lib/actions setVisibility) to a table + its visibility column.
-export type VisibilityEntity = 'stat' | 'news' | 'award' | 'coach' | 'player' | 'teampost' | 'page' | 'product'
+export type VisibilityEntity = 'stat' | 'news' | 'award' | 'coach' | 'player' | 'teampost' | 'page' | 'product' | 'eventpaid'
 
 export interface PageSetting {
   id: string
@@ -136,6 +136,22 @@ export interface SwflSignup {
   player_email: string | null
   experience: ExperienceLevel
   notes: string | null
+  created_at: string
+}
+
+export interface EventSignup {
+  id: string
+  event: string
+  player_first: string
+  player_last: string
+  grad_year: string | null
+  position: string | null
+  parent_name: string
+  parent_email: string
+  parent_phone: string
+  player_email: string | null
+  notes: string | null
+  paid: boolean
   created_at: string
 }
 

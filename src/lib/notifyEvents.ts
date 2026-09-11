@@ -23,6 +23,11 @@ export const NOTIFY_EVENTS: NotifyEvent[] = [
     description: 'A player signs up for the South Wake Fall League.',
   },
   {
+    key: 'event-signup',
+    label: 'Playday & event signups',
+    description: 'A player signs up for a one-day event, like the Barton College Playday.',
+  },
+  {
     key: 'contact',
     label: 'Contact messages',
     description: 'Someone sends a message from the Contact page.',

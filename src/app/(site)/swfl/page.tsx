@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import { SwflForm } from '@/components/SwflForm'
+import { SignupStatusBadge } from '@/components/SignupStatusBadge'
 import { assertPageVisible } from '@/lib/pages'
+import { readSignupStatus } from '@/lib/signupSettings'
+import { SIGNUP_STATUS_META, statusOf } from '@/lib/signups'
 
 export const metadata: Metadata = {
   title: 'SWFL Fall League — Sign Up to Play',
@@ -45,8 +48,12 @@ const NOTES = [
   },
 ]
 
+const KEY = 'swfl'
+
 export default async function SwflPage() {
-  await assertPageVisible('swfl')
+  await assertPageVisible(KEY)
+  const status = statusOf(await readSignupStatus(), KEY)
+  const { accepting, closedNote } = SIGNUP_STATUS_META[status]
   return (
     <>
       {/* ── Header ── */}
@@ -62,8 +69,11 @@ export default async function SwflPage() {
           </h1>
           <p className="mt-5 max-w-2xl mx-auto text-white/75">
             Green Hope is playing six Monday nights at Seymour Park this fall — competing as
-            our high school club against other South Wake schools. Sign up below to play.
+            our high school club against other South Wake schools.
           </p>
+          <div className="mt-6 flex justify-center">
+            <SignupStatusBadge signupKey={KEY} status={status} />
+          </div>
         </div>
       </section>
 
@@ -124,24 +134,32 @@ export default async function SwflPage() {
         <section id="signup" className="mt-14 max-w-2xl scroll-mt-24">
           <div className="section-label">Fall 2026</div>
           <h2 className="page-title mb-2">Sign Up to Play</h2>
-          <p className="text-gray-600 mb-6">
-            Two quick steps: tell us who&rsquo;s playing, then pay the $75 player fee via Venmo.
-            The coaches will follow up with rosters, gear, and game-night details.
-          </p>
-          <SwflForm />
+          {accepting ? (
+            <>
+              <p className="text-gray-600 mb-6">
+                Two quick steps: tell us who&rsquo;s playing, then pay the $75 player fee via Venmo.
+                The coaches will follow up with rosters, gear, and game-night details.
+              </p>
+              <SwflForm />
 
-          {/* ── Step 2: player fee ── */}
-          <div className="card p-6 mt-6" style={{ borderLeft: '4px solid var(--gh-maroon)' }}>
-            <div className="section-label">Step 2 · League fee</div>
-            <h3 className="font-black text-lg mt-1 mb-1">Pay the $75 player fee on Venmo</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Send $75 to <span className="font-bold">{VENMO.handle}</span> and put the
-              player&rsquo;s name in the note so we can match your payment to the signup.
-            </p>
-            <a href={VENMO.payUrl} target="_blank" rel="noopener noreferrer" className="btn btn-maroon">
-              Pay $75 on Venmo ↗
-            </a>
-          </div>
+              {/* ── Step 2: player fee ── */}
+              <div className="card p-6 mt-6" style={{ borderLeft: '4px solid var(--gh-maroon)' }}>
+                <div className="section-label">Step 2 · League fee</div>
+                <h3 className="font-black text-lg mt-1 mb-1">Pay the $75 player fee on Venmo</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Send $75 to <span className="font-bold">{VENMO.handle}</span> and put the
+                  player&rsquo;s name in the note so we can match your payment to the signup.
+                </p>
+                <a href={VENMO.payUrl} target="_blank" rel="noopener noreferrer" className="btn btn-maroon">
+                  Pay $75 on Venmo ↗
+                </a>
+              </div>
+            </>
+          ) : (
+            <div className="card p-6" style={{ borderLeft: '4px solid var(--gh-maroon)' }}>
+              <p className="text-gray-600">{closedNote}</p>
+            </div>
+          )}
         </section>
 
         <div className="h-8" />
