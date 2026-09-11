@@ -34,6 +34,7 @@ export const SECTIONS: AdminSection[] = [
   { key: 'team',         label: 'Team Hub',     href: '/admin/team',         group: 'Coaches Hub' },
   { key: 'roster',       label: 'Roster',       href: '/admin/roster',       group: 'Team' },
   { key: 'roster-jv',    label: 'JV Roster',    href: '/admin/roster',       group: 'Team' },
+  { key: 'parents',      label: 'Parent Hub',   href: '/admin/parents',      group: 'Team' },
   { key: 'members',      label: 'Members',      href: '/admin/members',      group: 'Team' },
   { key: 'coaches',      label: 'Coaches',      href: '/admin/coaches',      group: 'Team' },
   { key: 'news',         label: 'News',         href: '/admin/news',         group: 'Content' },

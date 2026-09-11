@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { TEAM_COOKIE, teamCookieToken } from './lib/teamAuth'
 import { PLAYER_COOKIE } from './lib/playerAccess.edge'
+import { PARENT_COOKIE } from './lib/parentAccess.edge'
 
 // Protects /admin/* — redirects to login when not authenticated, and away from
 // the login page when already signed in. (Next.js 16 renamed middleware → proxy.)
@@ -73,9 +74,29 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // ── Parent Hub — the cookie a parent gets from the emailed link. The link
+  // itself has to be reachable without it, or nobody could ever get one. A
+  // signed-in coach gets in too, to see what the parents see. ──
+  const isParentRoute = path.startsWith('/parents')
+  // The join link and the page that explains it are the two doors that cannot
+  // be locked, or nobody could ever get in.
+  const isParentJoin = path.startsWith('/parents/join') || path === '/parents/welcome'
+  if (isParentRoute && !isParentJoin) {
+    let valid = !!request.cookies.get(PARENT_COOKIE)?.value
+    if (!valid) {
+      const { data: { user } } = await supabase.auth.getUser()
+      valid = !!user
+    }
+    if (!valid) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/parents/welcome'
+      return NextResponse.redirect(url)
+    }
+  }
+
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/team/:path*'],
+  matcher: ['/admin/:path*', '/team/:path*', '/parents/:path*'],
 }
