@@ -64,6 +64,8 @@ export function PlanEditor({
   const [summary, setSummary] = useState(plan.summary ?? '')
   const [rosterId, setRosterId] = useState(plan.roster_id ?? '')
   const [blocks, setBlocks] = useState<PlanBlock[]>(plan.blocks)
+  const [toPlayers, setToPlayers] = useState(plan.publish_players)
+  const [toCoaches, setToCoaches] = useState(plan.publish_coaches)
   const [openId, setOpenId] = useState<string | null>(null)
   const [fieldOpen, setFieldOpen] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
@@ -190,6 +192,37 @@ export function PlanEditor({
           <button type="submit" disabled={saving} className="btn btn-primary !py-1.5 disabled:opacity-60">
             {saving ? 'Saving…' : 'Save'}
           </button>
+        </div>
+
+        {/* Who this is for. A plan is the author's working document until it is
+            sent somewhere. */}
+        <div className="flex items-center gap-4 mt-2 pt-2 border-t border-gray-100 flex-wrap">
+          <span className="text-xs font-bold tracking-wide uppercase text-gray-400">Publish to</span>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              name="publish_coaches"
+              value="true"
+              checked={toCoaches}
+              onChange={(e) => setToCoaches(e.target.checked)}
+              className="w-4 h-4 accent-[var(--gh-green)]"
+            />
+            Coaches&rsquo; War Room
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              name="publish_players"
+              value="true"
+              checked={toPlayers}
+              onChange={(e) => setToPlayers(e.target.checked)}
+              className="w-4 h-4 accent-[var(--gh-green)]"
+            />
+            Players&rsquo; Game Day
+          </label>
+          <span className="text-xs text-gray-400">
+            {toPlayers ? 'Players see this plan on their page.' : 'Players can’t see this.'}
+          </span>
         </div>
         {state.error && <p className="text-sm text-red-700 mt-2">{state.error}</p>}
         {state.ok && state.message && !saving && <p className="text-sm text-green-700 mt-2">{state.message}</p>}

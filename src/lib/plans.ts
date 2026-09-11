@@ -15,6 +15,9 @@ function shape(row: Record<string, unknown>): Plan {
     blocks: readBlocks(row.blocks),
     roster_id: (row.roster_id as string) ?? null,
     is_template: row.is_template === true,
+    publish_players: row.publish_players === true,
+    // Older rows predate the column; a plan without it behaves as it always did.
+    publish_coaches: row.publish_coaches !== false,
     created_by: (row.created_by as string) ?? null,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
