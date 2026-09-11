@@ -28,6 +28,16 @@ export const NOTIFY_EVENTS: NotifyEvent[] = [
     description: 'A player signs up for a one-day event, like the Barton College Playday.',
   },
   {
+    key: 'parent-join',
+    label: 'Parent Hub registrations',
+    description: 'A parent follows the team email link and registers for the Parent Hub.',
+  },
+  {
+    key: 'signup-claim',
+    label: 'Sign-up sheet claims',
+    description: 'A parent takes a spot on a sign-up sheet — snacks, driving, working the table.',
+  },
+  {
     key: 'contact',
     label: 'Contact messages',
     description: 'Someone sends a message from the Contact page.',
