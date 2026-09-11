@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description:
     'Official home of Green Hope High School Falcons lacrosse in Cary, NC — schedule, results, rosters, news, and how to join the team.',
   keywords: ['Green Hope', 'Falcons', 'lacrosse', 'Cary NC', 'NCHSAA', 'high school lacrosse'],
+  // Saved to a home screen, this is an app called Falcons with the falcon on it.
+  appleWebApp: { capable: true, title: 'Falcons', statusBarStyle: 'default' },
   openGraph: {
     title: 'Green Hope Falcons Lacrosse',
     description: 'Schedule, rosters, news, and how to join the Falcons lacrosse program.',
