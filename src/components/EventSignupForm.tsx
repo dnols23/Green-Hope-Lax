@@ -18,11 +18,14 @@ export function EventSignupForm({
   venmoHandle,
   venmoUrl,
   amount,
+  followUp = 'Coach Nolan emails the details as soon as they are set.',
 }: {
   event: string
   venmoHandle: string
   venmoUrl: string
   amount: number
+  /** The one thing this event needs them to know after signing up. */
+  followUp?: string
 }) {
   const [state, formAction] = useActionState(submitEventSignup, initial)
 
@@ -36,8 +39,7 @@ export function EventSignupForm({
         <p className="text-gray-600 mt-2 max-w-md mx-auto">
           One more step: send the ${amount} player fee to{' '}
           <span className="font-bold">{venmoHandle}</span> on Venmo with the player&rsquo;s name
-          in the note. Coach Nolan will email the schedule and travel details as soon as they
-          come out. Go Falcons!
+          in the note. {followUp} Go Falcons!
         </p>
         <a
           href={venmoUrl}
