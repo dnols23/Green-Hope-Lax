@@ -195,22 +195,31 @@ export async function getProgramStats(): Promise<ProgramStat[]> {
   return (data as ProgramStat[]) ?? []
 }
 
-export async function getAwards(): Promise<TeamAward[]> {
+// Hidden rows are filtered here, in the query, not left to row-level security.
+// The RLS policy only hides them from 'anon': a signed-in coach reading a public
+// page is 'authenticated', so the database hands back everything and the coach
+// sees a page no visitor sees. Asking for published rows makes the page the same
+// for whoever is looking at it.
+export async function getAwards(includeHidden = false): Promise<TeamAward[]> {
   const supabase = await createClient()
-  const { data } = await supabase
+  let q = supabase
     .from('team_awards')
     .select('*')
     .order('season', { ascending: false })
     .order('sort_order', { ascending: true })
+  if (!includeHidden) q = q.eq('is_published', true)
+  const { data } = await q
   return (data as TeamAward[]) ?? []
 }
 
-export async function getCoaches(): Promise<Coach[]> {
+export async function getCoaches(includeHidden = false): Promise<Coach[]> {
   const supabase = await createClient()
-  const { data } = await supabase
+  let q = supabase
     .from('coaches')
     .select('*')
     .order('sort_order', { ascending: true })
+  if (!includeHidden) q = q.eq('is_published', true)
+  const { data } = await q
   return (data as Coach[]) ?? []
 }
 

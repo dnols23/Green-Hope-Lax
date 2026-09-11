@@ -36,7 +36,7 @@ function AwardFields({ a }: { a?: TeamAward }) {
 
 export default async function AdminAwardsPage() {
   await requireSection('awards')
-  const awards = await getAwards()
+  const awards = await getAwards(true) // admin sees hidden ones too
 
   return (
     <div>
