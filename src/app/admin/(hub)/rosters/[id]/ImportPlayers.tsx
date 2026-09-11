@@ -4,7 +4,7 @@ import { importRosterPlayers } from '@/lib/actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { TEAM_LABELS } from '@/lib/types'
 
-type State = { ok: boolean; error?: string; added?: number; matched?: number }
+type State = { ok: boolean; error?: string; message?: string; added?: number; matched?: number }
 const initial: State = { ok: false }
 
 /**
@@ -29,8 +29,10 @@ export function ImportPlayers({ listId }: { listId: string }) {
       <div>
         <p className="text-xs text-gray-500">
           Paste straight from Google Sheets or Excel — select the cells, copy, paste below. Or pick a
-          CSV. One player per line: <b>Name, Number, Position, Grad year</b>. Only the name is
-          required, so a plain list of names works.
+          CSV. One player per line: <b>Name, Number, Position, Grad year</b> — or first and last
+          name in separate columns, which is read as one name. Only the name is required.
+          Re-pasting a fuller sheet later fills in anything still blank, like grad years, without
+          duplicating anyone.
         </p>
       </div>
 
@@ -97,6 +99,7 @@ export function ImportPlayers({ listId }: { listId: string }) {
         <div className="bg-green-50 border border-green-200 text-green-800 text-sm rounded-lg px-3 py-2 font-semibold">
           Added {state.added} new {state.added === 1 ? 'player' : 'players'}
           {state.matched ? `, and matched ${state.matched} already in the system` : ''}.
+          {state.message ? ` ${state.message}` : ''}
         </div>
       )}
     </form>

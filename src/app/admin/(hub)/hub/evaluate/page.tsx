@@ -6,6 +6,7 @@ import { listRosters, rosterMembers } from '@/lib/rosters'
 import { compileScores, type Evaluation } from '@/lib/evaluations'
 import { TEAM_LABELS, type Player, type TeamGroup } from '@/lib/types'
 import { EvaluateList, type EvalRow } from './EvaluateList'
+import { SplitNameNotice } from '@/components/admin/SplitNameNotice'
 
 export const metadata = { title: 'Evaluate players' }
 export const dynamic = 'force-dynamic'
@@ -90,6 +91,8 @@ export default async function EvaluatePicker({
             : `Every player on file, this season and past ones. ${ratedByMe} rated by you.`}{' '}
           Scores are every coach&rsquo;s ratings compiled.
         </p>
+
+        <SplitNameNotice />
 
         {rows.length === 0 ? (
           <div className="card p-6 text-sm text-gray-500">

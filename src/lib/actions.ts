@@ -1102,10 +1102,19 @@ export async function importRosterPlayers(
   const team = str(formData.get('team')) || 'boys_varsity'
 
   // Match on name so re-importing an updated sheet doesn't duplicate anyone.
-  const { data: existingRows } = await svc.from('players').select('id, name')
-  const byName = new Map(
-    ((existingRows ?? []) as { id: string; name: string }[]).map((p) => [p.name.trim().toLowerCase(), p.id])
-  )
+  const { data: existingRows } = await svc
+    .from('players')
+    .select('id, name, number, position, class_year')
+  type ExistingPlayer = {
+    id: string
+    name: string
+    number: string | null
+    position: string | null
+    class_year: string | null
+  }
+  const existing = (existingRows ?? []) as ExistingPlayer[]
+  const byName = new Map(existing.map((p) => [p.name.trim().toLowerCase(), p.id]))
+  const detailsById = new Map(existing.map((p) => [p.id, p]))
 
   const { data: memberRows } = await svc
     .from('player_list_members')
@@ -1115,6 +1124,7 @@ export async function importRosterPlayers(
 
   let added = 0
   let matched = 0
+  let filled = 0
   let order = already.size
 
   for (const p of parsed) {
@@ -1122,6 +1132,20 @@ export async function importRosterPlayers(
 
     if (playerId) {
       matched++
+      /* Re-pasting a fuller sheet fills in what was missing — grad years and
+         numbers that weren't in the first paste — without touching anything
+         already set by hand. */
+      const current = detailsById.get(playerId)
+      if (current) {
+        const fill: Record<string, string> = {}
+        if (!current.number && p.number) fill.number = p.number
+        if (!current.position && p.position) fill.position = p.position
+        if (!current.class_year && p.class_year) fill.class_year = p.class_year
+        if (Object.keys(fill).length) {
+          await svc.from('players').update(fill).eq('id', playerId)
+          filled++
+        }
+      }
     } else {
       const { data: created, error } = await svc
         .from('players')
@@ -1154,7 +1178,15 @@ export async function importRosterPlayers(
 
   revalidatePath('/admin/rosters')
   revalidatePath(`/admin/rosters/${listId}`)
-  return { ok: true, added, matched }
+  revalidatePath('/admin/roster')
+  return {
+    ok: true,
+    added,
+    matched,
+    message: filled
+      ? `Filled in details for ${filled} ${filled === 1 ? 'player' : 'players'} already on file.`
+      : undefined,
+  }
 }
 
 export async function addPlayerToRoster(formData: FormData) {
