@@ -42,10 +42,31 @@ export function categoryFor(key: string | null | undefined): DrillCategory {
   return DRILL_CATEGORIES.find((c) => c.key === key) ?? DRILL_CATEGORIES[1]
 }
 
+/** Where a drill can actually be done — the thing that decides whether it can
+ *  be a player's homework or only a practice rep. */
+export type DrillSetting = 'wall' | 'solo' | 'partner' | 'team' | 'film'
+
+export const SETTING_LABELS: Record<DrillSetting, string> = {
+  wall: 'Wall',
+  solo: 'On your own',
+  partner: 'With a friend',
+  team: 'At practice',
+  film: 'Watch it',
+}
+
+/** The settings a player can do away from practice. */
+export const HOMEWORK_SETTINGS: DrillSetting[] = ['wall', 'solo', 'partner']
+
+export function isHomework(setting: string | null | undefined): boolean {
+  return HOMEWORK_SETTINGS.includes(String(setting) as DrillSetting)
+}
+
 export interface Drill {
   id: string
   name: string
   category: string
+  /** Defaults to 'team' — a drill nobody has vouched for is never homework. */
+  setting: DrillSetting
   minutes: number
   description: string | null
   link: string | null

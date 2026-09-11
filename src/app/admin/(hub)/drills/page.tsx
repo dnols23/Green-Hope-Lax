@@ -1,7 +1,7 @@
 import { requireSection } from '@/lib/permissions'
 import { drillsReady, listDrills } from '@/lib/drillsData'
 import { upsertDrill, deleteDrill, toggleDrillFavorite } from '@/lib/actions'
-import { DRILL_CATEGORIES } from '@/lib/drills'
+import { DRILL_CATEGORIES, SETTING_LABELS, isHomework } from '@/lib/drills'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { DrillImport } from './DrillImport'
 
@@ -59,6 +59,17 @@ export default async function DrillBankPage() {
             <label className="field-label">Minutes</label>
             <input type="number" name="minutes" min={0} max={240} defaultValue={10} className="field" />
           </div>
+          <div className="sm:col-span-2">
+            <label className="field-label">Where it can be done</label>
+            <select name="setting" defaultValue="team" className="field">
+              {Object.entries(SETTING_LABELS).map(([k, label]) => (
+                <option key={k} value={k}>{label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Only wall, on your own and with a friend can be sent to a player as homework.
+            </p>
+          </div>
           <div className="sm:col-span-4">
             <label className="field-label">Link</label>
             <input name="link" className="field" placeholder="https://… video, diagram, playbook page" />
@@ -105,6 +116,16 @@ export default async function DrillBankPage() {
                       <span className="font-semibold text-sm">{d.name}</span>
                       {d.is_favorite && <span title="Favourite">⭐</span>}
                       <span className="text-xs text-gray-400">{d.minutes}m</span>
+                      <span
+                        className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{
+                          background: isHomework(d.setting) ? '#DFEFE7' : '#f3f4f6',
+                          color: isHomework(d.setting) ? '#00512F' : '#6b7280',
+                        }}
+                        title={isHomework(d.setting) ? 'Can be prescribed to a player' : 'Practice or film only — never sent home'}
+                      >
+                        {SETTING_LABELS[d.setting]}
+                      </span>
                       {d.link && (
                         <a
                           href={d.link}
@@ -133,6 +154,14 @@ export default async function DrillBankPage() {
                           <select name="category" defaultValue={d.category} className="field !py-1.5">
                             {DRILL_CATEGORIES.map((c) => (
                               <option key={c.key} value={c.key}>{c.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="field-label">Where</label>
+                          <select name="setting" defaultValue={d.setting} className="field !py-1.5">
+                            {Object.entries(SETTING_LABELS).map(([k, label]) => (
+                              <option key={k} value={k}>{label}</option>
                             ))}
                           </select>
                         </div>

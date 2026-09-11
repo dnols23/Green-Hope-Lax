@@ -5,6 +5,7 @@ import { latestDrillSet } from '@/lib/drillSets'
 import { createServiceClient } from '@/lib/supabase-server'
 import { EVAL_CATEGORIES, readRating, tierFor, type Evaluation } from '@/lib/evaluations'
 import { drillCategoryLabel, positionGroup, POSITION_LABELS } from '@/lib/prescribe'
+import { SETTING_LABELS, type DrillSetting } from '@/lib/drills'
 import { listPlans } from '@/lib/plans'
 import { runningClock, tagFor, clockAt, formatMinutes, totalMinutes } from '@/lib/planner'
 import { FalconHead } from '@/components/Logo'
@@ -153,7 +154,15 @@ export default async function MyWorkPage() {
                           </span>
                           <span className="flex-1 min-w-0">
                             <span className="font-semibold text-sm block">{item.name}</span>
-                            <span className="text-xs text-gray-400">{drillCategoryLabel(item.category)} · {item.repsPerWeek} times a week</span>
+                            <span className="text-xs text-gray-400">
+                              {[
+                                item.setting ? SETTING_LABELS[item.setting as DrillSetting] : null,
+                                drillCategoryLabel(item.category),
+                                `${item.repsPerWeek} times a week`,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </span>
                           </span>
                           {item.link && (
                             <a

@@ -1,5 +1,5 @@
 import { createServiceClient } from './supabase-server'
-import type { Drill } from './drills'
+import type { Drill, DrillSetting } from './drills'
 
 /** True once the drill bank table exists. */
 export async function drillsReady(): Promise<boolean> {
@@ -20,6 +20,11 @@ export async function listDrills(): Promise<Drill[]> {
     id: String(row.id),
     name: String(row.name ?? ''),
     category: String(row.category ?? 'stickwork'),
+    // Missing column (before 0021) reads as 'team', which keeps it out of
+    // anyone's homework until a coach has said otherwise.
+    setting: (['wall', 'solo', 'partner', 'team', 'film'].includes(String(row.setting))
+      ? String(row.setting)
+      : 'team') as DrillSetting,
     minutes: Number(row.minutes) || 10,
     description: (row.description as string) ?? null,
     link: (row.link as string) ?? null,
