@@ -1,4 +1,4 @@
-import { createClient, createServiceClient } from './supabase-server'
+import { createClient, createPublicClient, createServiceClient } from './supabase-server'
 import { VISIBLE_TO } from './schedule'
 import type { Game, Player, Coach, NewsPost, PageSetting, ProgramGender, ProgramStat, TeamGroup, TeamPost, TeamMember, TeamAward, Product } from './types'
 
@@ -18,7 +18,7 @@ export async function getGames(
   gender?: ProgramGender,
   surface: 'public' | 'team' | 'admin' = 'admin'
 ): Promise<Game[]> {
-  const supabase = await createClient()
+  const supabase = surface === 'admin' ? await createClient() : await createPublicClient()
   const base = () => {
     let q = supabase.from('games').select('*').order('game_date', { ascending: true })
     if (gender) q = q.eq('gender', gender)
@@ -43,7 +43,7 @@ export async function getNextGame(
   gender?: ProgramGender,
   surface: 'public' | 'team' | 'admin' = 'public'
 ): Promise<Game | null> {
-  const supabase = await createClient()
+  const supabase = surface === 'admin' ? await createClient() : await createPublicClient()
   const base = () => {
     let q = supabase
       .from('games')
@@ -118,7 +118,7 @@ export async function getPublishedRosters(): Promise<
  * the public roster.
  */
 export async function getPlayers(team?: TeamGroup): Promise<Player[]> {
-  const supabase = await createClient()
+  const supabase = await createPublicClient()
 
   const publishedIds = await publishedRosterPlayerIds()
 
@@ -175,7 +175,7 @@ export async function getAllPlayers(team?: TeamGroup): Promise<Player[]> {
 // Page visibility settings (one row per public page). Readable by all; the
 // public reads the flags to build the nav, pages read them to guard themselves.
 export async function getPageSettings(): Promise<PageSetting[]> {
-  const supabase = await createClient()
+  const supabase = await createPublicClient()
   const { data } = await supabase
     .from('page_settings')
     .select('*')
@@ -185,7 +185,7 @@ export async function getPageSettings(): Promise<PageSetting[]> {
 
 // All-time / program stat lines for the public /record-books page (published only).
 export async function getProgramStats(): Promise<ProgramStat[]> {
-  const supabase = await createClient()
+  const supabase = await createPublicClient()
   const { data } = await supabase
     .from('program_stats')
     .select('*')
@@ -201,7 +201,7 @@ export async function getProgramStats(): Promise<ProgramStat[]> {
 // sees a page no visitor sees. Asking for published rows makes the page the same
 // for whoever is looking at it.
 export async function getAwards(includeHidden = false): Promise<TeamAward[]> {
-  const supabase = await createClient()
+  const supabase = includeHidden ? await createClient() : await createPublicClient()
   let q = supabase
     .from('team_awards')
     .select('*')
@@ -213,7 +213,7 @@ export async function getAwards(includeHidden = false): Promise<TeamAward[]> {
 }
 
 export async function getCoaches(includeHidden = false): Promise<Coach[]> {
-  const supabase = await createClient()
+  const supabase = includeHidden ? await createClient() : await createPublicClient()
   let q = supabase
     .from('coaches')
     .select('*')
@@ -224,7 +224,7 @@ export async function getCoaches(includeHidden = false): Promise<Coach[]> {
 }
 
 export async function getNews(limit?: number): Promise<NewsPost[]> {
-  const supabase = await createClient()
+  const supabase = await createPublicClient()
   let q = supabase
     .from('news_posts')
     .select('*')
@@ -262,7 +262,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
 
 // Team store — published products for the public /shop page.
 export async function getProducts(): Promise<Product[]> {
-  const supabase = await createClient()
+  const supabase = await createPublicClient()
   const { data } = await supabase
     .from('products')
     .select('*')
@@ -288,7 +288,7 @@ export async function getShopSettings(): Promise<{ storeUrl: string; intro: stri
 }
 
 export async function getNewsBySlug(slug: string): Promise<NewsPost | null> {
-  const supabase = await createClient()
+  const supabase = await createPublicClient()
   const { data } = await supabase
     .from('news_posts')
     .select('*')
