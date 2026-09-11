@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { requireSection } from '@/lib/permissions'
 import { getPlan } from '@/lib/plans'
 import { listRosters, rosterMembers } from '@/lib/rosters'
+import { listStaff } from '@/lib/staff'
+import { listDrills } from '@/lib/drillsData'
 import { deletePlan, duplicatePlan } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PlanEditor } from '@/components/planner/PlanEditor'
@@ -16,9 +18,17 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   const plan = await getPlan(id)
   if (!plan) notFound()
 
-  const rosters = await listRosters()
-  // The roster on the plan is what fills the player strip under the field.
-  const members = plan.roster_id ? await rosterMembers(plan.roster_id) : []
+  const [rosters, staff, drills] = await Promise.all([listRosters(), listStaff(), listDrills()])
+  /* Every roster's players travel with the page: switching the roster in the
+     editor then changes who you can pick straight away, rather than waiting for
+     a save and a reload — which looked like the switch doing nothing at all. */
+  const playersByRoster: Record<string, { id: string; name: string; number: string | null }[]> = {}
+  await Promise.all(
+    rosters.map(async (r) => {
+      const members = await rosterMembers(r.id)
+      playersByRoster[r.id] = members.map((p) => ({ id: p.id, name: p.name, number: p.number }))
+    })
+  )
   const kind = PLAN_KINDS.find((k) => k.key === plan.kind)
 
   return (
@@ -38,7 +48,9 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
       <PlanEditor
         plan={plan}
         rosters={rosters.map((r) => ({ id: r.id, name: r.name }))}
-        players={members.map((p) => ({ id: p.id, name: p.name, number: p.number }))}
+        playersByRoster={playersByRoster}
+        coaches={staff.map((c) => c.name).sort((a, b) => a.localeCompare(b))}
+        drills={drills}
       />
     </div>
   )

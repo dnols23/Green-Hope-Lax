@@ -21,6 +21,7 @@ import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
 import { readBlocks, type PlanKind } from './planner'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
+import { parseDrillPaste } from './drills'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
 
@@ -1459,4 +1460,76 @@ export async function saveHubModes(formData: FormData) {
     .upsert({ key: HUB_MODES_KEY, value: JSON.stringify(off) }, { onConflict: 'key' })
   revalidatePath('/admin/hub')
   revalidatePath('/admin/planner')
+}
+
+// ── Drill bank ──
+// Kept once, dropped into any practice. Every coach may add one.
+
+export async function upsertDrill(formData: FormData) {
+  await requireSection('drills')
+  const viewer = await getViewer()
+  const id = str(formData.get('id'))
+  const payload = {
+    name: str(formData.get('name')),
+    category: str(formData.get('category')) || 'stickwork',
+    minutes: Math.max(0, Math.min(240, Number(formData.get('minutes')) || 10)),
+    description: str(formData.get('description')) || null,
+    link: str(formData.get('link')) || null,
+    link_label: str(formData.get('link_label')) || null,
+    equipment: str(formData.get('equipment')) || null,
+    is_favorite: str(formData.get('is_favorite')) === 'true',
+    updated_at: new Date().toISOString(),
+  }
+  if (!payload.name) return
+
+  const svc = createServiceClient()
+  if (id) await svc.from('drills').update(payload).eq('id', id)
+  else await svc.from('drills').insert({ ...payload, created_by: viewer?.email ?? null })
+  revalidatePath('/admin/drills')
+  revalidatePath('/admin/planner')
+}
+
+export async function deleteDrill(id: string) {
+  await requireSection('drills')
+  const svc = createServiceClient()
+  await svc.from('drills').delete().eq('id', id)
+  revalidatePath('/admin/drills')
+}
+
+export async function toggleDrillFavorite(formData: FormData) {
+  await requireSection('drills')
+  const id = str(formData.get('id'))
+  if (!id) return
+  const svc = createServiceClient()
+  await svc
+    .from('drills')
+    .update({ is_favorite: str(formData.get('favorite')) === 'true' })
+    .eq('id', id)
+  revalidatePath('/admin/drills')
+}
+
+/** Paste a whole bank in at once: one drill a line, name first. */
+export async function importDrills(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireSection('drills')
+  const viewer = await getViewer()
+  const rows = parseDrillPaste(str(formData.get('paste')), str(formData.get('category')) || 'stickwork')
+  if (rows.length === 0) return { ok: false, error: 'Nothing to import — one drill per line.' }
+
+  const svc = createServiceClient()
+  const { error } = await svc.from('drills').insert(
+    rows.map((r) => ({
+      name: r.name,
+      category: r.category,
+      minutes: r.minutes,
+      link: r.link,
+      created_by: viewer?.email ?? null,
+    }))
+  )
+  if (error) {
+    console.error('[importDrills]', error)
+    return { ok: false, error: `Couldn\u2019t import: ${error.message}` }
+  }
+  revalidatePath('/admin/drills')
+  revalidatePath('/admin/planner')
+  return { ok: true, message: `Added ${rows.length} ${rows.length === 1 ? 'drill' : 'drills'}.` }
 }

@@ -100,6 +100,13 @@ export interface Board {
 
 export const EMPTY_BOARD: Board = { tokens: [], paths: [] }
 
+/** Who is in this block, and what they are doing in it. */
+export interface BlockAssignment {
+  playerId: string
+  /** Free text — "1st middie", "crease", "wing" — whatever the block needs. */
+  role: string
+}
+
 export interface PlanBlock {
   id: string
   title: string
@@ -107,6 +114,14 @@ export interface PlanBlock {
   tag: string
   notes: string
   board?: Board | null
+  /** The drill from the bank this block is running, if any. */
+  drillId?: string | null
+  /** A link carried over from that drill, so the block stands on its own. */
+  link?: string | null
+  /** The coach running it. */
+  coach?: string | null
+  /** Players in this block. Empty means the whole squad. */
+  players?: BlockAssignment[]
 }
 
 export interface Plan {
@@ -129,7 +144,18 @@ export function newId(prefix: string): string {
 }
 
 export function emptyBlock(): PlanBlock {
-  return { id: newId('b'), title: '', minutes: 10, tag: 'individual', notes: '', board: null }
+  return {
+    id: newId('b'),
+    title: '',
+    minutes: 10,
+    tag: 'individual',
+    notes: '',
+    board: null,
+    drillId: null,
+    link: null,
+    coach: null,
+    players: [],
+  }
 }
 
 /** Minutes from the start of the session to the start of each block. */
@@ -192,6 +218,20 @@ export function readBlocks(raw: unknown): PlanBlock[] {
       tag: typeof b.tag === 'string' ? b.tag : 'individual',
       notes: typeof b.notes === 'string' ? b.notes : '',
       board: readBoard(b.board),
+      drillId: typeof b.drillId === 'string' ? b.drillId : null,
+      link: typeof b.link === 'string' && b.link.trim() ? b.link.trim() : null,
+      coach: typeof b.coach === 'string' && b.coach.trim() ? b.coach.trim() : null,
+      players: Array.isArray(b.players)
+        ? b.players
+            .map((a) => {
+              const row = (a ?? {}) as Partial<BlockAssignment>
+              return {
+                playerId: typeof row.playerId === 'string' ? row.playerId : '',
+                role: typeof row.role === 'string' ? row.role : '',
+              }
+            })
+            .filter((a) => a.playerId)
+        : [],
     }
   })
 }
