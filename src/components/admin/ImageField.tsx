@@ -48,6 +48,25 @@ async function shrink(file: File): Promise<Blob> {
   return blob ?? file
 }
 
+/**
+ * Why a pasted link will not work, when we can tell before the browser tries.
+ *
+ * A search-results page is the one people actually paste: right-clicking a
+ * picture in Google Images copies the page it sits on, not the picture. That
+ * link can never render, and saying so beats a broken grey square.
+ */
+function linkProblem(value: string): string {
+  if (!value) return ''
+  if (/^https?:\/\/(www\.)?google\.[a-z.]+\/(imgres|search|url)/i.test(value)) {
+    return 'That is a Google Images page, not the photo itself. Upload the file instead.'
+  }
+  if (/^https?:\/\/(www\.)?(bing|duckduckgo|pinterest)\./i.test(value)) {
+    return 'That is a search result, not the photo itself. Upload the file instead.'
+  }
+  if (!/^https?:\/\//i.test(value)) return 'A link has to start with https://'
+  return ''
+}
+
 export function ImageField({
   name,
   defaultValue,
@@ -63,12 +82,14 @@ export function ImageField({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [showLink, setShowLink] = useState(false)
+  const [broken, setBroken] = useState(false)
   const input = useRef<HTMLInputElement>(null)
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setError('')
+    setBroken(false)
     setBusy(true)
     try {
       const blob = await shrink(file)
@@ -97,13 +118,20 @@ export function ImageField({
       <input type="hidden" name={name} value={url} />
 
       <div className="flex items-start gap-3">
-        {url && (
+        {url && !broken && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={url}
             alt=""
+            onError={() => setBroken(true)}
+            onLoad={() => setBroken(false)}
             className="w-24 h-24 rounded-lg object-cover border border-gray-200 shrink-0"
           />
+        )}
+        {url && broken && (
+          <div className="w-24 h-24 rounded-lg border border-dashed border-[var(--gh-maroon)] shrink-0 flex items-center justify-center text-center text-[0.65rem] font-bold px-1 text-[var(--gh-maroon)]">
+            WON&rsquo;T LOAD
+          </div>
         )}
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -118,7 +146,7 @@ export function ImageField({
             {url && !busy && (
               <button
                 type="button"
-                onClick={() => { setUrl(''); setError('') }}
+                onClick={() => { setUrl(''); setError(''); setBroken(false) }}
                 className="text-sm font-semibold text-[var(--gh-maroon)]"
               >
                 Remove
@@ -133,6 +161,12 @@ export function ImageField({
             className="hidden"
           />
           {error && <p className="text-sm text-[var(--gh-maroon)]">{error}</p>}
+          {!error && url && (linkProblem(url) || broken) && (
+            <p className="text-sm text-[var(--gh-maroon)]">
+              {linkProblem(url) ||
+                'That link does not load as a photo — it may be a page rather than an image file, or private. Upload the file instead.'}
+            </p>
+          )}
           {!url && !error && (
             <p className="text-xs text-gray-400">
               Straight from your phone or computer — it gets resized for you.
@@ -142,7 +176,7 @@ export function ImageField({
           {showLink ? (
             <input
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(e) => { setUrl(e.target.value); setBroken(false) }}
               placeholder="https://…"
               className="field"
             />
