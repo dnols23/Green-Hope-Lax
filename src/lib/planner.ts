@@ -134,6 +134,10 @@ export interface Plan {
   blocks: PlanBlock[]
   roster_id: string | null
   is_template: boolean
+  /** On the players' page in the Team Hub. */
+  publish_players: boolean
+  /** In the coaches' War Room. A plan starts as the author's working document. */
+  publish_coaches: boolean
   created_by: string | null
   created_at: string
   updated_at: string

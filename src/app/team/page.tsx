@@ -6,6 +6,7 @@ import { FalconHead } from '@/components/Logo'
 import { formatDate, formatTime } from '@/lib/format'
 import { TEAM_CATEGORY_META } from '@/lib/types'
 import { isPageOn } from '@/lib/pages'
+import { currentPlayer } from '@/lib/playerAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,8 @@ export default async function TeamHubPage() {
   // Film Room can be switched off for the Team Hub in Admin → Pages.
   const filmOn = await isPageOn('film-team')
   const posts = await getTeamPosts()
+  // Whoever followed their own invite link gets a way back to their own work.
+  const me = await currentPlayer()
   // Games marked for everyone or for players and parents — coaches-only ones stay
   // in the admin.
   const games = await getGames(undefined, 'team')
@@ -62,6 +65,15 @@ export default async function TeamHubPage() {
 
         {/* Sidebar */}
         <aside className="space-y-6">
+          {me && (
+            <section className="card p-5" style={{ borderLeft: '4px solid var(--gh-maroon)' }}>
+              <h2 className="font-black mb-1">🥍 {me.name.split(' ')[0]}&rsquo;s work</h2>
+              <p className="text-sm text-gray-500 mb-3">
+                Your evaluation, your drills, and today&rsquo;s plan if the coaches have posted it.
+              </p>
+              <Link href="/team/me" className="btn btn-maroon w-full">Open my work</Link>
+            </section>
+          )}
           <section className="card p-5">
             <h2 className="font-black mb-3">🥍 Next games</h2>
             {nextGames.length === 0 ? (

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { TEAM_COOKIE, teamCookieToken } from './lib/teamAuth'
+import { PLAYER_COOKIE } from './lib/playerAccess.edge'
 
 // Protects /admin/* — redirects to login when not authenticated, and away from
 // the login page when already signed in. (Next.js 16 renamed middleware → proxy.)
@@ -50,9 +51,14 @@ export async function proxy(request: NextRequest) {
   // coach (Supabase admin) gets in too, without registering. ──
   const isTeamRoute = path.startsWith('/team')
   const isTeamLogin = path === '/team/login'
-  if (isTeamRoute) {
+  // An invite link is its own way in — following one is how a player gets a
+  // session in the first place, so it cannot sit behind the team password.
+  const isPlayerJoin = path.startsWith('/team/join/')
+  if (isTeamRoute && !isPlayerJoin) {
     const token = request.cookies.get(TEAM_COOKIE)?.value
     let valid = !!token && token === (await teamCookieToken())
+    // A player who followed their own link is signed in as themselves.
+    if (!valid) valid = !!request.cookies.get(PLAYER_COOKIE)?.value
     if (!valid) {
       const { data: { user } } = await supabase.auth.getUser()
       valid = !!user

@@ -22,6 +22,10 @@ import { normalizeAudience } from './schedule'
 import { readBlocks, type PlanKind } from './planner'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
 import { parseDrillPaste } from './drills'
+import { listDrills } from './drillsData'
+import { buildDrillSet, positionGroup } from './prescribe'
+import { ensurePlayerToken, revokePlayerToken } from './playerAccess'
+import type { Evaluation } from './evaluations'
 import { getCurrentCoach } from './coach'
 import { EVAL_CATEGORIES } from './evaluations'
 
@@ -1399,6 +1403,8 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
       summary: str(formData.get('summary')) || null,
       roster_id: str(formData.get('roster_id')) || null,
       blocks: readBlocks(blocks),
+      publish_players: str(formData.get('publish_players')) === 'true',
+      publish_coaches: str(formData.get('publish_coaches')) === 'true',
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -1409,6 +1415,8 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
 
   revalidatePath('/admin/planner')
   revalidatePath(`/admin/planner/${id}`)
+  revalidatePath('/admin/hub')
+  revalidatePath('/team/me')
   return { ok: true, message: 'Saved.' }
 }
 
@@ -1532,4 +1540,111 @@ export async function importDrills(_prev: FormState, formData: FormData): Promis
   revalidatePath('/admin/drills')
   revalidatePath('/admin/planner')
   return { ok: true, message: `Added ${rows.length} ${rows.length === 1 ? 'drill' : 'drills'}.` }
+}
+
+// ── Player drill sets ──
+// A coach generates a set from a player's most recent evaluation; what was
+// prescribed is stored, so the player's page doesn't move under them.
+
+async function prescribeFor(playerId: string, drills: Awaited<ReturnType<typeof listDrills>>, by: string | null) {
+  const svc = createServiceClient()
+  const { data: player } = await svc
+    .from('players')
+    .select('id, position')
+    .eq('id', playerId)
+    .maybeSingle()
+  if (!player) return { ok: false as const, reason: 'no player' }
+
+  const { data: evals } = await svc
+    .from('evaluations')
+    .select('*')
+    .eq('player_id', playerId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+  const evaluation = (evals ?? [])[0] as Evaluation | undefined
+  if (!evaluation) return { ok: false as const, reason: 'no evaluation' }
+
+  const set = buildDrillSet(
+    evaluation,
+    drills,
+    positionGroup((player as { position: string | null }).position)
+  )
+  if (set.items.length === 0) return { ok: false as const, reason: 'nothing to prescribe' }
+
+  const { error } = await svc.from('player_drill_sets').insert({
+    player_id: playerId,
+    items: set.items,
+    focus: set.focus,
+    source_eval_id: evaluation.id,
+    season: evaluation.season,
+    created_by: by,
+  })
+  if (error) return { ok: false as const, reason: error.message }
+  return { ok: true as const, count: set.items.length }
+}
+
+export async function generateDrillSet(formData: FormData) {
+  await requireSection('hub')
+  const viewer = await getViewer()
+  const playerId = str(formData.get('player_id'))
+  if (!playerId) return
+  const drills = await listDrills()
+  await prescribeFor(playerId, drills, viewer?.email ?? null)
+  revalidatePath('/admin/hub/players')
+  revalidatePath('/team/me')
+}
+
+/** Everyone on a roster at once — the start-of-week job, not forty clicks. */
+export async function generateDrillSetsForRoster(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireSection('hub')
+  const viewer = await getViewer()
+  const listId = str(formData.get('list_id'))
+  if (!listId) return { ok: false, error: 'Pick a roster first.' }
+
+  const svc = createServiceClient()
+  const { data: members } = await svc
+    .from('player_list_members')
+    .select('player_id')
+    .eq('list_id', listId)
+  const ids = ((members ?? []) as { player_id: string }[]).map((m) => m.player_id)
+  if (ids.length === 0) return { ok: false, error: 'Nobody on that roster.' }
+
+  const drills = await listDrills()
+  let made = 0
+  let skipped = 0
+  for (const id of ids) {
+    const result = await prescribeFor(id, drills, viewer?.email ?? null)
+    if (result.ok) made++
+    else skipped++
+  }
+
+  revalidatePath('/admin/hub/players')
+  revalidatePath('/team/me')
+  return {
+    ok: true,
+    message:
+      `Made ${made} drill ${made === 1 ? 'set' : 'sets'}.` +
+      (skipped ? ` ${skipped} skipped — no evaluation to work from yet.` : ''),
+  }
+}
+
+// ── Player invite links ──
+
+export async function createPlayerInvite(formData: FormData) {
+  await requireSection('hub')
+  const playerId = str(formData.get('player_id'))
+  if (!playerId) return
+  await ensurePlayerToken(playerId)
+  revalidatePath('/admin/hub/players')
+}
+
+export async function revokePlayerInvite(formData: FormData) {
+  await requireSection('hub')
+  const playerId = str(formData.get('player_id'))
+  if (!playerId) return
+  await revokePlayerToken(playerId)
+  revalidatePath('/admin/hub/players')
 }
