@@ -11,6 +11,7 @@ import { formatShortDate } from '@/lib/format'
 import type { Player } from '@/lib/types'
 import { GenerateAll } from './GenerateAll'
 import { InviteLink } from './InviteLink'
+import { SplitNameNotice } from '@/components/admin/SplitNameNotice'
 
 export const metadata = { title: 'Players' }
 export const dynamic = 'force-dynamic'
@@ -57,6 +58,8 @@ export default async function PlayersPage() {
         </p>
       </div>
 
+      <SplitNameNotice />
+
       {rosters.length > 0 && <GenerateAll rosters={rosters.map((r) => ({ id: r.id, name: r.name }))} />}
 
       <div className="card divide-y divide-gray-100">
@@ -71,7 +74,7 @@ export default async function PlayersPage() {
                 <div className="font-semibold text-sm">
                   {p.number ? `#${p.number} ` : ''}{p.name}
                   <span className="text-xs text-gray-400 ml-2">
-                    {POSITION_LABELS[positionGroup(p.position)]}
+                    {[POSITION_LABELS[positionGroup(p.position)], p.class_year].filter(Boolean).join(' · ')}
                   </span>
                 </div>
                 <div className="text-xs text-gray-500">
