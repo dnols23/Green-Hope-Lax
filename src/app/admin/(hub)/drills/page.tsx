@@ -3,6 +3,7 @@ import { drillsReady, listDrills } from '@/lib/drillsData'
 import { upsertDrill, deleteDrill, toggleDrillFavorite } from '@/lib/actions'
 import { DRILL_CATEGORIES, SETTING_LABELS, isHomework } from '@/lib/drills'
 import { DeleteButton } from '@/components/admin/DeleteButton'
+import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
 
 export const metadata = { title: 'Drill Bank' }
@@ -126,18 +127,7 @@ export default async function DrillBankPage() {
                       >
                         {SETTING_LABELS[d.setting]}
                       </span>
-                      {d.link && (
-                        <a
-                          href={d.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-xs font-bold ml-auto"
-                          style={{ color: 'var(--gh-green)' }}
-                        >
-                          {d.link_label || 'Open link'} ↗
-                        </a>
-                      )}
+                      {d.link && <DrillLink href={d.link} label={d.link_label || 'Open link'} />}
                     </summary>
                     <div className="pl-6 pt-2 space-y-2">
                       {d.description && <p className="text-sm text-gray-600 whitespace-pre-line">{d.description}</p>}
