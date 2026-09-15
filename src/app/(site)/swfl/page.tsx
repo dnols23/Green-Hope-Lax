@@ -16,14 +16,47 @@ const VENMO = {
   payUrl: 'https://venmo.com/DanNolan21?txn=pay&amount=75&note=SWFL%20Fall%20League',
 }
 
-const WEEKS = [
-  { wk: 'Wk 1', date: 'Mon, Aug 17', note: '6:00–9:00 PM' },
-  { wk: 'Wk 2', date: 'Mon, Aug 24', note: '6:00–9:00 PM' },
-  { wk: 'Wk 3', date: 'Mon, Aug 31', note: '6:00–9:00 PM' },
-  { wk: '—', date: 'Mon, Sep 7', note: 'Labor Day — no games', off: true },
-  { wk: 'Wk 4', date: 'Mon, Sep 14', note: '6:00–9:00 PM' },
-  { wk: 'Wk 5', date: 'Mon, Sep 21', note: '6:00–9:00 PM' },
-  { wk: 'Wk 6', date: 'Mon, Sep 28', note: '6:00–9:00 PM' },
+// The league's own slate, as the SWFL office publishes it. Green Hope plays as
+// the Firebirds, so that is the row a parent is scanning for — it gets the
+// green. Weeks 1–3 are not listed here because the league's sheet for those
+// nights isn't to hand; the dates stay so the season still reads whole.
+const US = 'Firebirds'
+
+interface Game { time: string; a: string; b: string }
+interface Week { wk: string; date: string; iso: string; games: Game[]; note?: string; off?: boolean }
+
+const WEEKS: Week[] = [
+  { wk: 'Wk 1', date: 'Mon, Aug 17', iso: '2026-08-17', games: [], note: 'Played' },
+  { wk: 'Wk 2', date: 'Mon, Aug 24', iso: '2026-08-24', games: [], note: 'Played' },
+  { wk: 'Wk 3', date: 'Mon, Aug 31', iso: '2026-08-31', games: [], note: 'Played' },
+  {
+    wk: '—', date: 'Mon, Sep 7', iso: '2026-09-07', games: [],
+    note: 'Labor Day — no games', off: true,
+  },
+  {
+    wk: 'Wk 4', date: 'Mon, Sep 14', iso: '2026-09-14',
+    games: [
+      { time: '6:00 PM', a: 'Boys on the Boat', b: 'Swamp Dawgs' },
+      { time: '7:00 PM', a: 'Firebirds',        b: 'Red Creek' },
+      { time: '8:00 PM', a: 'A-Town',           b: 'Revolution Senior' },
+    ],
+  },
+  {
+    wk: 'Wk 5', date: 'Mon, Sep 21', iso: '2026-09-21',
+    games: [
+      { time: '6:00 PM', a: 'Firebirds',        b: 'Revolution Senior' },
+      { time: '7:00 PM', a: 'Boys on the Boat', b: 'A-Town' },
+      { time: '8:00 PM', a: 'Red Creek',        b: 'Swamp Dawgs' },
+    ],
+  },
+  {
+    wk: 'Wk 6', date: 'Mon, Sep 28', iso: '2026-09-28',
+    games: [
+      { time: '6:00 PM', a: 'Revolution Senior', b: 'Swamp Dawgs' },
+      { time: '7:00 PM', a: 'Red Creek',         b: 'Boys on the Boat' },
+      { time: '8:00 PM', a: 'A-Town',            b: 'Firebirds' },
+    ],
+  },
 ]
 
 const FACTS = [
@@ -53,6 +86,8 @@ const KEY = 'swfl'
 export default async function SwflPage() {
   await assertPageVisible(KEY)
   const status = statusOf(await readSignupStatus(), KEY)
+  // Nights already played are dimmed, so the next one is what the eye lands on.
+  const today = new Date().toISOString().slice(0, 10)
   const { accepting, closedNote } = SIGNUP_STATUS_META[status]
   return (
     <>
@@ -93,23 +128,53 @@ export default async function SwflPage() {
         <section className="mt-14 max-w-3xl">
           <div className="section-label">2026 game nights</div>
           <h2 className="page-title mb-2">Six Mondays This Fall</h2>
-          <p className="text-gray-600 mb-6">All games run 6:00–9:00 PM at Seymour Park.</p>
-          <div className="card overflow-hidden">
-            {WEEKS.map((w) => (
-              <div
-                key={w.date}
-                className={`flex items-center gap-5 px-5 py-3 border-b border-[var(--border)] last:border-b-0 ${w.off ? 'text-gray-400' : ''}`}
-              >
-                <span
-                  className="w-12 shrink-0 text-xs font-black tracking-wide uppercase"
-                  style={{ color: w.off ? undefined : 'var(--gh-maroon)' }}
-                >
-                  {w.wk}
-                </span>
-                <span className={`w-36 shrink-0 ${w.off ? 'line-through' : 'font-bold'}`}>{w.date}</span>
-                <span className="text-sm text-gray-500">{w.note}</span>
-              </div>
-            ))}
+          <p className="text-gray-600 mb-6">
+            Every game is at Seymour Park, Field 1. Green Hope plays as the{' '}
+            <strong>Firebirds</strong> — that is the green line each week.
+          </p>
+          <div className="space-y-3">
+            {WEEKS.map((w) => {
+              const past = w.iso < today
+              return (
+                <div key={w.iso} className={`card overflow-hidden ${w.off || past ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center gap-4 px-5 py-3 border-b border-[var(--border)]">
+                    <span
+                      className="w-12 shrink-0 text-xs font-black tracking-wide uppercase"
+                      style={{ color: w.off ? undefined : 'var(--gh-maroon)' }}
+                    >
+                      {w.wk}
+                    </span>
+                    <span className={`font-bold ${w.off ? 'line-through' : ''}`}>{w.date}</span>
+                    {w.note && <span className="ml-auto text-xs text-gray-500">{w.note}</span>}
+                  </div>
+                  {w.games.length > 0 && (
+                    <div className="divide-y divide-[var(--border)]">
+                      {w.games.map((g) => {
+                        const ours = g.a === US || g.b === US
+                        return (
+                          <div
+                            key={g.time}
+                            className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 text-sm"
+                            style={ours ? { background: '#DFEFE7' } : undefined}
+                          >
+                            <span className="w-20 shrink-0 text-gray-500">{g.time}</span>
+                            <span className={ours ? 'font-black' : 'font-semibold'}>
+                              {g.a} <span className="font-normal text-gray-400">vs</span> {g.b}
+                            </span>
+                            {ours && (
+                              <span className="ml-auto text-[0.65rem] font-black tracking-wide uppercase"
+                                style={{ color: 'var(--gh-green)' }}>
+                                Green Hope
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </section>
 
