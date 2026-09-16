@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase-server'
 import { getCurrentCoach } from '@/lib/coach'
 import { upsertEvaluation } from '@/lib/actions'
-import { EVAL_CATEGORIES, EVAL_SECTIONS, PLAYING_TIME_OPTIONS, readRating, type Evaluation } from '@/lib/evaluations'
+import { PLAYING_TIME_OPTIONS, type Evaluation } from '@/lib/evaluations'
 import { RatingSlider } from '@/components/admin/RatingSlider'
+import { EvalSkills } from '@/components/admin/EvalSkills'
 import type { Player } from '@/lib/types'
 
 export const metadata = { title: 'Evaluate' }
@@ -58,31 +59,7 @@ export default async function EvaluateForm({
         <input type="hidden" name="player_id" value={player.id} />
         <input type="hidden" name="season" value={SEASON} />
 
-        <div>
-          <label className="field-label">Position</label>
-          <input name="position" defaultValue={ev?.position ?? player.position ?? ''} className="field max-w-xs" />
-        </div>
-
-        {/* Skill ratings — grouped, 0–100 sliders */}
-        {EVAL_SECTIONS.map((section) => (
-          <div key={section}>
-            <div className="section-label mb-2">{section}</div>
-            <div className="space-y-3">
-              {EVAL_CATEGORIES.filter((c) => c.section === section).map((c) => {
-                const saved = readRating(ev?.ratings?.[c.key])
-                return (
-                  <RatingSlider
-                    key={c.key}
-                    name={`cat_${c.key}`}
-                    label={c.label}
-                    defaultScore={saved?.score}
-                    defaultNote={saved?.note}
-                  />
-                )
-              })}
-            </div>
-          </div>
-        ))}
+        <EvalSkills ev={ev} rosterPosition={player.position} />
 
         {/* Overall */}
         <div className="border-t pt-4">

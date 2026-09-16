@@ -1712,10 +1712,13 @@ async function prescribeFor(playerId: string, drills: Awaited<ReturnType<typeof 
   const evaluation = (evals ?? [])[0] as Evaluation | undefined
   if (!evaluation) return { ok: false as const, reason: 'no evaluation' }
 
+  // The position the coach evaluated him at wins over the one on the roster: if
+  // a coach sat down and scored him as a goalie, his homework is goalie work,
+  // whatever the roster still says.
   const set = buildDrillSet(
     evaluation,
     drills,
-    positionGroup((player as { position: string | null }).position)
+    positionGroup(evaluation.position ?? (player as { position: string | null }).position)
   )
   if (set.items.length === 0) return { ok: false as const, reason: 'nothing to prescribe' }
 

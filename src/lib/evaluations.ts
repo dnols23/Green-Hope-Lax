@@ -5,6 +5,8 @@
 // shading instead of flattening it into whole numbers. The three tiers below are
 // what the numbers mean, and they colour the slider, the badges and the board.
 
+import { POSITION_LABELS, positionGroup, type PositionGroup } from './positions'
+
 export const SCALE = { min: 0, max: 100 }
 
 export interface Tier {
@@ -44,7 +46,20 @@ export interface EvalCategory {
   key: string
   label: string
   section: string
+  /**
+   * Who gets asked about this. Absent means everybody.
+   *
+   * A goalie was being scored on dodging and finishing and never once on
+   * whether he can stop a ball, which made his evaluation both unfair and
+   * useless — and gave the drill engine nothing about his actual job to work
+   * with.
+   */
+  positions?: PositionGroup[]
 }
+
+const FIELD: PositionGroup[] = ['attack', 'midfield', 'defense', 'lsm', 'fogo']
+const OFFENSE: PositionGroup[] = ['attack', 'midfield']
+const DEFENDERS: PositionGroup[] = ['defense', 'lsm', 'midfield']
 
 // Grouped so a long form reads as a few short lists instead of one wall.
 export const EVAL_CATEGORIES: EvalCategory[] = [
@@ -52,17 +67,30 @@ export const EVAL_CATEGORIES: EvalCategory[] = [
   { section: 'Stick Skills', key: 'throw_strong', label: 'Throwing — strong hand' },
   { section: 'Stick Skills', key: 'throw_weak',   label: 'Throwing — weak hand' },
   { section: 'Stick Skills', key: 'groundballs',  label: 'Ground balls' },
-  { section: 'Stick Skills', key: 'protection',   label: 'Cradling & stick protection' },
+  { section: 'Stick Skills', key: 'protection',   label: 'Cradling & stick protection', positions: FIELD },
 
-  { section: 'Offense', key: 'dodging',  label: 'Dodging & 1v1' },
-  { section: 'Offense', key: 'shooting', label: 'Shooting & finishing' },
-  { section: 'Offense', key: 'offball',  label: 'Off-ball movement' },
-  { section: 'Offense', key: 'feeding',  label: 'Feeding & vision' },
+  { section: 'Offense', key: 'dodging',  label: 'Dodging & 1v1',        positions: [...OFFENSE, 'fogo'] },
+  { section: 'Offense', key: 'shooting', label: 'Shooting & finishing', positions: [...OFFENSE, 'fogo'] },
+  { section: 'Offense', key: 'offball',  label: 'Off-ball movement',    positions: OFFENSE },
+  { section: 'Offense', key: 'feeding',  label: 'Feeding & vision',     positions: OFFENSE },
 
-  { section: 'Defense', key: 'onball',        label: 'On-ball defense' },
-  { section: 'Defense', key: 'footwork',      label: 'Footwork & positioning' },
-  { section: 'Defense', key: 'slides',        label: 'Slides & communication' },
-  { section: 'Defense', key: 'checks',        label: 'Takeaways & checks' },
+  { section: 'Defense', key: 'onball',   label: 'On-ball defense',          positions: DEFENDERS },
+  { section: 'Defense', key: 'footwork', label: 'Footwork & positioning',   positions: [...DEFENDERS, 'attack', 'fogo'] },
+  { section: 'Defense', key: 'slides',   label: 'Slides & communication',   positions: [...DEFENDERS, 'goalie'] },
+  { section: 'Defense', key: 'checks',   label: 'Takeaways & checks',       positions: [...DEFENDERS, 'fogo'] },
+
+  // Goalie — the job nobody else on the field does.
+  { section: 'Goalkeeping', key: 'gk_arc',     label: 'Arc & positioning',       positions: ['goalie'] },
+  { section: 'Goalkeeping', key: 'gk_hands',   label: 'Hands & saves',           positions: ['goalie'] },
+  { section: 'Goalkeeping', key: 'gk_read',    label: 'Reading the shooter',     positions: ['goalie'] },
+  { section: 'Goalkeeping', key: 'gk_clear',   label: 'Clearing & outlet pass',  positions: ['goalie'] },
+  { section: 'Goalkeeping', key: 'gk_command', label: 'Running the defense',     positions: ['goalie'] },
+
+  // Face-off — likewise.
+  { section: 'Face-off', key: 'fo_clamp', label: 'Clamp & hand speed',      positions: ['fogo'] },
+  { section: 'Face-off', key: 'fo_exit',  label: 'Exit & counters',         positions: ['fogo'] },
+  { section: 'Face-off', key: 'fo_wing',  label: 'Wing play & scrapping',   positions: ['fogo'] },
+  { section: 'Face-off', key: 'fo_after', label: 'Play after the whistle',  positions: ['fogo'] },
 
   { section: 'Athleticism', key: 'speed',    label: 'Speed & acceleration' },
   { section: 'Athleticism', key: 'strength', label: 'Strength & physicality' },
@@ -73,6 +101,19 @@ export const EVAL_CATEGORIES: EvalCategory[] = [
   { section: 'Intangibles', key: 'team',         label: 'Team-first & leadership' },
   { section: 'Intangibles', key: 'compete',      label: 'Competitiveness' },
 ]
+
+/** The questions worth asking about this player, in form order. */
+export function categoriesFor(position: string | null | undefined): EvalCategory[] {
+  const group = positionGroup(position)
+  return EVAL_CATEGORIES.filter((c) => !c.positions || c.positions.includes(group))
+}
+
+/** The sections that have any question for this player. */
+export function sectionsFor(position: string | null | undefined): string[] {
+  return [...new Set(categoriesFor(position).map((c) => c.section))]
+}
+
+export { POSITION_LABELS, positionGroup }
 
 export const EVAL_SECTIONS: string[] = [...new Set(EVAL_CATEGORIES.map((c) => c.section))]
 

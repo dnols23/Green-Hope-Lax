@@ -6,31 +6,11 @@
 
 import { EVAL_CATEGORIES, readRating, type Evaluation } from './evaluations'
 import { DRILL_CATEGORIES, isHomework, type Drill } from './drills'
+import { POSITION_LABELS, positionGroup, type PositionGroup } from './positions'
 
-export type PositionGroup = 'attack' | 'midfield' | 'defense' | 'lsm' | 'goalie' | 'fogo'
-
-export const POSITION_LABELS: Record<PositionGroup, string> = {
-  attack: 'Attack',
-  midfield: 'Midfield',
-  defense: 'Defense',
-  lsm: 'LSM / D-mid',
-  goalie: 'Goalie',
-  fogo: 'Face-off',
-}
-
-/** Read the position a coach typed on the roster. Free text, so be generous. */
-export function positionGroup(position: string | null | undefined): PositionGroup {
-  const p = String(position ?? '').toLowerCase()
-  if (/goal|gk|keeper/.test(p)) return 'goalie'
-  if (/fogo|face|fo\b/.test(p)) return 'fogo'
-  if (/lsm|long ?stick|ssdm|d-?mid|dmid/.test(p)) return 'lsm'
-  if (/def|close d|pole/.test(p)) return 'defense'
-  // Checked before attack: plenty of players are listed "Midfield / Attack",
-  // and a midfielder who also plays attack trains as a midfielder.
-  if (/mid/.test(p)) return 'midfield'
-  if (/att|x\b/.test(p)) return 'attack'
-  return 'midfield'
-}
+// Re-exported so the screens that already ask prescribe for these keep working.
+export { POSITION_LABELS, positionGroup }
+export type { PositionGroup }
 
 /**
  * Where the work lives for each rated skill, in order of preference.
@@ -56,14 +36,27 @@ const SKILL_TO_DRILLS: Record<string, string[]> = {
   slides:   ['defense', 'sixes'],
   checks:   ['individualdefense'],
 
+  // A goalie's work is goalie work. The bank's goalie section is deep enough
+  // that each of these lands somewhere real, and clearing is its own category.
+  gk_arc:   ['goalie', 'footwork'],
+  gk_hands: ['goalie', 'stickwork'],
+  gk_read:  ['goalie'],
+  gk_clear: ['ridecrear', 'goalie'],
+
+  fo_clamp: ['faceoff'],
+  fo_exit:  ['faceoff', 'groundballs'],
+  fo_wing:  ['groundballs', 'faceoff'],
+  fo_after: ['faceoff', 'footwork'],
+
   speed:    ['footwork', 'conditioning', 'strength'],
   strength: ['strength', 'conditioning'],
   motor:    ['conditioning', 'strength'],
 
-  /* Lacrosse IQ, coachability, team-first and competitiveness are deliberately
-     absent. Nothing in a drill bank fixes them, and mapping them anywhere sent a
-     kid an ESPN story about a Tottenham midfielder as his homework. They still
-     show on his evaluation, and they are what a coach talks to him about. */
+  /* Lacrosse IQ, coachability, team-first, competitiveness — and a goalie
+     running his defense — are deliberately absent. Nothing in a drill bank
+     fixes them, and mapping them anywhere sent a kid an ESPN story about a
+     Tottenham midfielder as his homework. They still show on his evaluation,
+     and they are what a coach talks to him about. */
 }
 
 /**
@@ -156,6 +149,10 @@ export function buildDrillSet(
   drills: Drill[],
   position: PositionGroup
 ): DrillSet {
+  // Callers pass a group key, but a stray roster string ("Goalie / GK") must
+  // not take the page down — it reads as the position it plainly is.
+  position = POSITION_LABELS[position] ? position : positionGroup(position)
+
   const rated = ratedSkills(evaluation)
   if (rated.length === 0) return { focus: [], items: [], position, uncovered: [] }
 
