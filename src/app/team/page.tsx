@@ -6,16 +6,23 @@ import { FalconHead } from '@/components/Logo'
 import { formatDate, formatTime } from '@/lib/format'
 import { TEAM_CATEGORY_META } from '@/lib/types'
 import { isPageOn } from '@/lib/pages'
-import { currentPlayer } from '@/lib/playerAccess'
+import { viewingAs, withPreview } from '@/lib/previewPlayer'
+import { PreviewBanner } from '@/components/PreviewBanner'
 
 export const dynamic = 'force-dynamic'
 
-export default async function TeamHubPage() {
+export default async function TeamHubPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ preview?: string }>
+}) {
+  const { preview } = await searchParams
   // Film Room can be switched off for the Team Hub in Admin → Pages.
   const filmOn = await isPageOn('film-team')
   const posts = await getTeamPosts()
-  // Whoever followed their own invite link gets a way back to their own work.
-  const me = await currentPlayer()
+  // Whoever followed their own invite link gets a way back to their own work —
+  // or the player a coach has asked to stand in for.
+  const { player: me, previewing } = await viewingAs(preview)
   // Games marked for everyone or for players and parents — coaches-only ones stay
   // in the admin.
   const games = await getGames(undefined, 'team')
@@ -32,10 +39,12 @@ export default async function TeamHubPage() {
 
   return (
     <>
+      {previewing && me && <PreviewBanner player={me} />}
+
       {/* Header */}
       <header className="text-white" style={{ background: 'var(--gh-green-dk)' }}>
         <div className="max-w-screen-lg mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/team" className="flex items-center gap-2.5">
+          <Link href={withPreview('/team', me, previewing)} className="flex items-center gap-2.5">
             <span className="inline-flex items-center justify-center bg-white rounded-lg px-1.5 py-1">
               <FalconHead size={26} />
             </span>
@@ -46,11 +55,25 @@ export default async function TeamHubPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/" className="text-xs text-white/70 hover:text-white">Main site ↗</Link>
-            <form action={teamLogout}>
-              <button type="submit" className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded transition-colors">
+            {/* Shown in a preview because the player sees it, but inert: a coach
+                checking the board should not be able to sign themselves out of
+                the site by clicking something that isn't theirs. */}
+            {previewing ? (
+              <button
+                type="button"
+                disabled
+                title="Sign out — shown as the player sees it"
+                className="text-xs bg-white/10 px-3 py-1.5 rounded cursor-default"
+              >
                 Sign out
               </button>
-            </form>
+            ) : (
+              <form action={teamLogout}>
+                <button type="submit" className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded transition-colors">
+                  Sign out
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </header>
@@ -71,7 +94,9 @@ export default async function TeamHubPage() {
               <p className="text-sm text-gray-500 mb-3">
                 Your evaluation, your drills, and today&rsquo;s plan if the coaches have posted it.
               </p>
-              <Link href="/team/me" className="btn btn-maroon w-full">Open my work</Link>
+              <Link href={withPreview('/team/me', me, previewing)} className="btn btn-maroon w-full">
+                Open my work
+              </Link>
             </section>
           )}
           <section className="card p-5">

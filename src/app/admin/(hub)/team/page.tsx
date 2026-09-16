@@ -1,4 +1,4 @@
-import { getTeamPosts } from '@/lib/queries'
+import { getTeamPosts, getPlayers } from '@/lib/queries'
 import { createServiceClient } from '@/lib/supabase-server'
 import { decryptTeamCode } from '@/lib/teamCode'
 import { upsertTeamPost, deleteTeamPost, setTeamPassword } from '@/lib/actions'
@@ -8,6 +8,7 @@ import { PublishToggle } from '@/components/admin/PublishToggle'
 import { TEAM_CATEGORY_META, type TeamPost, type TeamPostCategory } from '@/lib/types'
 import { formatShortDate } from '@/lib/format'
 import { PasswordField } from '@/components/PasswordField'
+import { PlayerViewButton } from '@/components/admin/PlayerViewButton'
 import { requireSection } from '@/lib/permissions'
 
 export const metadata = { title: 'Team Hub' }
@@ -85,6 +86,9 @@ export default async function AdminTeamPage() {
   await requireSection('team')
   const posts = await getTeamPosts(true) // include drafts
   const live = posts.filter((p) => p.published).length
+  // For the player view: the board reads differently to someone whose own card
+  // is on it than to a parent with the shared password.
+  const players = (await getPlayers()).map((p) => ({ id: p.id, name: p.name }))
 
   // The join code, for the instructions a coach sends families. Null until the
   // password is next set — earlier ones were only ever stored as a hash.
@@ -106,6 +110,18 @@ export default async function AdminTeamPage() {
           <a href="/team" target="_blank" className="text-[var(--gh-green)] font-semibold">/team ↗</a>.
         </p>
       </div>
+
+      {/* Check your work before the team does. Drafts stay hidden in here, so
+          what this opens is exactly the board they get. */}
+      <section className="card p-5">
+        <h2 className="font-bold text-gray-700 mb-1">Player view</h2>
+        <p className="text-sm text-gray-500 mb-3">
+          Open the Team Hub the way a player or parent sees it — published posts only, in their
+          layout. Pick a player to also see their own card and their work. Looking does not
+          count as them opening their invite link.
+        </p>
+        <PlayerViewButton players={players} />
+      </section>
 
       {/* Who can read this — the question a coach should never have to guess at. */}
       <div className="rounded-xl border border-[var(--gh-green)]/30 bg-[var(--gh-green)]/5 p-4 text-sm">

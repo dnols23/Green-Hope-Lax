@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { currentPlayer } from '@/lib/playerAccess'
+import { viewingAs, withPreview } from '@/lib/previewPlayer'
+import { PreviewBanner } from '@/components/PreviewBanner'
 import { latestDrillSet } from '@/lib/drillSets'
 import { createServiceClient } from '@/lib/supabase-server'
 import { EVAL_CATEGORIES, readRating, tierFor, type Evaluation } from '@/lib/evaluations'
@@ -25,8 +26,13 @@ function todayIso(): string {
  * looking. Anyone who got in with the shared team password sees the team feed
  * instead — this page is nobody in particular without a link.
  */
-export default async function MyWorkPage() {
-  const player = await currentPlayer()
+export default async function MyWorkPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ preview?: string }>
+}) {
+  const { preview } = await searchParams
+  const { player, previewing } = await viewingAs(preview)
   if (!player) redirect('/team')
 
   const svc = createServiceClient()
@@ -62,9 +68,11 @@ export default async function MyWorkPage() {
 
   return (
     <>
+      {previewing && <PreviewBanner player={player} />}
+
       <header className="text-white print:hidden" style={{ background: 'var(--gh-green-dk)' }}>
         <div className="max-w-screen-md mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/team" className="flex items-center gap-2.5">
+          <Link href={withPreview('/team', player, previewing)} className="flex items-center gap-2.5">
             <span className="inline-flex items-center justify-center bg-white rounded-lg px-1.5 py-1">
               <FalconHead size={26} />
             </span>
@@ -75,7 +83,7 @@ export default async function MyWorkPage() {
               </span>
             </span>
           </Link>
-          <Link href="/team" className="text-xs text-white/70 hover:text-white">Team feed →</Link>
+          <Link href={withPreview('/team', player, previewing)} className="text-xs text-white/70 hover:text-white">Team feed →</Link>
         </div>
       </header>
 
