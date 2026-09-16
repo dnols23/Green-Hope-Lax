@@ -9,6 +9,7 @@ import { createPlayerInvite, revokePlayerInvite, generateDrillSet } from '@/lib/
 import { positionGroup, POSITION_LABELS } from '@/lib/prescribe'
 import { formatShortDate } from '@/lib/format'
 import type { Player } from '@/lib/types'
+import { PlayerLink } from '@/components/admin/PlayerLink'
 import { GenerateAll } from './GenerateAll'
 import { InviteLink } from './InviteLink'
 import { SplitNameNotice } from '@/components/admin/SplitNameNotice'
@@ -72,7 +73,7 @@ export default async function PlayersPage() {
             <div key={p.id} className="p-3 flex items-center gap-3 flex-wrap">
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-sm">
-                  {p.number ? `#${p.number} ` : ''}{p.name}
+                  <PlayerLink id={p.id} name={p.name} number={p.number} />
                   <span className="text-xs text-gray-400 ml-2">
                     {[POSITION_LABELS[positionGroup(p.position)], p.class_year].filter(Boolean).join(' · ')}
                   </span>

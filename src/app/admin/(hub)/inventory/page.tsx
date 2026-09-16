@@ -1,7 +1,11 @@
 import { createServiceClient } from '@/lib/supabase-server'
 import { requireTeamScope } from '@/lib/permissions'
-import { upsertInventoryItem, deleteInventoryItem } from '@/lib/actions'
+import { upsertInventoryItem, deleteInventoryItem, signOutEquipment, returnEquipment } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
+import { PlayerLink } from '@/components/admin/PlayerLink'
+import { equipmentReady, listAssignments, outByItem } from '@/lib/equipment'
+import { formatShortDate } from '@/lib/format'
+import type { Player } from '@/lib/types'
 import {
   INVENTORY_CATEGORIES,
   INVENTORY_CONDITION_LABELS,
@@ -103,6 +107,15 @@ export default async function InventoryPage() {
 
   const items = (data as InventoryItem[]) ?? []
   const total = items.reduce((n, i) => n + (i.quantity ?? 0), 0)
+
+  // Who has what. A player list to sign gear out to, and the rows still out.
+  const signOutOn = await equipmentReady()
+  const assignments = signOutOn ? await listAssignments({ includeReturned: false }) : []
+  const outCount = outByItem(assignments)
+  let playerQuery = svc.from('players').select('id, name, number, team').eq('is_active', true).order('name')
+  if (jvOnly) playerQuery = playerQuery.eq('team', 'jv')
+  const { data: playerRows } = await playerQuery
+  const players = (playerRows ?? []) as Pick<Player, 'id' | 'name' | 'number' | 'team'>[]
   const groups = items.reduce<Record<string, InventoryItem[]>>((acc, i) => {
     ;(acc[i.category] ??= []).push(i)
     return acc
@@ -162,10 +175,77 @@ export default async function InventoryPage() {
                         <span className="text-xs text-gray-400">{INVENTORY_TEAM_LABELS[r.team]}</span>
                       )}
                       {r.location && <span className="text-xs text-gray-400">· {r.location}</span>}
+                      {(outCount[r.id] ?? 0) > 0 && (
+                        <span className="text-xs font-bold" style={{ color: 'var(--gh-maroon)' }}>
+                          {outCount[r.id]} out · {Math.max(0, r.quantity - outCount[r.id])} here
+                        </span>
+                      )}
                     </span>
                     <DeleteButton id={r.id} action={deleteInventoryItem} />
                   </summary>
-                  <form action={upsertInventoryItem} className="mt-4 space-y-4">
+
+                  {signOutOn && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="section-label mb-2">Signed out</div>
+                      {assignments.filter((a) => a.item_id === r.id).length === 0 ? (
+                        <p className="text-sm text-gray-500 mb-3">Nobody has one of these.</p>
+                      ) : (
+                        <ul className="space-y-1 mb-3">
+                          {assignments
+                            .filter((a) => a.item_id === r.id)
+                            .map((a) => (
+                              <li key={a.id} className="flex flex-wrap items-center gap-2 text-sm">
+                                {a.player_id ? (
+                                  <PlayerLink id={a.player_id} name={a.player_name} />
+                                ) : (
+                                  <span className="font-semibold">{a.player_name}</span>
+                                )}
+                                {a.quantity > 1 && <span className="text-xs text-gray-400">×{a.quantity}</span>}
+                                <span className="text-xs text-gray-400">since {formatShortDate(a.out_at)}</span>
+                                {a.due_at && (
+                                  <span className="text-xs font-bold" style={{ color: 'var(--gh-maroon)' }}>
+                                    due {formatShortDate(a.due_at)}
+                                  </span>
+                                )}
+                                <form action={returnEquipment} className="ml-auto">
+                                  <input type="hidden" name="id" value={a.id} />
+                                  <input type="hidden" name="player_id" value={a.player_id ?? ''} />
+                                  <button type="submit" className="text-xs font-bold text-[var(--gh-green)]">
+                                    Returned
+                                  </button>
+                                </form>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+
+                      <form action={signOutEquipment} className="grid sm:grid-cols-5 gap-2 items-end">
+                        <input type="hidden" name="item_id" value={r.id} />
+                        <div className="sm:col-span-2">
+                          <label className="field-label">Sign out to</label>
+                          <select name="player_id" required className="field !py-1.5">
+                            <option value="">Choose a player</option>
+                            {players.map((pl) => (
+                              <option key={pl.id} value={pl.id}>
+                                {pl.number ? `#${pl.number} ` : ''}{pl.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="field-label">How many</label>
+                          <input type="number" name="quantity" min={1} defaultValue={1} className="field !py-1.5" />
+                        </div>
+                        <div>
+                          <label className="field-label">Back by</label>
+                          <input type="date" name="due_at" className="field !py-1.5" />
+                        </div>
+                        <button type="submit" className="btn btn-primary !py-1.5 text-sm">Sign out</button>
+                      </form>
+                    </div>
+                  )}
+
+                  <form action={upsertInventoryItem} className="mt-4 pt-4 border-t border-gray-100 space-y-4">
                     <input type="hidden" name="id" value={r.id} />
                     <ItemFields item={r} jvOnly={jvOnly} />
                     <button type="submit" className="btn btn-primary">Save changes</button>

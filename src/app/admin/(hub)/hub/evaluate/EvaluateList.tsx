@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import { PlayerLink } from '@/components/admin/PlayerLink'
 import { useMemo, useState } from 'react'
 import { tierFor } from '@/lib/evaluations'
 
@@ -161,11 +162,17 @@ export function EvaluateList({ players }: { players: EvalRow[] }) {
           {shown.map((p) => {
             const tier = p.average > 0 ? tierFor(p.average) : null
             return (
-              <Link
+              <div
                 key={p.id}
-                href={`/admin/hub/evaluate/${p.id}`}
-                className="card p-3 flex items-center gap-3 hover:shadow-md transition-shadow"
+                className="card p-3 flex items-center gap-3 hover:shadow-md transition-shadow relative"
               >
+                {/* The card is still "evaluate him" — that is what this screen
+                    is for. His name, sitting above it, is "tell me about him". */}
+                <Link
+                  href={`/admin/hub/evaluate/${p.id}`}
+                  aria-label={`Evaluate ${p.name}`}
+                  className="absolute inset-0 rounded-[inherit]"
+                />
                 <span
                   className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-black text-white text-sm"
                   style={{ background: 'var(--gh-green)' }}
@@ -173,7 +180,7 @@ export function EvaluateList({ players }: { players: EvalRow[] }) {
                   {p.number ?? '–'}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="font-bold block truncate">{p.name}</span>
+                  <PlayerLink id={p.id} name={p.name} className="block truncate relative font-bold" />
                   <span className="text-xs text-gray-500">
                     {[p.position, p.classYear, p.teamLabel].filter(Boolean).join(' · ') || '—'}
                   </span>
@@ -190,7 +197,7 @@ export function EvaluateList({ players }: { players: EvalRow[] }) {
                     {p.ratedByMe ? '✓ yours in' : p.raters > 0 ? `${p.raters} coach${p.raters > 1 ? 'es' : ''}` : 'unrated'}
                   </span>
                 </span>
-              </Link>
+              </div>
             )
           })}
         </div>
