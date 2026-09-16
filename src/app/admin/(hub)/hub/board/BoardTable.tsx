@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { ExportCsvButton } from '@/components/admin/ExportCsvButton'
-import { EVAL_CATEGORIES, readRating, tierFor } from '@/lib/evaluations'
+import { EVAL_CATEGORIES, categoriesFor, readRating, tierFor } from '@/lib/evaluations'
 
 export interface EvaluatorLine {
   name: string
@@ -65,10 +65,18 @@ export function BoardTable({ rows }: { rows: BoardRow[] }) {
           : b.overallAvg - a.overallAvg)
   }, [rows, team, pos, sort])
 
+  // Only the questions somebody has actually answered get a column. A board of
+  // field players should not carry five blank goalie columns, and a goalie's
+  // arc should appear the moment one is evaluated.
+  const cols = useMemo(
+    () => EVAL_CATEGORIES.filter((c) => view.some((r) => r.catAvg[c.key] != null)),
+    [view]
+  )
+
   const csv = view.map((r) => ({
     player: r.name, number: r.number ?? '', team: r.teamLabel, position: r.position ?? '',
     evals: r.count, overall: r.overallAvg,
-    ...Object.fromEntries(EVAL_CATEGORIES.map((c) => [c.label, r.catAvg[c.key] ?? ''])),
+    ...Object.fromEntries(cols.map((c) => [c.label, r.catAvg[c.key] ?? ''])),
   }))
 
   return (
@@ -97,12 +105,12 @@ export function BoardTable({ rows }: { rows: BoardRow[] }) {
           <thead>
             <tr>
               <th>Player</th><th>Pos</th><th className="text-center">Evals</th><th className="text-center">Overall</th>
-              {EVAL_CATEGORIES.map((c) => <th key={c.key} className="text-center whitespace-nowrap" title={c.label}>{c.label}</th>)}
+              {cols.map((c) => <th key={c.key} className="text-center whitespace-nowrap" title={c.label}>{c.label}</th>)}
             </tr>
           </thead>
           <tbody>
             {view.map((r) => (
-              <FragmentRow key={r.playerId} r={r} open={open === r.playerId} onToggle={() => setOpen(open === r.playerId ? null : r.playerId)} />
+              <FragmentRow key={r.playerId} r={r} cols={cols} open={open === r.playerId} onToggle={() => setOpen(open === r.playerId ? null : r.playerId)} />
             ))}
           </tbody>
         </table>
@@ -111,7 +119,12 @@ export function BoardTable({ rows }: { rows: BoardRow[] }) {
   )
 }
 
-function FragmentRow({ r, open, onToggle }: { r: BoardRow; open: boolean; onToggle: () => void }) {
+function FragmentRow({ r, cols, open, onToggle }: {
+  r: BoardRow
+  cols: typeof EVAL_CATEGORIES
+  open: boolean
+  onToggle: () => void
+}) {
   return (
     <>
       <tr onClick={onToggle} className="cursor-pointer" style={{ background: open ? 'var(--surface-2)' : undefined }}>
@@ -125,7 +138,7 @@ function FragmentRow({ r, open, onToggle }: { r: BoardRow; open: boolean; onTogg
           style={{ background: cellBg(r.overallAvg), color: cellInk(r.overallAvg) }}>
           {r.overallAvg || '—'}
         </td>
-        {EVAL_CATEGORIES.map((c) => (
+        {cols.map((c) => (
           <td key={c.key} className="text-center font-semibold tabular-nums"
             style={{ background: cellBg(r.catAvg[c.key]), color: cellInk(r.catAvg[c.key]) }}>
             {r.catAvg[c.key] ?? '—'}
@@ -134,7 +147,7 @@ function FragmentRow({ r, open, onToggle }: { r: BoardRow; open: boolean; onTogg
       </tr>
       {open && (
         <tr>
-          <td colSpan={4 + EVAL_CATEGORIES.length} style={{ background: 'var(--surface-2)' }}>
+          <td colSpan={4 + cols.length} style={{ background: 'var(--surface-2)' }}>
             <div className="p-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {r.evaluators.map((ev, i) => (
                 <div key={i} className="card p-3">
@@ -143,7 +156,10 @@ function FragmentRow({ r, open, onToggle }: { r: BoardRow; open: boolean; onTogg
                     <span className="text-xs font-black" style={{ color: 'var(--gh-green)' }}>{ev.overall ?? '—'}/100</span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-                    {EVAL_CATEGORIES.map((c) => {
+                    {/* This player's questions, not every player's — a goalie
+                        card of twenty dashes said nothing. A blank here is a
+                        question this coach skipped. */}
+                    {categoriesFor(r.position).map((c) => {
                       const rating = readRating(ev.ratings?.[c.key])
                       return (
                         <div key={c.key} className="flex justify-between gap-2" title={rating?.note ?? undefined}>
