@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { logout } from '@/lib/actions'
 import { FalconHead } from '@/components/Logo'
@@ -15,6 +15,47 @@ import { SECTION_GROUPS, type AdminSection } from '@/lib/sections'
  * with the logo. Grouping them under one menu keeps the bar the same height
  * however many sections get added later.
  */
+/**
+ * Back, forward, and the way home.
+ *
+ * Saved to a home screen the site runs without Safari's chrome, so there is no
+ * back button at all — and a coach moving film → plan → roster → film was
+ * paying two taps through the menu for every step. These are the same three
+ * moves, in the bar, on every admin page.
+ */
+function WorkflowNav({ onHub, showHub }: { onHub: () => void; showHub: boolean }) {
+  const router = useRouter()
+  const arrow = 'p-1.5 rounded-lg transition-colors hover:bg-white/20'
+
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <button type="button" onClick={() => router.back()} aria-label="Back" title="Back"
+        className={arrow} style={{ background: 'rgba(255,255,255,0.12)' }}>
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <button type="button" onClick={() => router.forward()} aria-label="Forward" title="Forward"
+        className={arrow} style={{ background: 'rgba(255,255,255,0.12)' }}>
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+      {showHub && (
+        <Link
+          href="/admin/hub"
+          onClick={onHub}
+          title="Back to the Coaches Hub"
+          className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-white/20"
+          style={{ background: 'rgba(255,255,255,0.12)' }}
+        >
+          <span aria-hidden>↩</span> Hub
+        </Link>
+      )}
+    </div>
+  )
+}
+
 export function AdminMenu({ links, tier }: { links: AdminSection[]; tier: string }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -43,17 +84,23 @@ export function AdminMenu({ links, tier }: { links: AdminSection[]; tier: string
     <div className="relative shrink-0 text-white" style={{ background: 'var(--gh-green-dk)' }}>
       <div className="px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
+          <WorkflowNav onHub={() => setOpen(false)} showHub={pathname !== '/admin/hub'} />
           <Link href="/admin" className="flex items-center gap-2 font-black shrink-0" onClick={() => setOpen(false)}>
             <FalconHead size={28} />
-            Falcons <span className="text-white/50 font-normal text-sm">{tier}</span>
+            <span className="hidden sm:inline">
+              Falcons <span className="text-white/50 font-normal text-sm">{tier}</span>
+            </span>
           </Link>
+          {/* On a phone the arrows, the Hub and the menu are the whole bar; the
+              page name would be squeezed to "Drill …" for no gain, and the
+              page's own heading is an inch below it. */}
           {active && (
-            <>
+            <span className="hidden sm:flex items-center gap-3 min-w-0">
               <span className="text-white/25" aria-hidden>
                 /
               </span>
               <span className="text-sm font-semibold text-white/80 truncate">{active.label}</span>
-            </>
+            </span>
           )}
         </div>
 
