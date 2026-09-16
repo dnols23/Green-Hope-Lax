@@ -131,6 +131,63 @@ export function PlanEditor({
     return p ? `${p.number ? `#${p.number} ` : ''}${p.name}` : 'Player'
   }
 
+  /*
+   * A note is a note.
+   *
+   * It was being handed the practice-plan editor — start time, roster, blocks,
+   * a running clock, publish switches — for something a coach wants to type two
+   * sentences into. None of that has anything to do with writing down what to
+   * say at an interest meeting, so a note gets a title, a date and a page.
+   */
+  if (plan.kind === 'note') {
+    return (
+      <form action={save}>
+        <input type="hidden" name="id" value={plan.id} />
+        <input type="hidden" name="blocks" value="[]" />
+        <input type="hidden" name="season" value={plan.season ?? ''} />
+        <input type="hidden" name="roster_id" value="" />
+
+        <div className="card p-4">
+          <input
+            name="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="field !text-lg !font-black !py-2 mb-3"
+            placeholder="What is this about?"
+            required
+          />
+          <textarea
+            name="summary"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            rows={14}
+            className="field"
+            placeholder="Write it here."
+          />
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100 flex-wrap">
+            <div>
+              <label className="field-label">Date</label>
+              <input
+                type="date"
+                name="plan_date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="field !py-1.5 !w-auto"
+              />
+            </div>
+            <button type="submit" disabled={saving} className="btn btn-primary !py-1.5 ml-auto disabled:opacity-60">
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+          {state.error && <p className="text-sm text-red-700 mt-2">{state.error}</p>}
+          {state.ok && state.message && !saving && (
+            <p className="text-sm text-green-700 mt-2">{state.message}</p>
+          )}
+        </div>
+      </form>
+    )
+  }
+
   return (
     <form action={save}>
       <input type="hidden" name="id" value={plan.id} />
