@@ -83,14 +83,18 @@ export default async function PlannerPage() {
                         </div>
                       )}
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-lg font-black" style={{ color: 'var(--gh-green)' }}>
-                        {formatMinutes(mins)}
+                    {/* A note has no length and no blocks; "0m · 0 blocks" beside
+                        one is just noise. */}
+                    {p.kind !== 'note' && (
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-black" style={{ color: 'var(--gh-green)' }}>
+                          {formatMinutes(mins)}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {p.blocks.length} {p.blocks.length === 1 ? 'block' : 'blocks'}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-400">
-                        {p.blocks.length} {p.blocks.length === 1 ? 'block' : 'blocks'}
-                      </div>
-                    </div>
+                    )}
                   </Link>
                 )
               })}
