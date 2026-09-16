@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { upsertPlayer, deletePlayer, mergeSplitNames } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PublishToggle } from '@/components/admin/PublishToggle'
+import { PlayerLink } from '@/components/admin/PlayerLink'
 import { TEAM_LABELS, type Player } from '@/lib/types'
 import { requireTeamScope } from '@/lib/permissions'
 
@@ -124,8 +125,7 @@ export default async function AdminRosterPage() {
           <details key={p.id} className="card p-4">
             <summary className="flex items-center justify-between cursor-pointer list-none gap-3">
               <span className="font-semibold">
-                {p.number && <span className="text-gray-400">#{p.number} </span>}
-                {p.name}
+                <PlayerLink id={p.id} name={p.name} number={p.number} />
                 <span className="ml-2 text-xs text-gray-400">{TEAM_LABELS[p.team]}</span>
               </span>
               <span className="flex items-center gap-3">

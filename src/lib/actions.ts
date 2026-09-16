@@ -30,6 +30,7 @@ import {
 } from './signups'
 import { parseDrillPaste } from './drills'
 import { listDrills } from './drillsData'
+import { signOut, markReturned, markOutAgain, deleteAssignment } from './equipment'
 import { buildDrillSet, positionGroup } from './prescribe'
 import { ensurePlayerToken, revokePlayerToken } from './playerAccess'
 import type { Evaluation } from './evaluations'
@@ -1093,6 +1094,66 @@ export async function removeCoachAccount(formData: FormData) {
   revalidatePath('/admin/access')
 }
 
+
+// ── Equipment sign-out ───────────────────────────────────────────────────────
+// Who has what. Kept beside the inventory because it is the same screen and the
+// same job: a coach with a bag of helmets and a line of players.
+
+export async function signOutEquipment(formData: FormData) {
+  const viewer = await requireTeamScope('inventory', 'inventory-jv')
+  const svc = createServiceClient()
+
+  const itemId = str(formData.get('item_id'))
+  const playerId = str(formData.get('player_id'))
+  if (!itemId || !playerId) return
+
+  const [{ data: item }, { data: player }] = await Promise.all([
+    svc.from('team_inventory').select('item, size, team').eq('id', itemId).maybeSingle(),
+    svc.from('players').select('name, team').eq('id', playerId).maybeSingle(),
+  ])
+  if (!item || !player) return
+
+  // A JV coach signs out JV kit to JV players, the same rule the rest of the
+  // inventory screen already follows.
+  if (viewer.scope === 'jv') {
+    const itemTeam = (item as { team: string }).team
+    if (itemTeam !== 'jv' && itemTeam !== 'program') return
+    if ((player as { team: string | null }).team !== 'jv') return
+  }
+
+  const quantity = Math.max(1, Number(str(formData.get('quantity'))) || 1)
+  await signOut({
+    itemId,
+    itemName: (item as { item: string }).item,
+    size: (item as { size: string | null }).size,
+    playerId,
+    playerName: (player as { name: string }).name,
+    quantity,
+    dueAt: str(formData.get('due_at')) || null,
+    condition: str(formData.get('condition')) || null,
+    notes: str(formData.get('notes')) || null,
+    signedBy: viewer.viewer.name || viewer.viewer.email,
+  })
+
+  revalidatePath('/admin/inventory')
+  revalidatePath(`/admin/hub/players/${playerId}`)
+}
+
+export async function returnEquipment(formData: FormData) {
+  await requireTeamScope('inventory', 'inventory-jv')
+  const id = str(formData.get('id'))
+  const playerId = str(formData.get('player_id'))
+  if (str(formData.get('undo')) === 'true') await markOutAgain(id)
+  else await markReturned(id)
+  revalidatePath('/admin/inventory')
+  if (playerId) revalidatePath(`/admin/hub/players/${playerId}`)
+}
+
+export async function removeAssignment(id: string) {
+  await requireTeamScope('inventory', 'inventory-jv')
+  await deleteAssignment(id)
+  revalidatePath('/admin/inventory')
+}
 
 // ── Equipment inventory ──────────────────────────────────────────────────────
 // A coach granted only "JV Inventory" can read and change JV rows and nothing

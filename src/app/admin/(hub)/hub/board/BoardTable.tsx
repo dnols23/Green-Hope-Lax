@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { PlayerLink } from '@/components/admin/PlayerLink'
 import { ExportCsvButton } from '@/components/admin/ExportCsvButton'
 import { EVAL_CATEGORIES, categoriesFor, readRating, tierFor } from '@/lib/evaluations'
 
@@ -130,7 +131,10 @@ function FragmentRow({ r, cols, open, onToggle }: {
       <tr onClick={onToggle} className="cursor-pointer" style={{ background: open ? 'var(--surface-2)' : undefined }}>
         <td className="font-semibold whitespace-nowrap">
           <span className="text-gray-400 mr-1">{open ? '▾' : '▸'}</span>
-          {r.number ? `#${r.number} ` : ''}{r.name}
+          {/* The row still opens the coaches' ratings; the name goes to him. */}
+          <span onClick={(e) => e.stopPropagation()}>
+            <PlayerLink id={r.playerId} name={r.name} number={r.number} />
+          </span>
         </td>
         <td className="text-gray-500">{r.position ?? '—'}</td>
         <td className="text-center">{r.count}</td>
