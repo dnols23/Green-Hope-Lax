@@ -22,7 +22,7 @@ export function InviteLink({ url }: { url: string }) {
       style={{ color: 'var(--gh-green)' }}
       title={url}
     >
-      {copied ? 'Copied ✓' : 'Copy invite link'}
+      {copied ? 'Copied ✓' : 'Copy his sign-in link'}
     </button>
   )
 }

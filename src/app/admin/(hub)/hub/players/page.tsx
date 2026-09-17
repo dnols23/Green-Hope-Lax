@@ -59,6 +59,12 @@ export default async function PlayersPage() {
         </p>
       </div>
 
+      <p className="text-xs text-gray-500 -mt-3 mb-4">
+        A sign-in link is private to one player. Following it once signs him in to his own page —
+        his evaluation, his drill set, and the day&rsquo;s plan when you publish one — with no
+        password to lose. Revoke it and that link stops working.
+      </p>
+
       <SplitNameNotice />
 
       {rosters.length > 0 && <GenerateAll rosters={rosters.map((r) => ({ id: r.id, name: r.name }))} />}
@@ -108,8 +114,12 @@ export default async function PlayersPage() {
                 ) : (
                   <form action={createPlayerInvite}>
                     <input type="hidden" name="player_id" value={p.id} />
-                    <button type="submit" className="btn btn-ghost !py-1 !px-2.5 text-xs">
-                      {token ? 'New link' : 'Make link'}
+                    <button
+                      type="submit"
+                      className="btn btn-ghost !py-1 !px-2.5 text-xs"
+                      title={`A private link that signs ${p.name} in to his evaluation and drill set`}
+                    >
+                      {token ? 'New sign-in link' : 'Make his sign-in link'}
                     </button>
                   </form>
                 )}
