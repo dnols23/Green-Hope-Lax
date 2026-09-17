@@ -104,7 +104,40 @@ export interface BoardToken {
   label: string
   /** The player this token stands for, when it came off a roster. */
   playerId?: string
+  /** Overrides the colour its kind would give it. */
+  color?: string
 }
+
+/** How a line ends. Both ends are set separately, like any drawing tool. */
+export type EndCap = 'none' | 'arrow' | 'dot' | 'bar' | 'square'
+
+export const END_CAPS: { key: EndCap; label: string }[] = [
+  { key: 'none', label: 'Plain' },
+  { key: 'arrow', label: 'Arrow' },
+  { key: 'dot', label: 'Dot' },
+  { key: 'bar', label: 'Bar' },
+  { key: 'square', label: 'Square' },
+]
+
+/** The named line styles, and the dash pattern each one draws. */
+export const DASH_STYLES: { key: string; label: string; dash: string }[] = [
+  { key: 'solid', label: 'Solid', dash: '' },
+  { key: 'dashed', label: 'Dashed', dash: '3 2' },
+  { key: 'dotted', label: 'Dotted', dash: '0.8 1.6' },
+  { key: 'long', label: 'Long dash', dash: '6 2' },
+]
+
+/** The colours on the picker — the program's, plus the ones a board needs. */
+export const BOARD_COLORS: { key: string; label: string }[] = [
+  { key: '#17222e', label: 'Ink' },
+  { key: '#00693E', label: 'Green' },
+  { key: '#7A1F2B', label: 'Maroon' },
+  { key: '#2F5D8C', label: 'Blue' },
+  { key: '#B4823A', label: 'Gold' },
+  { key: '#E4863A', label: 'Orange' },
+  { key: '#6B21A8', label: 'Purple' },
+  { key: '#ffffff', label: 'White' },
+]
 
 export type PathKind = 'run' | 'pass' | 'shot' | 'screen'
 
@@ -124,14 +157,47 @@ export interface BoardPath {
   kind: PathKind
   /** At least two points, in field yards. */
   points: { x: number; y: number }[]
+  /** Everything below overrides what the kind would give it. */
+  color?: string
+  /** Stroke width in yards. */
+  width?: number
+  dash?: string
+  startCap?: EndCap
+  endCap?: EndCap
+}
+
+/** A word on the field: a call, a coaching point, a label for a spot. */
+export interface BoardText {
+  id: string
+  x: number
+  y: number
+  text: string
+  /** Cap height in yards, so it scales with the field like everything else. */
+  size: number
+  color: string
+  bold?: boolean
+  italic?: boolean
 }
 
 export interface Board {
   tokens: BoardToken[]
   paths: BoardPath[]
+  texts?: BoardText[]
 }
 
-export const EMPTY_BOARD: Board = { tokens: [], paths: [] }
+export const EMPTY_BOARD: Board = { tokens: [], paths: [], texts: [] }
+
+/** What a line actually draws with, once its own settings have their say. */
+export function pathLook(path: BoardPath) {
+  const base = pathStyle(path.kind)
+  return {
+    color: path.color ?? base.color,
+    dash: path.dash ?? base.dash,
+    width: path.width ?? 0.7,
+    startCap: path.startCap ?? 'none',
+    endCap: path.endCap ?? (path.kind === 'screen' ? 'bar' : 'arrow'),
+  }
+}
 
 /** Who is in this block, and what they are doing in it. */
 export interface BlockAssignment {
@@ -278,6 +344,12 @@ export function readBlocks(raw: unknown): PlanBlock[] {
 export function readBoard(raw: unknown): Board | null {
   if (!raw || typeof raw !== 'object') return null
   const b = raw as Partial<Board>
+
+  const hex = (v: unknown): string | undefined =>
+    typeof v === 'string' && /^#[0-9a-f]{3,8}$/i.test(v) ? v : undefined
+  const cap = (v: unknown): EndCap | undefined =>
+    END_CAPS.some((c) => c.key === v) ? (v as EndCap) : undefined
+
   const tokens = Array.isArray(b.tokens)
     ? b.tokens.map((t) => {
         const tok = (t ?? {}) as Partial<BoardToken>
@@ -288,9 +360,11 @@ export function readBoard(raw: unknown): Board | null {
           y: Number(tok.y) || 0,
           label: typeof tok.label === 'string' ? tok.label : '',
           playerId: typeof tok.playerId === 'string' ? tok.playerId : undefined,
+          color: hex(tok.color),
         }
       })
     : []
+
   const paths = Array.isArray(b.paths)
     ? b.paths
         .map((p) => {
@@ -298,14 +372,41 @@ export function readBoard(raw: unknown): Board | null {
           const points = Array.isArray(path.points)
             ? path.points.map((pt) => ({ x: Number(pt?.x) || 0, y: Number(pt?.y) || 0 }))
             : []
+          const width = Number(path.width)
           return {
             id: typeof path.id === 'string' ? path.id : newId('p'),
             kind: (PATH_KINDS.some((k) => k.key === path.kind) ? path.kind : 'run') as PathKind,
             points,
+            color: hex(path.color),
+            // A stroke of nothing or of a mile is somebody's bad data, not a choice.
+            width: Number.isFinite(width) && width > 0 ? Math.min(width, 4) : undefined,
+            dash: typeof path.dash === 'string' ? path.dash : undefined,
+            startCap: cap(path.startCap),
+            endCap: cap(path.endCap),
           }
         })
         .filter((p) => p.points.length >= 2)
     : []
-  if (!tokens.length && !paths.length) return null
-  return { tokens, paths }
+
+  const texts = Array.isArray(b.texts)
+    ? b.texts
+        .map((t) => {
+          const text = (t ?? {}) as Partial<BoardText>
+          const size = Number(text.size)
+          return {
+            id: typeof text.id === 'string' ? text.id : newId('x'),
+            x: Number(text.x) || 0,
+            y: Number(text.y) || 0,
+            text: typeof text.text === 'string' ? text.text : '',
+            size: Number.isFinite(size) && size > 0 ? Math.min(size, 12) : 3,
+            color: hex(text.color) ?? '#17222e',
+            bold: text.bold === true,
+            italic: text.italic === true,
+          }
+        })
+        .filter((t) => t.text.trim().length > 0)
+    : []
+
+  if (!tokens.length && !paths.length && !texts.length) return null
+  return { tokens, paths, texts }
 }
