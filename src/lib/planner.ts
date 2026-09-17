@@ -39,10 +39,11 @@ export function tagFor(key: string | undefined): BlockTag {
 /**
  * A men's lacrosse field, in yards, as the rule book has it.
  *
- * 110 by 60. The goal stands 15 from the end line with a 9-foot crease around
- * it. The restraining box is 35 wide and reaches 20 from the end line, so the
- * goal sits five yards inside it. The wing lines run with the sidelines, ten
- * yards in from each, and reach ten yards either side of the centre.
+ * 110 by 60, goals 80 apart — so each goal stands 15 from its end line, with a
+ * nine-foot crease around it. The restraining line is twenty yards from the
+ * GOAL line, not the end line: that is the whole offensive end, fifteen yards
+ * of it behind the cage. The box sides and the wing lines are the same ten
+ * yards in from each sideline, which is why they line up.
  */
 export const FIELD = {
   length: 110,
@@ -52,9 +53,10 @@ export const FIELD = {
   goalWidth: 2,
   /** 9 feet. */
   creaseRadius: 3,
-  restrainingFromEnd: 20,
-  boxWidth: 35,
-  wingFromSideline: 10,
+  /** Twenty yards in front of the cage. */
+  restrainingFromGoalLine: 20,
+  /** Ten yards in from each sideline, so the box is forty wide. */
+  boxFromSideline: 10,
   wingHalfLength: 10,
   /** The substitution area, half either side of the centre line. */
   subBoxHalf: 5,

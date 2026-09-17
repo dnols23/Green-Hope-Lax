@@ -343,9 +343,8 @@ function FieldLines() {
     goalLineFromEnd: G,
     goalWidth: GW,
     creaseRadius: C,
-    restrainingFromEnd: R,
-    boxWidth: BW,
-    wingFromSideline: WS,
+    restrainingFromGoalLine: R,
+    boxFromSideline: BS,
     wingHalfLength: WL,
     subBoxHalf: SB,
   } = FIELD
@@ -353,8 +352,9 @@ function FieldLines() {
   const line = { stroke: '#ffffff', strokeWidth: 0.35, fill: 'none', opacity: 0.9 }
   const mid = L / 2
   const midY = W / 2
-  const boxTop = midY - BW / 2
-  const boxBottom = midY + BW / 2
+  // The box sides and the wing lines share a line: ten yards off each sideline.
+  const boxTop = BS
+  const boxBottom = W - BS
 
   return (
     <g>
@@ -375,8 +375,8 @@ function FieldLines() {
 
       {/* Wing lines: along the field, ten yards in from each sideline, ten
           yards either side of the centre. Where the wing middies start. */}
-      <line x1={mid - WL} y1={WS} x2={mid + WL} y2={WS} {...line} />
-      <line x1={mid - WL} y1={W - WS} x2={mid + WL} y2={W - WS} {...line} />
+      <line x1={mid - WL} y1={boxTop} x2={mid + WL} y2={boxTop} {...line} />
+      <line x1={mid - WL} y1={boxBottom} x2={mid + WL} y2={boxBottom} {...line} />
 
       {/* The substitution area sits off the field, on the bench side, five
           yards either side of the centre line — so it is drawn on the grass
@@ -391,7 +391,9 @@ function FieldLines() {
         { end: L, dir: -1 },
       ].map(({ end, dir }) => {
         const goalX = end + dir * G
-        const restrainX = end + dir * R
+        // Twenty yards in front of the cage — which puts it thirty-five from
+        // the end line, not twenty.
+        const restrainX = goalX + dir * R
         return (
           <g key={end}>
             {/* The box — 35 wide, 20 deep from the end line */}
