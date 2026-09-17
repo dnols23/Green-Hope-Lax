@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { FieldBoard } from './FieldBoard'
+import { ClipPlayer } from './ClipPlayer'
+import { LibraryPicker } from './LibraryPicker'
 import {
   NOTE_BLOCK_KINDS,
   chartMax,
@@ -26,6 +28,8 @@ export function NoteEditor({
   onChange: (next: NoteBlock[]) => void
 }) {
   const [openBoard, setOpenBoard] = useState<string | null>(null)
+  /** Which block, if any, is picking something off the Library shelf. */
+  const [picking, setPicking] = useState<string | null>(null)
 
   const patch = (id: string, next: Partial<NoteBlock>) =>
     onChange(blocks.map((b) => (b.id === id ? ({ ...b, ...next } as NoteBlock) : b)))
@@ -194,13 +198,65 @@ export function NoteEditor({
                 />
                 <button
                   type="button"
+                  onClick={() => setPicking(picking === b.id ? null : b.id)}
+                  className="text-xs font-bold text-gray-500 hover:text-[var(--gh-green)]"
+                >
+                  Library
+                </button>
+                <button
+                  type="button"
                   onClick={() => setOpenBoard(openBoard === b.id ? null : b.id)}
                   className="text-xs font-bold text-[var(--gh-green)]"
                 >
                   {openBoard === b.id ? 'Collapse' : 'Open the field'}
                 </button>
               </div>
-              {openBoard === b.id ? (
+
+              {picking === b.id && (
+                <LibraryPicker
+                  onPlay={(picked) => {
+                    patch(b.id, {
+                      board: picked.board,
+                      clip: picked.clip,
+                      shotUrl: null,
+                      label: b.label || picked.name,
+                    })
+                    setPicking(null)
+                    setOpenBoard(b.id)
+                  }}
+                  onShot={(url, title) => {
+                    patch(b.id, { shotUrl: url, label: b.label || title })
+                    setPicking(null)
+                  }}
+                  onClose={() => setPicking(null)}
+                />
+              )}
+
+              {b.shotUrl ? (
+                <div>
+                  {/* Our own bucket, and a flat PNG — nothing to resize. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={b.shotUrl} alt={b.label || 'From the Library'} className="w-full rounded-lg block" />
+                  <button
+                    type="button"
+                    onClick={() => patch(b.id, { shotUrl: null })}
+                    className="text-xs font-semibold text-gray-400 hover:text-gray-700 mt-1"
+                  >
+                    Take the picture out
+                  </button>
+                </div>
+              ) : b.clip && openBoard !== b.id ? (
+                <div>
+                  <ClipPlayer clip={b.clip} />
+                  <button
+                    type="button"
+                    onClick={() => setOpenBoard(b.id)}
+                    className="text-xs font-semibold text-gray-400 hover:text-gray-700 mt-1"
+                  >
+                    Edit the field
+                  </button>
+                </div>
+              ) : openBoard === b.id ? (
                 <FieldBoard board={b.board} onChange={(next: Board) => patch(b.id, { board: next })} />
               ) : (
                 <button

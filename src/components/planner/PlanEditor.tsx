@@ -19,6 +19,8 @@ import {
 } from '@/lib/planner'
 import { DRILL_CATEGORIES, categoryFor, type Drill } from '@/lib/drills'
 import { FieldBoard } from './FieldBoard'
+import { ClipPlayer } from './ClipPlayer'
+import { LibraryPicker } from './LibraryPicker'
 import { NoteEditor } from './NoteEditor'
 import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
 
@@ -71,6 +73,8 @@ export function PlanEditor({
   const [toCoaches, setToCoaches] = useState(plan.publish_coaches)
   const [openId, setOpenId] = useState<string | null>(null)
   const [fieldOpen, setFieldOpen] = useState<string | null>(null)
+  /** Which block, if any, is picking something off the Library shelf. */
+  const [picking, setPicking] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
 
   const clock = runningClock(blocks)
@@ -462,6 +466,14 @@ export function PlanEditor({
                     >
                       {showField ? '▾ Hide the field' : b.board ? '▸ Field diagram' : '▸ Draw it on the field'}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setPicking(picking === b.id ? null : b.id)}
+                      className="font-bold text-gray-500 hover:text-[var(--gh-green)]"
+                      title="Pull a play or a screenshot off the Library shelf"
+                    >
+                      Library
+                    </button>
                     <span className="ml-auto flex items-center gap-1">
                       <button type="button" onClick={() => move(b.id, -1)} className="px-1.5 text-gray-400 hover:text-gray-700" aria-label="Move up">↑</button>
                       <button type="button" onClick={() => move(b.id, 1)} className="px-1.5 text-gray-400 hover:text-gray-700" aria-label="Move down">↓</button>
@@ -474,6 +486,38 @@ export function PlanEditor({
                       </button>
                     </span>
                   </div>
+
+                  {picking === b.id && (
+                    <LibraryPicker
+                      onPlay={(picked) => {
+                        patch(b.id, { board: picked.board, clip: picked.clip, shotUrl: null })
+                        setPicking(null)
+                        setFieldOpen(picked.clip ? null : b.id)
+                      }}
+                      onShot={(url) => {
+                        patch(b.id, { shotUrl: url })
+                        setPicking(null)
+                      }}
+                      onClose={() => setPicking(null)}
+                    />
+                  )}
+
+                  {b.shotUrl && (
+                    <div>
+                      {/* Our own bucket, and a flat PNG — nothing to resize. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={b.shotUrl} alt={b.title || 'From the Library'} className="w-full rounded-lg block" />
+                      <button
+                        type="button"
+                        onClick={() => patch(b.id, { shotUrl: null })}
+                        className="text-xs font-semibold text-gray-400 hover:text-gray-700 mt-1"
+                      >
+                        Take the picture out
+                      </button>
+                    </div>
+                  )}
+
+                  {b.clip && !showField && <ClipPlayer clip={b.clip} />}
 
                   {showField && (
                     <FieldBoard

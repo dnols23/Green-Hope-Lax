@@ -53,6 +53,7 @@ export const SECTIONS: AdminSection[] = [
     views: [{ audience: 'coach', href: '/admin/hub' }, { audience: 'team', href: '/team' }] },
   { key: 'drills',       label: 'Drill Bank',   href: '/admin/drills',       group: 'Coaches Hub', always: true },
   { key: 'playboard',    label: 'Playboard',    href: '/admin/playboard',    group: 'Coaches Hub', always: true },
+  { key: 'library',      label: 'Library',      href: '/admin/library',      group: 'Coaches Hub', always: true },
   { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaches Hub', always: true,
     views: [{ audience: 'public', href: '/roster' }] },
   { key: 'inventory',    label: 'Inventory',    href: '/admin/inventory',    group: 'Coaches Hub' },

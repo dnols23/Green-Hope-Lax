@@ -1,5 +1,5 @@
 'use client'
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import {
   FIELD,
   POSITION_TOKENS,
@@ -7,12 +7,14 @@ import {
   PATH_KINDS,
   tokenStyle,
   pathStyle,
+  pathLook,
   newId,
   type Board,
   type BoardToken,
   type PathKind,
   type TokenKind,
 } from '@/lib/planner'
+import { BoardInspector, type Selection } from './BoardInspector'
 
 /** A player who can be dropped onto the field. */
 export interface BoardPlayer {
@@ -22,6 +24,10 @@ export interface BoardPlayer {
 }
 
 const PAD = 4 // yards of grass drawn outside the lines
+
+/** The id of one end shape, in one colour. Hex is not valid in an id, so drop the hash. */
+const capId = (shape: string, end: 'start' | 'end', color: string) =>
+  `cap-${shape}-${end}-${color.replace('#', '').toLowerCase()}`
 
 /**
  * A lacrosse field you can move players around on.
@@ -35,13 +41,23 @@ export function FieldBoard({
   onChange,
   players = [],
   readOnly = false,
+  onShot,
+  extraTools,
 }: {
   board: Board
   onChange?: (next: Board) => void
   /** Players already picked for this block — the only ones offered for the field. */
   players?: BoardPlayer[]
   readOnly?: boolean
+  /** Given, a Photo button appears and hands back a PNG of the field as it stands. */
+  onShot?: (png: Blob) => void | Promise<void>
+  /** Buttons that belong to whoever is using the board — recording, mostly. */
+  extraTools?: ReactNode
 }) {
+  /* Every colour in use on the board, so each one gets its own set of end
+     shapes below. */
+  const capColors = Array.from(new Set(board.paths.map((p) => pathLook(p).color)))
+  const [shooting, setShooting] = useState(false)
   const svgRef = useRef<SVGSVGElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [full, setFull] = useState(false)
@@ -55,6 +71,10 @@ export function FieldBoard({
      history of the board. */
   const [past, setPast] = useState<Board[]>([])
   const [future, setFuture] = useState<Board[]>([])
+  /* What is selected, and therefore what the inspector is editing. Tapping a
+     disc or a line picks it; a right-click or a long press does the same on the
+     way to the same panel, because that is where people reach for it. */
+  const [selected, setSelected] = useState<Selection>(null)
 
   const viewW = FIELD.length + PAD * 2
   const viewH = FIELD.width + PAD * 2
@@ -117,10 +137,54 @@ export function FieldBoard({
     })
   }
 
+  function addText() {
+    const id = newId('x')
+    emit({
+      ...board,
+      texts: [
+        ...(board.texts ?? []),
+        { id, x: FIELD.length / 2, y: FIELD.width / 2 - 6, text: 'Call it', size: 4, color: '#17222e' },
+      ],
+    })
+    setSelected({ type: 'text', id })
+  }
+
+  /**
+   * A picture of the field as it stands. The selection halo and the draft line
+   * are working marks, not part of the play, so they come off first — otherwise
+   * whatever happened to be tapped shows up in the Library with a white outline
+   * round it.
+   */
+  async function takeShot() {
+    const svg = svgRef.current
+    if (!svg || !onShot || shooting) return
+    setSelected(null)
+    setShooting(true)
+    try {
+      // One frame for the halo to come off the glass before the copy is taken.
+      await new Promise((r) => requestAnimationFrame(() => r(null)))
+      const { boardToPng } = await import('@/lib/boardImage')
+      await onShot(await boardToPng(svg))
+    } finally {
+      setShooting(false)
+    }
+  }
+
   function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (readOnly) return
-    if (tool === 'move') return
-    ;(e.target as Element).setPointerCapture?.(e.pointerId)
+    if (tool === 'move') {
+      // A tap on the grass is "never mind".
+      if (e.target === svgRef.current) setSelected(null)
+      return
+    }
+    try {
+      // Capture keeps the line following a finger that slides off the svg. A
+      // pointer the browser doesn't know about throws here, which must not
+      // take the stroke down with it.
+      ;(e.target as Element).setPointerCapture?.(e.pointerId)
+    } catch {
+      // Drawing works without capture; it just stops at the edge.
+    }
     setDraft([toField(e)])
   }
 
@@ -128,7 +192,12 @@ export function FieldBoard({
     if (readOnly) return
     if (dragId) {
       const { x, y } = toField(e)
-      emit({ ...board, tokens: board.tokens.map((t) => (t.id === dragId ? { ...t, x, y } : t)) })
+      // Discs and words both drag; whichever one this id belongs to moves.
+      emit({
+        ...board,
+        tokens: board.tokens.map((t) => (t.id === dragId ? { ...t, x, y } : t)),
+        texts: (board.texts ?? []).map((t) => (t.id === dragId ? { ...t, x, y } : t)),
+      })
       return
     }
     if (draft) {
@@ -245,6 +314,29 @@ export function FieldBoard({
             </button>
           ))}
 
+          <button
+            type="button"
+            onClick={addText}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 bg-white hover:bg-gray-50"
+            title="Put a word on the field"
+          >
+            Text
+          </button>
+
+          {onShot && (
+            <button
+              type="button"
+              onClick={takeShot}
+              disabled={shooting}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+              title="Save a picture of the field to the Library"
+            >
+              {shooting ? 'Saving…' : 'Screenshot'}
+            </button>
+          )}
+
+          {extraTools}
+
           <span className="w-px h-5 bg-gray-200 mx-1" />
 
           <button
@@ -341,21 +433,84 @@ export function FieldBoard({
           <FieldLines />
 
           {board.paths.map((p) => {
-            const style = pathStyle(p.kind)
+            const look = pathLook(p)
+            const picked = selected?.type === 'path' && selected.id === p.id
+            const points = p.points.map((pt) => `${pt.x},${pt.y}`).join(' ')
             return (
-              <polyline
-                key={p.id}
-                points={p.points.map((pt) => `${pt.x},${pt.y}`).join(' ')}
-                fill="none"
-                stroke={style.color}
-                strokeWidth={0.7}
-                strokeDasharray={style.dash}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                markerEnd="url(#gh-arrow)"
-              />
+              <g key={p.id}>
+                {/* A line is a couple of pixels wide and a finger is not, so a
+                    fat invisible twin underneath is what you actually tap. */}
+                <polyline
+                  points={points}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth={Math.max(2.4, look.width * 3)}
+                  strokeLinecap="round"
+                  style={{ cursor: readOnly ? 'default' : 'pointer' }}
+                  onPointerDown={(e) => {
+                    if (readOnly || tool !== 'move') return
+                    e.stopPropagation()
+                    setSelected({ type: 'path', id: p.id })
+                  }}
+                  onContextMenu={(e) => {
+                    if (readOnly) return
+                    e.preventDefault()
+                    setSelected({ type: 'path', id: p.id })
+                  }}
+                />
+                {picked && (
+                  <polyline
+                    points={points}
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth={look.width + 0.6}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={0.9}
+                  />
+                )}
+                <polyline
+                  points={points}
+                  fill="none"
+                  stroke={look.color}
+                  strokeWidth={look.width}
+                  strokeDasharray={look.dash}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  markerStart={look.startCap === 'none' ? undefined : `url(#${capId(look.startCap, 'start', look.color)})`}
+                  markerEnd={look.endCap === 'none' ? undefined : `url(#${capId(look.endCap, 'end', look.color)})`}
+                  style={{ pointerEvents: 'none' }}
+                />
+              </g>
             )
           })}
+
+          {(board.texts ?? []).map((t) => (
+            <text
+              key={t.id}
+              x={t.x}
+              y={t.y}
+              fontSize={t.size}
+              fill={t.color}
+              fontWeight={t.bold ? 900 : 600}
+              fontStyle={t.italic ? 'italic' : undefined}
+              textAnchor="middle"
+              style={{ cursor: readOnly ? 'default' : 'grab', userSelect: 'none' }}
+              onPointerDown={(e) => {
+                if (readOnly) return
+                e.stopPropagation()
+                setSelected({ type: 'text', id: t.id })
+                if (tool === 'move') setDragId(t.id)
+              }}
+              onContextMenu={(e) => {
+                if (readOnly) return
+                e.preventDefault()
+                setSelected({ type: 'text', id: t.id })
+              }}
+            >
+              {t.text}
+            </text>
+          ))}
 
           {draft && draft.length > 1 && tool !== 'move' && (
             <polyline
@@ -373,22 +528,62 @@ export function FieldBoard({
               key={t.id}
               token={t}
               readOnly={readOnly}
-              onGrab={() => tool === 'move' && setDragId(t.id)}
+              selected={selected?.type === 'token' && selected.id === t.id}
+              onGrab={() => {
+                setSelected({ type: 'token', id: t.id })
+                if (tool === 'move') setDragId(t.id)
+              }}
+              onInspect={() => setSelected({ type: 'token', id: t.id })}
               onRemove={() => removeToken(t.id)}
             />
           ))}
         </g>
 
         <defs>
-          <marker id="gh-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
-          </marker>
+          {/* An end shape has to be the colour of its own line, and a marker
+              does not inherit the referencing line's colour — currentColor in
+              here resolves against the defs block, which is how every cap came
+              out black. So: one set per colour actually on the board. */}
+          {capColors.map((color) =>
+            (['start', 'end'] as const).map((end) => (
+              <g key={`${color}-${end}`}>
+                <marker id={capId('arrow', end, color)} viewBox="0 0 10 10" refX={end === 'end' ? 8 : 2} refY="5"
+                  markerWidth="3" markerHeight="3" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
+                </marker>
+                <marker id={capId('dot', end, color)} viewBox="0 0 10 10" refX="5" refY="5"
+                  markerWidth="2" markerHeight="2" orient="auto">
+                  <circle cx="5" cy="5" r="4" fill={color} />
+                </marker>
+                <marker id={capId('bar', end, color)} viewBox="0 0 10 10" refX="5" refY="5"
+                  markerWidth="2.4" markerHeight="2.4" orient="auto">
+                  <rect x="4" y="0" width="2.5" height="10" fill={color} />
+                </marker>
+                <marker id={capId('square', end, color)} viewBox="0 0 10 10" refX="5" refY="5"
+                  markerWidth="2" markerHeight="2" orient="auto">
+                  <rect x="1" y="1" width="8" height="8" fill={color} />
+                </marker>
+              </g>
+            )),
+          )}
         </defs>
       </svg>
 
-      {!readOnly && (
+      {!readOnly && selected && (
+        <div className="mt-2">
+          <BoardInspector
+            board={board}
+            selection={selected}
+            onChange={emit}
+            onClose={() => setSelected(null)}
+          />
+        </div>
+      )}
+
+      {!readOnly && !selected && (
         <p className="text-[0.7rem] text-gray-400 mt-1.5">
-          Drag a disc to move it · double-click one to take it off · pick a line tool and drag to draw
+          Drag a disc to move it · tap a disc, a line or a word to change how it looks · long-press
+          or right-click does the same · double-click a disc to take it off
         </p>
       )}
     </div>
@@ -492,27 +687,56 @@ function FieldLines() {
 function Token({
   token,
   readOnly,
+  selected,
   onGrab,
+  onInspect,
   onRemove,
 }: {
   token: BoardToken
   readOnly: boolean
+  selected: boolean
   onGrab: () => void
+  /** Right-click or a long press: the way people ask "what can I change?" */
+  onInspect: () => void
   onRemove: () => void
 }) {
   const style = tokenStyle(token.kind)
+  const fill = token.color ?? style.fill
   const r = token.kind === 'ball' ? 0.9 : token.kind === 'cone' ? 1.1 : 1.9
+  const press = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const startPress = () => {
+    press.current = setTimeout(onInspect, 450)
+  }
+  const endPress = () => {
+    if (press.current) clearTimeout(press.current)
+    press.current = null
+  }
+
   return (
     <g
       transform={`translate(${token.x} ${token.y})`}
       style={{ cursor: readOnly ? 'default' : 'grab' }}
-      onPointerDown={(e) => { if (!readOnly) { e.stopPropagation(); onGrab() } }}
+      onPointerDown={(e) => {
+        if (readOnly) return
+        e.stopPropagation()
+        onGrab()
+        startPress()
+      }}
+      onPointerUp={endPress}
+      onPointerLeave={endPress}
+      onContextMenu={(e) => {
+        if (readOnly) return
+        e.preventDefault()
+        onInspect()
+      }}
       onDoubleClick={() => !readOnly && onRemove()}
     >
+      {selected && <circle r={r + 0.7} fill="none" stroke="#ffffff" strokeWidth={0.35} opacity={0.95} />}
       {token.kind === 'cone' ? (
-        <polygon points={`0,${-r * 1.6} ${r},${r} ${-r},${r}`} fill={style.fill} stroke="rgba(0,0,0,.25)" strokeWidth={0.15} />
+        <polygon points={`0,${-r * 1.6} ${r},${r} ${-r},${r}`} fill={fill} stroke="rgba(0,0,0,.25)" strokeWidth={0.15} />
       ) : (
-        <circle r={r} fill={style.fill} stroke="rgba(0,0,0,.3)" strokeWidth={0.18} />
+        <circle r={r} fill={fill} stroke="rgba(0,0,0,.3)" strokeWidth={0.18} />
       )}
       {token.label && token.kind !== 'ball' && token.kind !== 'cone' && (
         <text
@@ -521,8 +745,9 @@ function Token({
           fontSize={r * 1.1}
           fontWeight={800}
           fill={style.ink}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
-          {token.label.slice(0, 3)}
+          {token.label.slice(0, 4)}
         </text>
       )}
     </g>

@@ -32,7 +32,8 @@ import {
 import { parseDrillPaste } from './drills'
 import { listDrills } from './drillsData'
 import { signOut, markReturned, markOutAgain, deleteAssignment } from './equipment'
-import { savePlay, deletePlay } from './plays'
+import { savePlay, deletePlay, clearPlayClip } from './plays'
+import { saveShot, renameShot, deleteShot } from './library'
 import { saveContact } from './playerContacts'
 import { readSigninSettings } from './joinLinks'
 import { buildDrillSet, positionGroup } from './prescribe'
@@ -1176,8 +1177,18 @@ export async function savePlayAction(formData: FormData) {
   } catch {
     return
   }
-  await savePlay(name, board, viewer.name || viewer.email)
+  // The take, if the coach recorded himself drawing it. A play saved without
+  // one is just a still, which is most of them.
+  let clip: unknown = null
+  try {
+    const raw = str(formData.get('clip'))
+    clip = raw ? JSON.parse(raw) : null
+  } catch {
+    clip = null
+  }
+  await savePlay(name, board, viewer.name || viewer.email, clip)
   revalidatePath('/admin/playboard')
+  revalidatePath('/admin/library')
 }
 
 export async function deletePlayAction(formData: FormData) {
@@ -1185,6 +1196,45 @@ export async function deletePlayAction(formData: FormData) {
   const id = str(formData.get('id'))
   if (id) await deletePlay(id)
   revalidatePath('/admin/playboard')
+  revalidatePath('/admin/library')
+}
+
+// ── The Library ──────────────────────────────────────────────────────────────
+// Screenshots taken off the board. The picture itself is already in the media
+// bucket by the time this runs — the browser uploaded it through /api/upload —
+// so all this keeps is what it is called and where it lives.
+
+export async function saveShotAction(formData: FormData) {
+  const viewer = await requireSection('library')
+  const url = str(formData.get('url'))
+  if (!url) return
+  const title = str(formData.get('title')) || 'Board screenshot'
+  await saveShot(title, url, viewer.name || viewer.email)
+  revalidatePath('/admin/library')
+}
+
+export async function renameShotAction(formData: FormData) {
+  await requireSection('library')
+  const id = str(formData.get('id'))
+  const title = str(formData.get('title'))
+  if (id) await renameShot(id, title)
+  revalidatePath('/admin/library')
+}
+
+export async function deleteShotAction(formData: FormData) {
+  await requireSection('library')
+  const id = str(formData.get('id'))
+  if (id) await deleteShot(id)
+  revalidatePath('/admin/library')
+}
+
+/** Keep the play, throw away the take. */
+export async function clearPlayClipAction(formData: FormData) {
+  await requireSection('playboard')
+  const id = str(formData.get('id'))
+  if (id) await clearPlayClip(id)
+  revalidatePath('/admin/playboard')
+  revalidatePath('/admin/library')
 }
 
 // ── Equipment sign-out ───────────────────────────────────────────────────────
