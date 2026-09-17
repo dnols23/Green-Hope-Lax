@@ -132,6 +132,8 @@ export interface Plan {
   season: string | null
   summary: string | null
   blocks: PlanBlock[]
+  /** A note's page: sections, checklists, charts and fields. Empty for plans. */
+  content: unknown[]
   roster_id: string | null
   is_template: boolean
   /** On the players' page in the Team Hub. */

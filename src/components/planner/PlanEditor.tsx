@@ -19,6 +19,8 @@ import {
 } from '@/lib/planner'
 import { DRILL_CATEGORIES, categoryFor, type Drill } from '@/lib/drills'
 import { FieldBoard } from './FieldBoard'
+import { NoteEditor } from './NoteEditor'
+import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
 
 const EMPTY: FormState = { ok: true }
 
@@ -64,6 +66,7 @@ export function PlanEditor({
   const [summary, setSummary] = useState(plan.summary ?? '')
   const [rosterId, setRosterId] = useState(plan.roster_id ?? '')
   const [blocks, setBlocks] = useState<PlanBlock[]>(plan.blocks)
+  const [content, setContent] = useState<NoteBlock[]>(() => readNoteBlocks(plan.content))
   const [toPlayers, setToPlayers] = useState(plan.publish_players)
   const [toCoaches, setToCoaches] = useState(plan.publish_coaches)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -144,27 +147,24 @@ export function PlanEditor({
       <form action={save}>
         <input type="hidden" name="id" value={plan.id} />
         <input type="hidden" name="blocks" value="[]" />
+        <input type="hidden" name="content" value={JSON.stringify(content)} />
         <input type="hidden" name="season" value={plan.season ?? ''} />
         <input type="hidden" name="roster_id" value="" />
+        <input type="hidden" name="summary" value={summary} />
 
         <div className="card p-4">
           <input
             name="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="field !text-lg !font-black !py-2 mb-3"
+            className="field !text-lg !font-black !py-2 mb-4"
             placeholder="What is this about?"
             required
           />
-          <textarea
-            name="summary"
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            rows={14}
-            className="field"
-            placeholder="Write it here."
-          />
-          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100 flex-wrap">
+
+          <NoteEditor blocks={content} onChange={setContent} />
+
+          <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 flex-wrap">
             <div>
               <label className="field-label">Date</label>
               <input

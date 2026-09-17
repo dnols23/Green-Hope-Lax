@@ -13,6 +13,9 @@ function shape(row: Record<string, unknown>): Plan {
     season: (row.season as string) ?? null,
     summary: (row.summary as string) ?? null,
     blocks: readBlocks(row.blocks),
+    // Left raw here: only the note editor knows how to read it, and the
+    // column is missing entirely until 0026 has been run.
+    content: Array.isArray(row.content) ? (row.content as unknown[]) : [],
     roster_id: (row.roster_id as string) ?? null,
     is_template: row.is_template === true,
     publish_players: row.publish_players === true,

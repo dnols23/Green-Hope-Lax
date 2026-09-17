@@ -4,6 +4,7 @@ import { listPlans, plannerReady } from '@/lib/plans'
 import { listRosters } from '@/lib/rosters'
 import { createPlan } from '@/lib/actions'
 import { PLAN_KINDS, formatMinutes, totalMinutes, minutesByTag } from '@/lib/planner'
+import { describeNote, readNoteBlocks } from '@/lib/noteBlocks'
 import { formatShortDate } from '@/lib/format'
 
 export const metadata = { title: 'Planner' }
@@ -85,6 +86,11 @@ export default async function PlannerPage() {
                     </div>
                     {/* A note has no length and no blocks; "0m · 0 blocks" beside
                         one is just noise. */}
+                    {p.kind === 'note' && describeNote(readNoteBlocks(p.content)) && (
+                      <div className="text-xs text-gray-400 shrink-0">
+                        {describeNote(readNoteBlocks(p.content))}
+                      </div>
+                    )}
                     {p.kind !== 'note' && (
                       <div className="text-right shrink-0">
                         <div className="text-lg font-black" style={{ color: 'var(--gh-green)' }}>
