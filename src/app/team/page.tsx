@@ -6,6 +6,7 @@ import { FalconHead } from '@/components/Logo'
 import { formatDate, formatTime } from '@/lib/format'
 import { TEAM_CATEGORY_META } from '@/lib/types'
 import { isPageOn } from '@/lib/pages'
+import { getPageSettings } from '@/lib/queries'
 import { currentPlayer } from '@/lib/playerAccess'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +14,21 @@ export const dynamic = 'force-dynamic'
 export default async function TeamHubPage() {
   // Film Room can be switched off for the Team Hub in Admin → Pages.
   const filmOn = await isPageOn('film-team')
+  /* The quick links are built from the same switches as the public nav. A page
+     turned off in Admin → Pages 404s on the way in, so offering a link to it
+     here was offering a dead button. */
+  const pages = await getPageSettings()
+  const linkOn = (key: string) => {
+    const page = pages.find((p) => p.key === key)
+    return page ? page.is_published : true
+  }
+  const quickLinks = [
+    { key: 'schedule',  href: '/schedule',  label: 'Schedule & Results' },
+    { key: 'roster',    href: '/roster',    label: 'Roster' },
+    { key: 'resources', href: '/resources', label: 'Forms & Resources' },
+    { key: 'coaches',   href: '/coaches',   label: 'Coaches & Staff' },
+    { key: 'contact',   href: '/contact',   label: 'Contact a Coach' },
+  ].filter((l) => linkOn(l.key))
   const posts = await getTeamPosts()
   // Whoever followed their own invite link gets a way back to their own work.
   const me = await currentPlayer()
@@ -123,12 +139,17 @@ export default async function TeamHubPage() {
           <section className="card p-5">
             <h2 className="font-black mb-3">🔗 Quick links</h2>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/schedule" className="font-semibold" style={{ color: 'var(--gh-green)' }}>Schedule &amp; Results</Link></li>
-              <li><Link href="/roster" className="font-semibold" style={{ color: 'var(--gh-green)' }}>Roster</Link></li>
-              <li><Link href="/resources" className="font-semibold" style={{ color: 'var(--gh-green)' }}>Forms &amp; Resources</Link></li>
-              <li><Link href="/coaches" className="font-semibold" style={{ color: 'var(--gh-green)' }}>Coaches &amp; Staff</Link></li>
-              <li><Link href="/contact" className="font-semibold" style={{ color: 'var(--gh-green)' }}>Contact a Coach</Link></li>
+              {quickLinks.map((l) => (
+                <li key={l.key}>
+                  <Link href={l.href} className="font-semibold" style={{ color: 'var(--gh-green)' }}>
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
+            {quickLinks.length === 0 && (
+              <p className="text-sm text-gray-400">Pages are switched off in Admin &rarr; Pages.</p>
+            )}
           </section>
         </aside>
       </div>
