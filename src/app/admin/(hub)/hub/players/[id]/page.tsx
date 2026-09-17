@@ -294,7 +294,15 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
 
       {/* ── His own access ── */}
       <section className="card p-5">
-        <h2 className="font-bold text-gray-700 mb-1">His link</h2>
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <h2 className="font-bold text-gray-700">His link</h2>
+          <Link
+            href={`/admin/hub/players/${player.id}/view`}
+            className="text-sm font-semibold text-[var(--gh-green)]"
+          >
+            See it as he does →
+          </Link>
+        </div>
         <p className="text-sm text-gray-500 mb-3">
           One link, his alone. It signs him in to his evaluation, his drill set and the day&rsquo;s
           plan when you publish one — no password for him to lose.
