@@ -1,5 +1,5 @@
 'use client'
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import {
   FIELD,
   POSITION_TOKENS,
@@ -41,16 +41,23 @@ export function FieldBoard({
   onChange,
   players = [],
   readOnly = false,
+  onShot,
+  extraTools,
 }: {
   board: Board
   onChange?: (next: Board) => void
   /** Players already picked for this block — the only ones offered for the field. */
   players?: BoardPlayer[]
   readOnly?: boolean
+  /** Given, a Photo button appears and hands back a PNG of the field as it stands. */
+  onShot?: (png: Blob) => void | Promise<void>
+  /** Buttons that belong to whoever is using the board — recording, mostly. */
+  extraTools?: ReactNode
 }) {
   /* Every colour in use on the board, so each one gets its own set of end
      shapes below. */
   const capColors = Array.from(new Set(board.paths.map((p) => pathLook(p).color)))
+  const [shooting, setShooting] = useState(false)
   const svgRef = useRef<SVGSVGElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [full, setFull] = useState(false)
@@ -140,6 +147,27 @@ export function FieldBoard({
       ],
     })
     setSelected({ type: 'text', id })
+  }
+
+  /**
+   * A picture of the field as it stands. The selection halo and the draft line
+   * are working marks, not part of the play, so they come off first — otherwise
+   * whatever happened to be tapped shows up in the Library with a white outline
+   * round it.
+   */
+  async function takeShot() {
+    const svg = svgRef.current
+    if (!svg || !onShot || shooting) return
+    setSelected(null)
+    setShooting(true)
+    try {
+      // One frame for the halo to come off the glass before the copy is taken.
+      await new Promise((r) => requestAnimationFrame(() => r(null)))
+      const { boardToPng } = await import('@/lib/boardImage')
+      await onShot(await boardToPng(svg))
+    } finally {
+      setShooting(false)
+    }
   }
 
   function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
@@ -294,6 +322,20 @@ export function FieldBoard({
           >
             Text
           </button>
+
+          {onShot && (
+            <button
+              type="button"
+              onClick={takeShot}
+              disabled={shooting}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+              title="Save a picture of the field to the Library"
+            >
+              {shooting ? 'Saving…' : 'Screenshot'}
+            </button>
+          )}
+
+          {extraTools}
 
           <span className="w-px h-5 bg-gray-200 mx-1" />
 

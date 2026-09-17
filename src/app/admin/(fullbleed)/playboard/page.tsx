@@ -12,7 +12,13 @@ export default async function PlayboardPage() {
   return (
     <PlayboardClient
       ready={ready}
-      plays={plays.map((p) => ({ id: p.id, name: p.name, board: p.board, createdBy: p.createdBy }))}
+      plays={plays.map((p) => ({
+        id: p.id,
+        name: p.name,
+        board: p.board,
+        clip: p.clip,
+        createdBy: p.createdBy,
+      }))}
     />
   )
 }

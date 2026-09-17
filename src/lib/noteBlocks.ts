@@ -1,4 +1,12 @@
-import { EMPTY_BOARD, newId, readBoard, type Board } from './planner'
+import {
+  EMPTY_BOARD,
+  newId,
+  readBoard,
+  readClip,
+  readShotUrl,
+  type Board,
+  type BoardClip,
+} from './planner'
 
 /**
  * What a note is made of.
@@ -44,6 +52,10 @@ export interface NoteBoard {
   /** What this play is called, shown above the field. */
   label: string
   board: Board
+  /** The take, when the play came out of the Library recorded. */
+  clip?: BoardClip | null
+  /** A screenshot from the Library, shown instead of a field. */
+  shotUrl?: string | null
 }
 
 export interface NoteChartRow {
@@ -115,7 +127,14 @@ export function readNoteBlocks(raw: unknown): NoteBlock[] {
         })
         break
       case 'board':
-        out.push({ id, kind: 'board', label: text(b.label), board: readBoard(b.board) ?? EMPTY_BOARD })
+        out.push({
+          id,
+          kind: 'board',
+          label: text(b.label),
+          board: readBoard(b.board) ?? EMPTY_BOARD,
+          clip: readClip(b.clip),
+          shotUrl: readShotUrl(b.shotUrl),
+        })
         break
       case 'chart':
         out.push({

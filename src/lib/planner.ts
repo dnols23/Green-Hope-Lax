@@ -213,6 +213,10 @@ export interface PlanBlock {
   tag: string
   notes: string
   board?: Board | null
+  /** The take, when the play on this block came out of the Library recorded. */
+  clip?: BoardClip | null
+  /** A screenshot pulled in from the Library, shown instead of a field. */
+  shotUrl?: string | null
   /** The drill from the bank this block is running, if any. */
   drillId?: string | null
   /** A link carried over from that drill, so the block stands on its own. */
@@ -323,6 +327,8 @@ export function readBlocks(raw: unknown): PlanBlock[] {
       tag: typeof b.tag === 'string' ? b.tag : 'individual',
       notes: typeof b.notes === 'string' ? b.notes : '',
       board: readBoard(b.board),
+      clip: readClip(b.clip),
+      shotUrl: readShotUrl(b.shotUrl),
       drillId: typeof b.drillId === 'string' ? b.drillId : null,
       link: typeof b.link === 'string' && b.link.trim() ? b.link.trim() : null,
       coach: typeof b.coach === 'string' && b.coach.trim() ? b.coach.trim() : null,
@@ -339,6 +345,17 @@ export function readBlocks(raw: unknown): PlanBlock[] {
         : [],
     }
   })
+}
+
+/**
+ * A picture pulled in from the Library. Only our own kind of address: a note is
+ * rendered on a public-facing page for the team, and a stored javascript: or
+ * data: URL is somebody's idea of a joke.
+ */
+export function readShotUrl(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const url = raw.trim()
+  return /^https?:\/\//i.test(url) ? url : null
 }
 
 export function readBoard(raw: unknown): Board | null {
@@ -409,4 +426,69 @@ export function readBoard(raw: unknown): Board | null {
 
   if (!tokens.length && !paths.length && !texts.length) return null
   return { tokens, paths, texts }
+}
+
+// ── Recording a play ────────────────────────────────────────────────────────
+
+/**
+ * A play, recorded as it was drawn.
+ *
+ * Every time the board changes while recording, the whole board is kept along
+ * with how long into the take it happened. Playing it back is therefore exactly
+ * what the coach did, in order, at the speed it was done — and because each
+ * frame is a complete board, a clip opens on the field as a still at any point
+ * in it.
+ *
+ * Whole boards rather than a diff: a play is thirty seconds of a dozen discs,
+ * so the saving is not worth a format that a half-written frame can corrupt.
+ */
+export interface BoardFrame {
+  /** Milliseconds from the start of the take. */
+  at: number
+  board: Board
+}
+
+export interface BoardClip {
+  frames: BoardFrame[]
+}
+
+/** The playback speeds on offer — slow enough to talk over, quick enough to skim. */
+export const CLIP_SPEEDS = [0.25, 0.5, 1, 1.5, 2, 4] as const
+
+/** How long the clip runs, in milliseconds. */
+export function clipLength(clip: BoardClip): number {
+  return clip.frames.length ? clip.frames[clip.frames.length - 1].at : 0
+}
+
+/** The board as it stood at a moment in the clip. */
+export function frameAt(clip: BoardClip, ms: number): Board {
+  let board = EMPTY_BOARD
+  for (const f of clip.frames) {
+    if (f.at > ms) break
+    board = f.board
+  }
+  return board
+}
+
+/**
+ * Read a stored clip. A clip of one still frame is a drawing, not a recording,
+ * so it reads back as nothing — the board itself already holds that.
+ */
+export function readClip(raw: unknown): BoardClip | null {
+  if (!raw || typeof raw !== 'object') return null
+  const frames = (raw as { frames?: unknown }).frames
+  if (!Array.isArray(frames)) return null
+
+  let last = -1
+  const clean: BoardFrame[] = []
+  for (const f of frames) {
+    const row = (f ?? {}) as { at?: unknown; board?: unknown }
+    const at = Number(row.at)
+    // Time only runs forwards, and a take longer than an hour is bad data.
+    if (!Number.isFinite(at) || at < 0 || at <= last || at > 3_600_000) continue
+    clean.push({ at, board: readBoard(row.board) ?? EMPTY_BOARD })
+    last = at
+  }
+  if (clean.length < 2) return null
+  return { frames: clean.slice(0, 600) }
 }
