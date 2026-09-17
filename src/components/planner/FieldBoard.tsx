@@ -337,40 +337,92 @@ export function FieldBoard({
 
 /** The markings, drawn once in field yards. */
 function FieldLines() {
-  const { length: L, width: W, goalLineFromEnd: G, creaseRadius: C, restrainingFromGoalLine: R, wingFromCenter: WG } = FIELD
-  const line = { stroke: '#ffffff', strokeWidth: 0.35, fill: 'none', opacity: 0.85 }
+  const {
+    length: L,
+    width: W,
+    goalLineFromEnd: G,
+    goalWidth: GW,
+    creaseRadius: C,
+    restrainingFromEnd: R,
+    boxWidth: BW,
+    wingFromSideline: WS,
+    wingHalfLength: WL,
+    subBoxHalf: SB,
+  } = FIELD
+
+  const line = { stroke: '#ffffff', strokeWidth: 0.35, fill: 'none', opacity: 0.9 }
   const mid = L / 2
+  const midY = W / 2
+  const boxTop = midY - BW / 2
+  const boxBottom = midY + BW / 2
+
   return (
     <g>
       <rect x={0} y={0} width={L} height={W} fill="#4f8757" />
-      {/* mown stripes, so the field reads as grass rather than a diagram */}
-      {Array.from({ length: 11 }).map((_, i) => (
-        <rect key={i} x={(L / 11) * i} y={0} width={L / 11} height={W} fill={i % 2 ? '#4a8052' : '#538b5a'} />
+      {/* Mown bands, kept faint on purpose: at any real contrast they read as
+          yard lines, and a lacrosse field has none. */}
+      {Array.from({ length: 8 }).map((_, i) => (
+        <rect key={i} x={(L / 8) * i} y={0} width={L / 8} height={W} fill={i % 2 ? '#4e8656' : '#518a59'} />
       ))}
-      <rect x={0} y={0} width={L} height={W} {...line} />
-      <line x1={mid} y1={0} x2={mid} y2={W} {...line} />
-      {/* wing lines */}
-      <line x1={mid - WG} y1={0} x2={mid - WG} y2={W * 0.28} {...line} />
-      <line x1={mid - WG} y1={W * 0.72} x2={mid - WG} y2={W} {...line} />
-      <line x1={mid + WG} y1={0} x2={mid + WG} y2={W * 0.28} {...line} />
-      <line x1={mid + WG} y1={W * 0.72} x2={mid + WG} y2={W} {...line} />
-      {/* face-off X */}
-      <line x1={mid - 1} y1={W / 2 - 1} x2={mid + 1} y2={W / 2 + 1} {...line} />
-      <line x1={mid - 1} y1={W / 2 + 1} x2={mid + 1} y2={W / 2 - 1} {...line} />
 
-      {[G, L - G].map((gx) => (
-        <g key={gx}>
-          <line x1={gx} y1={0} x2={gx} y2={W} {...line} opacity={0.5} />
-          <circle cx={gx} cy={W / 2} r={C} {...line} />
-          <rect x={gx - 1} y={W / 2 - 3} width={2} height={6} fill="none" stroke="#ffffff" strokeWidth={0.45} />
-        </g>
-      ))}
-      {/* restraining lines */}
-      <line x1={G + R} y1={0} x2={G + R} y2={W} {...line} />
-      <line x1={L - G - R} y1={0} x2={L - G - R} y2={W} {...line} />
-      {/* goal areas (the box) */}
-      <rect x={G - 12} y={W / 2 - 17} width={24} height={34} {...line} opacity={0.55} />
-      <rect x={L - G - 12} y={W / 2 - 17} width={24} height={34} {...line} opacity={0.55} />
+      {/* Sidelines and end lines */}
+      <rect x={0} y={0} width={L} height={W} {...line} />
+
+      {/* Centre line, and the X the ball is placed on */}
+      <line x1={mid} y1={0} x2={mid} y2={W} {...line} />
+      <line x1={mid - 1} y1={midY - 1} x2={mid + 1} y2={midY + 1} {...line} />
+      <line x1={mid - 1} y1={midY + 1} x2={mid + 1} y2={midY - 1} {...line} />
+
+      {/* Wing lines: along the field, ten yards in from each sideline, ten
+          yards either side of the centre. Where the wing middies start. */}
+      <line x1={mid - WL} y1={WS} x2={mid + WL} y2={WS} {...line} />
+      <line x1={mid - WL} y1={W - WS} x2={mid + WL} y2={W - WS} {...line} />
+
+      {/* The substitution area sits off the field, on the bench side, five
+          yards either side of the centre line — so it is drawn on the grass
+          outside the sideline, where it actually is. */}
+      <line x1={mid - SB} y1={0} x2={mid - SB} y2={-1.6} {...line} opacity={0.6} />
+      <line x1={mid + SB} y1={0} x2={mid + SB} y2={-1.6} {...line} opacity={0.6} />
+      <line x1={mid - SB} y1={-1.6} x2={mid + SB} y2={-1.6} {...line} opacity={0.6} />
+
+      {/* Each end: the restraining box, the crease, the goal */}
+      {[
+        { end: 0, dir: 1 },
+        { end: L, dir: -1 },
+      ].map(({ end, dir }) => {
+        const goalX = end + dir * G
+        const restrainX = end + dir * R
+        return (
+          <g key={end}>
+            {/* The box — 35 wide, 20 deep from the end line */}
+            <line x1={restrainX} y1={boxTop} x2={restrainX} y2={boxBottom} {...line} />
+            <line x1={end} y1={boxTop} x2={restrainX} y2={boxTop} {...line} />
+            <line x1={end} y1={boxBottom} x2={restrainX} y2={boxBottom} {...line} />
+
+            {/* Crease, 9-foot radius around the goal */}
+            <circle cx={goalX} cy={midY} r={C} {...line} />
+
+            {/* The goal, seen from above: six feet between the pipes on the
+                goal line, and the net swept back towards the end line. Drawn
+                as the shape it is, because a square in a circle read as
+                anything but a goal. */}
+            <path
+              d={`M ${goalX} ${midY - GW / 2} L ${goalX - dir * GW} ${midY} L ${goalX} ${midY + GW / 2} Z`}
+              fill="rgba(255,255,255,0.18)"
+              stroke="#ffffff"
+              strokeWidth={0.3}
+            />
+            <line
+              x1={goalX}
+              y1={midY - GW / 2}
+              x2={goalX}
+              y2={midY + GW / 2}
+              stroke="#ffffff"
+              strokeWidth={0.55}
+            />
+          </g>
+        )
+      })}
     </g>
   )
 }
