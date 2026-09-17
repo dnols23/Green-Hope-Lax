@@ -166,6 +166,27 @@ export interface BoardPath {
   endCap?: EndCap
 }
 
+/**
+ * The typefaces a word on the field can be set in.
+ *
+ * Every stack ends in a family every phone and laptop already has: a board
+ * drawn on the sideline cannot wait for a font to download, and a play that
+ * reflows because one did is worse than a plain one.
+ */
+export const BOARD_FONTS: { key: string; label: string; stack: string }[] = [
+  { key: 'sans',      label: 'Sans',      stack: 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' },
+  { key: 'serif',     label: 'Serif',     stack: 'Georgia, "Times New Roman", Times, serif' },
+  { key: 'mono',      label: 'Mono',      stack: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
+  { key: 'condensed', label: 'Condensed', stack: '"Arial Narrow", "Helvetica Neue", Impact, sans-serif' },
+]
+
+export function fontStack(key: string | undefined): string {
+  return (BOARD_FONTS.find((f) => f.key === key) ?? BOARD_FONTS[0]).stack
+}
+
+/** Where a word sits relative to the spot it was dropped on. */
+export type TextAlign = 'start' | 'middle' | 'end'
+
 /** A word on the field: a call, a coaching point, a label for a spot. */
 export interface BoardText {
   id: string
@@ -177,6 +198,10 @@ export interface BoardText {
   color: string
   bold?: boolean
   italic?: boolean
+  underline?: boolean
+  /** A key from BOARD_FONTS. Anything else falls back to the first one. */
+  font?: string
+  align?: TextAlign
 }
 
 export interface Board {
@@ -419,6 +444,11 @@ export function readBoard(raw: unknown): Board | null {
             color: hex(text.color) ?? '#17222e',
             bold: text.bold === true,
             italic: text.italic === true,
+            underline: text.underline === true,
+            font: BOARD_FONTS.some((f) => f.key === text.font) ? text.font : undefined,
+            align: (['start', 'middle', 'end'] as const).includes(text.align as TextAlign)
+              ? (text.align as TextAlign)
+              : undefined,
           }
         })
         .filter((t) => t.text.trim().length > 0)

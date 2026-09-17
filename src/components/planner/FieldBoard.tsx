@@ -8,13 +8,14 @@ import {
   tokenStyle,
   pathStyle,
   pathLook,
+  fontStack,
   newId,
   type Board,
   type BoardToken,
   type PathKind,
   type TokenKind,
 } from '@/lib/planner'
-import { BoardInspector, type Selection } from './BoardInspector'
+import { BoardMenu, type Selection } from './BoardMenu'
 
 /** A player who can be dropped onto the field. */
 export interface BoardPlayer {
@@ -71,10 +72,51 @@ export function FieldBoard({
      history of the board. */
   const [past, setPast] = useState<Board[]>([])
   const [future, setFuture] = useState<Board[]>([])
-  /* What is selected, and therefore what the inspector is editing. Tapping a
-     disc or a line picks it; a right-click or a long press does the same on the
-     way to the same panel, because that is where people reach for it. */
+  /* What is selected — a tap picks something and rings it in white, so you can
+     see what you are about to work on. */
   const [selected, setSelected] = useState<Selection>(null)
+  /* Where the format menu is open, in viewport pixels. Right-click on a laptop
+     or a long press on a phone opens it, over the field, where the finger
+     already is — the way a format menu works everywhere else. */
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+
+  /* A long press is a right-click for a finger. One timer for the whole board:
+     whatever was pressed is captured when it starts, and a finger that slides
+     more than a few pixels was dragging, not pressing. */
+  const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null)
+
+  function cancelPress() {
+    if (press.current) clearTimeout(press.current.timer)
+    press.current = null
+  }
+
+  function openMenu(sel: Selection, at: { x: number; y: number }) {
+    cancelPress()
+    setSelected(sel)
+    setMenu(at)
+  }
+
+  function armPress(sel: Selection, e: React.PointerEvent) {
+    if (readOnly) return
+    cancelPress()
+    const x = e.clientX
+    const y = e.clientY
+    press.current = { timer: setTimeout(() => openMenu(sel, { x, y }), 450), x, y }
+  }
+
+  function pressMoved(e: React.PointerEvent) {
+    const p = press.current
+    if (!p) return
+    if (Math.abs(e.clientX - p.x) > 10 || Math.abs(e.clientY - p.y) > 10) cancelPress()
+  }
+
+  /** Right-click, on anything. */
+  function onMenu(sel: Selection, e: React.MouseEvent) {
+    if (readOnly) return
+    e.preventDefault()
+    e.stopPropagation()
+    openMenu(sel, { x: e.clientX, y: e.clientY })
+  }
 
   const viewW = FIELD.length + PAD * 2
   const viewH = FIELD.width + PAD * 2
@@ -190,6 +232,7 @@ export function FieldBoard({
 
   function onPointerMove(e: React.PointerEvent<SVGSVGElement>) {
     if (readOnly) return
+    pressMoved(e)
     if (dragId) {
       const { x, y } = toField(e)
       // Discs and words both drag; whichever one this id belongs to moves.
@@ -209,6 +252,7 @@ export function FieldBoard({
   }
 
   function onPointerUp() {
+    cancelPress()
     if (dragId) { setDragId(null); return }
     if (draft && tool !== 'move') {
       if (draft.length >= 2) {
@@ -451,12 +495,9 @@ export function FieldBoard({
                     if (readOnly || tool !== 'move') return
                     e.stopPropagation()
                     setSelected({ type: 'path', id: p.id })
+                    armPress({ type: 'path', id: p.id }, e)
                   }}
-                  onContextMenu={(e) => {
-                    if (readOnly) return
-                    e.preventDefault()
-                    setSelected({ type: 'path', id: p.id })
-                  }}
+                  onContextMenu={(e) => onMenu({ type: 'path', id: p.id }, e)}
                 />
                 {picked && (
                   <polyline
@@ -494,19 +535,21 @@ export function FieldBoard({
               fill={t.color}
               fontWeight={t.bold ? 900 : 600}
               fontStyle={t.italic ? 'italic' : undefined}
-              textAnchor="middle"
-              style={{ cursor: readOnly ? 'default' : 'grab', userSelect: 'none' }}
+              textDecoration={t.underline ? 'underline' : undefined}
+              textAnchor={t.align ?? 'middle'}
+              style={{
+                cursor: readOnly ? 'default' : 'grab',
+                userSelect: 'none',
+                fontFamily: fontStack(t.font),
+              }}
               onPointerDown={(e) => {
                 if (readOnly) return
                 e.stopPropagation()
                 setSelected({ type: 'text', id: t.id })
+                armPress({ type: 'text', id: t.id }, e)
                 if (tool === 'move') setDragId(t.id)
               }}
-              onContextMenu={(e) => {
-                if (readOnly) return
-                e.preventDefault()
-                setSelected({ type: 'text', id: t.id })
-              }}
+              onContextMenu={(e) => onMenu({ type: 'text', id: t.id }, e)}
             >
               {t.text}
             </text>
@@ -529,11 +572,12 @@ export function FieldBoard({
               token={t}
               readOnly={readOnly}
               selected={selected?.type === 'token' && selected.id === t.id}
-              onGrab={() => {
+              onGrab={(e) => {
                 setSelected({ type: 'token', id: t.id })
+                armPress({ type: 'token', id: t.id }, e)
                 if (tool === 'move') setDragId(t.id)
               }}
-              onInspect={() => setSelected({ type: 'token', id: t.id })}
+              onInspect={(e) => onMenu({ type: 'token', id: t.id }, e)}
               onRemove={() => removeToken(t.id)}
             />
           ))}
@@ -569,21 +613,20 @@ export function FieldBoard({
         </defs>
       </svg>
 
-      {!readOnly && selected && (
-        <div className="mt-2">
-          <BoardInspector
-            board={board}
-            selection={selected}
-            onChange={emit}
-            onClose={() => setSelected(null)}
-          />
-        </div>
+      {!readOnly && menu && selected && (
+        <BoardMenu
+          board={board}
+          selection={selected}
+          at={menu}
+          onChange={emit}
+          onClose={() => setMenu(null)}
+        />
       )}
 
-      {!readOnly && !selected && (
+      {!readOnly && (
         <p className="text-[0.7rem] text-gray-400 mt-1.5">
-          Drag a disc to move it · tap a disc, a line or a word to change how it looks · long-press
-          or right-click does the same · double-click a disc to take it off
+          Drag a disc to move it · right-click, or press and hold on a phone, for everything you can
+          change about it · double-click a disc to take it off
         </p>
       )}
     </div>
@@ -695,23 +738,14 @@ function Token({
   token: BoardToken
   readOnly: boolean
   selected: boolean
-  onGrab: () => void
-  /** Right-click or a long press: the way people ask "what can I change?" */
-  onInspect: () => void
+  onGrab: (e: React.PointerEvent) => void
+  /** Right-click: the way people ask "what can I change?" */
+  onInspect: (e: React.MouseEvent) => void
   onRemove: () => void
 }) {
   const style = tokenStyle(token.kind)
   const fill = token.color ?? style.fill
   const r = token.kind === 'ball' ? 0.9 : token.kind === 'cone' ? 1.1 : 1.9
-  const press = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const startPress = () => {
-    press.current = setTimeout(onInspect, 450)
-  }
-  const endPress = () => {
-    if (press.current) clearTimeout(press.current)
-    press.current = null
-  }
 
   return (
     <g
@@ -720,16 +754,9 @@ function Token({
       onPointerDown={(e) => {
         if (readOnly) return
         e.stopPropagation()
-        onGrab()
-        startPress()
+        onGrab(e)
       }}
-      onPointerUp={endPress}
-      onPointerLeave={endPress}
-      onContextMenu={(e) => {
-        if (readOnly) return
-        e.preventDefault()
-        onInspect()
-      }}
+      onContextMenu={onInspect}
       onDoubleClick={() => !readOnly && onRemove()}
     >
       {selected && <circle r={r + 0.7} fill="none" stroke="#ffffff" strokeWidth={0.35} opacity={0.95} />}
