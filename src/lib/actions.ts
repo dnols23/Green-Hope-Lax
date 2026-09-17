@@ -20,6 +20,7 @@ import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
 import { readBlocks, type PlanKind } from './planner'
+import { readNoteBlocks } from './noteBlocks'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
 import {
   SIGNUPS,
@@ -1593,8 +1594,10 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   if (!id) return { ok: false, error: 'Missing plan.' }
 
   let blocks: unknown = []
+  let content: unknown = []
   try {
     blocks = JSON.parse(str(formData.get('blocks')) || '[]')
+    content = JSON.parse(str(formData.get('content')) || '[]')
   } catch {
     return { ok: false, error: 'That plan could not be read back — nothing was saved.' }
   }
@@ -1609,6 +1612,7 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
       summary: str(formData.get('summary')) || null,
       roster_id: str(formData.get('roster_id')) || null,
       blocks: readBlocks(blocks),
+      content: readNoteBlocks(content),
       publish_players: str(formData.get('publish_players')) === 'true',
       publish_coaches: str(formData.get('publish_coaches')) === 'true',
       updated_at: new Date().toISOString(),
