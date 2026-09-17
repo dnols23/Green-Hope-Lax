@@ -1,13 +1,13 @@
 'use client'
 import dynamic from 'next/dynamic'
+import type { SavedPlay } from './QuickBoard'
 
 /**
  * The board is a browser-only thing.
  *
- * Its plays live in this device's storage, so rendering it on the server would
- * paint an empty field and then swap it for the saved one — a flash, and a
- * hydration mismatch. Loading it in the browser only means what appears is
- * already right.
+ * The scratch board it opens with lives in this device's storage, so rendering
+ * it on the server would paint an empty field and then swap it — a flash, and a
+ * hydration mismatch. The saved plays come from the database and are handed in.
  */
 const QuickBoard = dynamic(() => import('./QuickBoard'), {
   ssr: false,
@@ -18,6 +18,6 @@ const QuickBoard = dynamic(() => import('./QuickBoard'), {
   ),
 })
 
-export function PlayboardClient() {
-  return <QuickBoard />
+export function PlayboardClient({ plays, ready }: { plays: SavedPlay[]; ready: boolean }) {
+  return <QuickBoard plays={plays} ready={ready} />
 }

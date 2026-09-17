@@ -49,7 +49,14 @@ function WorkflowNav({ onHub, showHub }: { onHub: () => void; showHub: boolean }
           className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-white/20"
           style={{ background: 'rgba(255,255,255,0.12)' }}
         >
-          <span aria-hidden>↩</span> Hub
+          {/* Drawn, not typed: iOS renders the return arrow character as a
+              blue emoji, which is not what a coach wants in the bar. */}
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M3 12h13a4 4 0 1 1 0 8h-3" />
+            <path d="M7 8l-4 4 4 4" />
+          </svg>
+          Hub
         </Link>
       )}
     </div>

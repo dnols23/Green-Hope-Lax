@@ -32,6 +32,7 @@ import {
 import { parseDrillPaste } from './drills'
 import { listDrills } from './drillsData'
 import { signOut, markReturned, markOutAgain, deleteAssignment } from './equipment'
+import { savePlay, deletePlay } from './plays'
 import { buildDrillSet, positionGroup } from './prescribe'
 import { ensurePlayerToken, revokePlayerToken } from './playerAccess'
 import type { Evaluation } from './evaluations'
@@ -1095,6 +1096,29 @@ export async function removeCoachAccount(formData: FormData) {
   revalidatePath('/admin/access')
 }
 
+
+// ── Saved plays ──────────────────────────────────────────────────────────────
+
+export async function savePlayAction(formData: FormData) {
+  const viewer = await requireSection('playboard')
+  const name = str(formData.get('name'))
+  if (!name) return
+  let board: unknown = {}
+  try {
+    board = JSON.parse(str(formData.get('board')) || '{}')
+  } catch {
+    return
+  }
+  await savePlay(name, board, viewer.name || viewer.email)
+  revalidatePath('/admin/playboard')
+}
+
+export async function deletePlayAction(formData: FormData) {
+  await requireSection('playboard')
+  const id = str(formData.get('id'))
+  if (id) await deletePlay(id)
+  revalidatePath('/admin/playboard')
+}
 
 // ── Equipment sign-out ───────────────────────────────────────────────────────
 // Who has what. Kept beside the inventory because it is the same screen and the

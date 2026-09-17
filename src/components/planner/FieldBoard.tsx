@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import {
   FIELD,
+  POSITION_TOKENS,
   TOKEN_KINDS,
   PATH_KINDS,
   tokenStyle,
@@ -48,6 +49,12 @@ export function FieldBoard({
   const [dragId, setDragId] = useState<string | null>(null)
   const [draft, setDraft] = useState<{ x: number; y: number }[] | null>(null)
   const [nextKind, setNextKind] = useState<TokenKind>('offense')
+  /* Undo and redo, kept here rather than in the page: a coach rubbing out the
+     last line is undoing a stroke, not a save, and the two should not be the
+     same button. Every change goes through emit(), so this is the whole
+     history of the board. */
+  const [past, setPast] = useState<Board[]>([])
+  const [future, setFuture] = useState<Board[]>([])
 
   const viewW = FIELD.length + PAD * 2
   const viewH = FIELD.width + PAD * 2
@@ -65,7 +72,31 @@ export function FieldBoard({
     }
   }
 
-  const emit = (next: Board) => onChange?.(next)
+  const emit = (next: Board) => {
+    setPast((p) => [...p.slice(-49), board])
+    setFuture([])
+    onChange?.(next)
+  }
+
+  function undo() {
+    setPast((p) => {
+      if (p.length === 0) return p
+      const previous = p[p.length - 1]
+      setFuture((f) => [board, ...f].slice(0, 50))
+      onChange?.(previous)
+      return p.slice(0, -1)
+    })
+  }
+
+  function redo() {
+    setFuture((f) => {
+      if (f.length === 0) return f
+      const next = f[0]
+      setPast((p) => [...p, board])
+      onChange?.(next)
+      return f.slice(1)
+    })
+  }
 
   function addToken(kind: TokenKind, label: string, playerId?: string) {
     // New discs land in the middle, out of the way of the goals.
@@ -159,7 +190,7 @@ export function FieldBoard({
               borderColor: tool === 'move' ? 'var(--gh-green)' : '#e5e7eb',
             }}
           >
-            ✋ Move
+            Move
           </button>
           {PATH_KINDS.map((p) => (
             <button
@@ -178,7 +209,27 @@ export function FieldBoard({
 
           <span className="w-px h-5 bg-gray-200 mx-1" />
 
-          {TOKEN_KINDS.map((k) => (
+          {/* Positions first — a coach puts an attackman on the field, not an
+              "offense". The rest are the things that aren't people. */}
+          {POSITION_TOKENS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => addToken(p.kind, p.label)}
+              className="px-2 py-1.5 rounded-lg text-xs font-black border border-gray-200 bg-white hover:bg-gray-50"
+              title={`Add ${p.title}`}
+            >
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle"
+                style={{ background: tokenStyle(p.kind).fill, border: '1px solid rgba(0,0,0,.15)' }}
+              />
+              {p.label}
+            </button>
+          ))}
+
+          <span className="w-px h-5 bg-gray-200 mx-1" />
+
+          {TOKEN_KINDS.filter((k) => k.key === 'coach' || k.key === 'cone' || k.key === 'ball').map((k) => (
             <button
               key={k.key}
               type="button"
@@ -206,20 +257,29 @@ export function FieldBoard({
           </button>
           <button
             type="button"
+            onClick={undo}
+            disabled={past.length === 0}
+            title="Undo"
+            className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-40"
+          >
+            ↶ Undo
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={future.length === 0}
+            title="Redo"
+            className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-40"
+          >
+            ↷ Redo
+          </button>
+          <button
+            type="button"
             onClick={() => emit({ tokens: [], paths: [] })}
             className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-500 bg-white hover:bg-gray-50"
           >
             Clear
           </button>
-          {board.paths.length > 0 && (
-            <button
-              type="button"
-              onClick={() => emit({ ...board, paths: board.paths.slice(0, -1) })}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-500 bg-white hover:bg-gray-50"
-            >
-              Undo line
-            </button>
-          )}
         </div>
       )}
 

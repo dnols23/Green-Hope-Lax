@@ -208,7 +208,7 @@ export function NoteEditor({
                   onClick={() => setOpenBoard(b.id)}
                   className="w-full rounded-lg border border-dashed border-gray-300 py-6 text-sm text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
                 >
-                  🥍 {b.board.tokens.length > 0
+                  {b.board.tokens.length > 0
                     ? `${b.board.tokens.length} on the field — tap to open`
                     : 'Tap to draw the play'}
                 </button>
@@ -227,7 +227,6 @@ export function NoteEditor({
             onClick={() => add(k.key)}
             className="text-sm font-semibold px-2.5 py-1 rounded-lg border border-gray-200 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
           >
-            <span className="mr-1" aria-hidden>{k.icon}</span>
             {k.label}
           </button>
         ))}

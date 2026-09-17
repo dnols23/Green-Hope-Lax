@@ -62,6 +62,23 @@ export const FIELD = {
   subBoxHalf: 5,
 }
 
+/**
+ * The discs a coach reaches for, by the position they actually play.
+ *
+ * "Offense" and "Defense" are colours, not positions — nobody runs a play for
+ * an offense, they run it for the attackman at X with a short stick coming off
+ * the wing. The letter on the disc is what a coach reads at a glance.
+ */
+export const POSITION_TOKENS: { label: string; title: string; kind: 'offense' | 'defense' | 'goalie' }[] = [
+  { label: 'A', title: 'Attack', kind: 'offense' },
+  { label: 'M', title: 'Midfield', kind: 'offense' },
+  { label: 'FO', title: 'Face-off', kind: 'offense' },
+  { label: 'D', title: 'Defense', kind: 'defense' },
+  { label: 'LSM', title: 'LSM', kind: 'defense' },
+  { label: 'SSDM', title: 'Short-stick d-mid', kind: 'defense' },
+  { label: 'G', title: 'Goalie', kind: 'goalie' },
+]
+
 export type TokenKind = 'offense' | 'defense' | 'goalie' | 'cone' | 'ball' | 'coach'
 
 export const TOKEN_KINDS: { key: TokenKind; label: string; fill: string; ink: string }[] = [
