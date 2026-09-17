@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { logout } from '@/lib/actions'
 import { FalconHead } from '@/components/Logo'
-import { SECTION_GROUPS, type AdminSection } from '@/lib/sections'
+import { AUDIENCE_LABELS, SECTION_GROUPS, type AdminSection } from '@/lib/sections'
 
 /**
  * The admin menu: brand, the page you're on, and everything else behind one
@@ -112,9 +112,26 @@ export function AdminMenu({ links, tier }: { links: AdminSection[]; tier: string
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Link href="/" target="_blank" className="hidden sm:inline text-xs text-white/60 hover:text-white">
-            View site ↗
-          </Link>
+          {/* What this page looks like to everyone else who can see it. Driven
+              by the section list, so a new page gets its buttons by saying who
+              its audience is rather than by remembering to add them. */}
+          {active?.views?.map((v) => (
+            <Link
+              key={v.audience}
+              href={v.href}
+              target="_blank"
+              title={`Open this as ${AUDIENCE_LABELS[v.audience].replace(' view', '').toLowerCase()} sees it`}
+              className="hidden sm:inline text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors hover:bg-white/20"
+              style={{ background: 'rgba(255,255,255,0.12)' }}
+            >
+              {AUDIENCE_LABELS[v.audience]} ↗
+            </Link>
+          ))}
+          {!active?.views?.length && (
+            <Link href="/" target="_blank" className="hidden sm:inline text-xs text-white/60 hover:text-white">
+              View site ↗
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => setOpen(!open)}
@@ -183,15 +200,31 @@ export function AdminMenu({ links, tier }: { links: AdminSection[]; tier: string
               className="border-t"
               style={{ borderColor: 'rgba(255,255,255,0.12)' }}
             >
-              <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-                <Link
-                  href="/"
-                  target="_blank"
-                  onClick={() => setOpen(false)}
-                  className="text-xs font-semibold text-white/60 hover:text-white"
-                >
-                  View site ↗
-                </Link>
+              <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* The same view buttons, for a phone — where the bar has no
+                      room for them. */}
+                  {active?.views?.map((v) => (
+                    <Link
+                      key={v.audience}
+                      href={v.href}
+                      target="_blank"
+                      onClick={() => setOpen(false)}
+                      className="sm:hidden text-xs font-bold px-2.5 py-1 rounded-lg text-white"
+                      style={{ background: 'rgba(255,255,255,0.14)' }}
+                    >
+                      {AUDIENCE_LABELS[v.audience]} ↗
+                    </Link>
+                  ))}
+                  <Link
+                    href="/"
+                    target="_blank"
+                    onClick={() => setOpen(false)}
+                    className="text-xs font-semibold text-white/60 hover:text-white"
+                  >
+                    View site ↗
+                  </Link>
+                </div>
                 <form action={logout}>
                   <button
                     type="submit"

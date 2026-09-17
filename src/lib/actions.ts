@@ -34,6 +34,7 @@ import { listDrills } from './drillsData'
 import { signOut, markReturned, markOutAgain, deleteAssignment } from './equipment'
 import { savePlay, deletePlay } from './plays'
 import { saveContact } from './playerContacts'
+import { readSigninSettings } from './joinLinks'
 import { buildDrillSet, positionGroup } from './prescribe'
 import { ensurePlayerToken, revokePlayerToken } from './playerAccess'
 import type { Evaluation } from './evaluations'
@@ -123,6 +124,16 @@ export async function registerTeamMember(_prev: FormState, formData: FormData): 
   if (!EMAIL_RE.test(data.parent_email)) return { ok: false, error: 'Please enter a valid email address.' }
   if (data.parent_phone.replace(/\D/g, '').length < 10) return { ok: false, error: 'Please enter a valid phone number.' }
   if (!data.player_name) return { ok: false, error: 'Please enter the player name(s).' }
+
+  // The password is a door like any other, and it can be shut. When it is, the
+  // links are the way in and the form says so rather than failing as "wrong".
+  const { codeOn } = await readSigninSettings()
+  if (!codeOn) {
+    return {
+      ok: false,
+      error: 'The team password is switched off. Ask a coach for your sign-in link.',
+    }
+  }
 
   const supabase = createServiceClient()
   const { data: setting } = await supabase

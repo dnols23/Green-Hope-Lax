@@ -11,6 +11,28 @@ export type SectionGroup = 'Coaches Hub' | 'Team' | 'Content' | 'Admin'
 
 export const SECTION_GROUPS: SectionGroup[] = ['Coaches Hub', 'Team', 'Content', 'Admin']
 
+/**
+ * Who else can see what this page produces, and where they see it.
+ *
+ * A coach building a page should not have to guess how it lands for a parent
+ * or a player — or open a private window to find out. Each audience listed
+ * here becomes a button in the admin bar on that page.
+ */
+export type Audience = 'public' | 'team' | 'player' | 'parent' | 'coach'
+
+export const AUDIENCE_LABELS: Record<Audience, string> = {
+  public: 'Public view',
+  team: 'Team view',
+  player: 'Player view',
+  parent: 'Parent view',
+  coach: 'Coach view',
+}
+
+export interface SectionView {
+  audience: Audience
+  href: string
+}
+
 export interface AdminSection {
   key: string
   label: string
@@ -20,31 +42,47 @@ export interface AdminSection {
   ownerOnly?: boolean
   /** Every coach gets this without it being ticked — it's the job. */
   always?: boolean
+  /** The same content, seen by everyone else who can see it. */
+  views?: SectionView[]
 }
 
 export const SECTIONS: AdminSection[] = [
   { key: 'hub',          label: 'Coaches Hub',  href: '/admin/hub',          group: 'Coaches Hub', always: true },
   { key: 'film',         label: 'Film Room',    href: '/admin/film',         group: 'Coaches Hub', always: true },
-  { key: 'planner',      label: 'Planner',      href: '/admin/planner',      group: 'Coaches Hub', always: true },
+  { key: 'planner',      label: 'Planner',      href: '/admin/planner',      group: 'Coaches Hub', always: true,
+    views: [{ audience: 'coach', href: '/admin/hub' }, { audience: 'team', href: '/team' }] },
   { key: 'drills',       label: 'Drill Bank',   href: '/admin/drills',       group: 'Coaches Hub', always: true },
   { key: 'playboard',    label: 'Playboard',    href: '/admin/playboard',    group: 'Coaches Hub', always: true },
-  { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaches Hub', always: true },
+  { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaches Hub', always: true,
+    views: [{ audience: 'public', href: '/roster' }] },
   { key: 'inventory',    label: 'Inventory',    href: '/admin/inventory',    group: 'Coaches Hub' },
   { key: 'inventory-jv', label: 'JV Inventory', href: '/admin/inventory',    group: 'Coaches Hub' },
-  { key: 'schedule',     label: 'Schedule',     href: '/admin/schedule',     group: 'Coaches Hub' },
-  { key: 'team',         label: 'Team Hub',     href: '/admin/team',         group: 'Coaches Hub' },
-  { key: 'roster',       label: 'Roster',       href: '/admin/roster',       group: 'Team' },
-  { key: 'roster-jv',    label: 'JV Roster',    href: '/admin/roster',       group: 'Team' },
-  { key: 'parents',      label: 'Parent Hub',   href: '/admin/parents',      group: 'Team' },
+  { key: 'schedule',     label: 'Schedule',     href: '/admin/schedule',     group: 'Coaches Hub',
+    views: [{ audience: 'public', href: '/schedule' }, { audience: 'team', href: '/team' }] },
+  { key: 'team',         label: 'Team Hub',     href: '/admin/team',         group: 'Coaches Hub',
+    views: [{ audience: 'team', href: '/team' }] },
+  { key: 'roster',       label: 'Roster',       href: '/admin/roster',       group: 'Team',
+    views: [{ audience: 'public', href: '/roster' }] },
+  { key: 'roster-jv',    label: 'JV Roster',    href: '/admin/roster',       group: 'Team',
+    views: [{ audience: 'public', href: '/roster' }] },
+  { key: 'parents',      label: 'Parent Hub',   href: '/admin/parents',      group: 'Team',
+    views: [{ audience: 'parent', href: '/parents' }] },
   { key: 'members',      label: 'Members',      href: '/admin/members',      group: 'Team' },
-  { key: 'coaches',      label: 'Coaches',      href: '/admin/coaches',      group: 'Team' },
-  { key: 'news',         label: 'News',         href: '/admin/news',         group: 'Content' },
-  { key: 'awards',       label: 'Awards',       href: '/admin/awards',       group: 'Content' },
-  { key: 'record-books', label: 'Record Books', href: '/admin/record-books', group: 'Content' },
-  { key: 'shop',         label: 'Shop',         href: '/admin/shop',         group: 'Content' },
-  { key: 'pages',        label: 'Pages',        href: '/admin/pages',        group: 'Content' },
+  { key: 'coaches',      label: 'Coaches',      href: '/admin/coaches',      group: 'Team',
+    views: [{ audience: 'public', href: '/coaches' }] },
+  { key: 'news',         label: 'News',         href: '/admin/news',         group: 'Content',
+    views: [{ audience: 'public', href: '/news' }] },
+  { key: 'awards',       label: 'Awards',       href: '/admin/awards',       group: 'Content',
+    views: [{ audience: 'public', href: '/awards' }] },
+  { key: 'record-books', label: 'Record Books', href: '/admin/record-books', group: 'Content',
+    views: [{ audience: 'public', href: '/record-books' }] },
+  { key: 'shop',         label: 'Shop',         href: '/admin/shop',         group: 'Content',
+    views: [{ audience: 'public', href: '/shop' }] },
+  { key: 'pages',        label: 'Pages',        href: '/admin/pages',        group: 'Content',
+    views: [{ audience: 'public', href: '/' }] },
   { key: 'submissions',  label: 'Submissions',  href: '/admin/submissions',  group: 'Admin' },
   { key: 'notifications', label: 'Notifications', href: '/admin/notifications', group: 'Admin', ownerOnly: true },
+  { key: 'signin',       label: 'Sign-in',      href: '/admin/signin',       group: 'Admin', ownerOnly: true },
   { key: 'access',       label: 'Coach Access', href: '/admin/access',       group: 'Admin', ownerOnly: true },
 ]
 
