@@ -6,7 +6,7 @@ import { listPlayerAccess, playerAccessReady } from '@/lib/playerAccess'
 import { latestDrillSets, drillSetsReady } from '@/lib/drillSets'
 import { compileScores, type Evaluation } from '@/lib/evaluations'
 import { createPlayerInvite, revokePlayerInvite, generateDrillSet } from '@/lib/actions'
-import { positionGroup, POSITION_LABELS } from '@/lib/prescribe'
+import { looksLikeYear, positionLabel } from '@/lib/positions'
 import { formatShortDate } from '@/lib/format'
 import type { Player } from '@/lib/types'
 import { PlayerLink } from '@/components/admin/PlayerLink'
@@ -81,7 +81,9 @@ export default async function PlayersPage() {
                 <div className="font-semibold text-sm">
                   <PlayerLink id={p.id} name={p.name} number={p.number} />
                   <span className="text-xs text-gray-400 ml-2">
-                    {[POSITION_LABELS[positionGroup(p.position)], p.class_year].filter(Boolean).join(' · ')}
+                    {[positionLabel(p.position), looksLikeYear(p.class_year) ? p.class_year : null]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </span>
                 </div>
                 <div className="text-xs text-gray-500">

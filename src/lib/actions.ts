@@ -33,6 +33,7 @@ import { parseDrillPaste } from './drills'
 import { listDrills } from './drillsData'
 import { signOut, markReturned, markOutAgain, deleteAssignment } from './equipment'
 import { savePlay, deletePlay } from './plays'
+import { saveContact } from './playerContacts'
 import { buildDrillSet, positionGroup } from './prescribe'
 import { ensurePlayerToken, revokePlayerToken } from './playerAccess'
 import type { Evaluation } from './evaluations'
@@ -1096,6 +1097,61 @@ export async function removeCoachAccount(formData: FormData) {
   revalidatePath('/admin/access')
 }
 
+
+// ── A player's own details ───────────────────────────────────────────────────
+
+/** The roster half: what the public roster page shows. */
+export async function savePlayerBasics(formData: FormData) {
+  const viewer = await requireSection('hub')
+  const id = str(formData.get('id'))
+  if (!id) return
+
+  await createServiceClient()
+    .from('players')
+    .update({
+      number: str(formData.get('number')) || null,
+      position: str(formData.get('position')) || null,
+      class_year: str(formData.get('class_year')) || null,
+      height: str(formData.get('height')) || null,
+      hometown: str(formData.get('hometown')) || null,
+      photo_url: str(formData.get('photo_url')) || null,
+    })
+    .eq('id', id)
+
+  void viewer
+  revalidatePath(`/admin/hub/players/${id}`)
+  revalidatePath('/admin/hub/players')
+  revalidatePath('/roster')
+}
+
+/** The private half: never on the players table, never on the public site. */
+export async function savePlayerContact(formData: FormData) {
+  const viewer = await requireSection('hub')
+  const id = str(formData.get('id'))
+  if (!id) return
+
+  await saveContact(
+    id,
+    {
+      player_email: str(formData.get('player_email')) || null,
+      player_phone: str(formData.get('player_phone')) || null,
+      guardian_name: str(formData.get('guardian_name')) || null,
+      guardian_email: str(formData.get('guardian_email')) || null,
+      guardian_phone: str(formData.get('guardian_phone')) || null,
+      guardian2_name: str(formData.get('guardian2_name')) || null,
+      guardian2_email: str(formData.get('guardian2_email')) || null,
+      guardian2_phone: str(formData.get('guardian2_phone')) || null,
+      emergency_name: str(formData.get('emergency_name')) || null,
+      emergency_phone: str(formData.get('emergency_phone')) || null,
+      emergency_relation: str(formData.get('emergency_relation')) || null,
+      preferred: str(formData.get('preferred')) || null,
+      notes: str(formData.get('notes')) || null,
+    },
+    viewer.name || viewer.email
+  )
+
+  revalidatePath(`/admin/hub/players/${id}`)
+}
 
 // ── Saved plays ──────────────────────────────────────────────────────────────
 

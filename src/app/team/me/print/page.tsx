@@ -3,7 +3,8 @@ import { currentPlayer } from '@/lib/playerAccess'
 import { latestDrillSet } from '@/lib/drillSets'
 import { createServiceClient } from '@/lib/supabase-server'
 import { EVAL_CATEGORIES, readRating, tierFor, type Evaluation } from '@/lib/evaluations'
-import { drillCategoryLabel, positionGroup, POSITION_LABELS } from '@/lib/prescribe'
+import { drillCategoryLabel } from '@/lib/prescribe'
+import { looksLikeYear, positionLabel } from '@/lib/positions'
 import { PrintButton } from '@/components/PrintButton'
 
 export const metadata = { title: 'Print — my work', robots: { index: false, follow: false } }
@@ -48,7 +49,7 @@ export default async function PrintMyWork() {
         <div>
           <h1>{player.name}</h1>
           <p>
-            {[player.number ? `#${player.number}` : null, POSITION_LABELS[positionGroup(player.position)], player.class_year]
+            {[player.number ? `#${player.number}` : null, positionLabel(player.position), looksLikeYear(player.class_year) ? player.class_year : null]
               .filter(Boolean)
               .join(' · ')}
           </p>
