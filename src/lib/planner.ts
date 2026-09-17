@@ -36,14 +36,28 @@ export function tagFor(key: string | undefined): BlockTag {
 // ── The field board ─────────────────────────────────────────────────────────
 
 /** A men's field, in yards. Everything on a board is stored in these units. */
+/**
+ * A men's lacrosse field, in yards, as the rule book has it.
+ *
+ * 110 by 60. The goal stands 15 from the end line with a 9-foot crease around
+ * it. The restraining box is 35 wide and reaches 20 from the end line, so the
+ * goal sits five yards inside it. The wing lines run with the sidelines, ten
+ * yards in from each, and reach ten yards either side of the centre.
+ */
 export const FIELD = {
   length: 110,
   width: 60,
   goalLineFromEnd: 15,
+  /** 6 feet between the pipes. */
+  goalWidth: 2,
+  /** 9 feet. */
   creaseRadius: 3,
-  restrainingFromGoalLine: 20,
-  wingFromCenter: 10,
-  boxDepth: 20,
+  restrainingFromEnd: 20,
+  boxWidth: 35,
+  wingFromSideline: 10,
+  wingHalfLength: 10,
+  /** The substitution area, half either side of the centre line. */
+  subBoxHalf: 5,
 }
 
 export type TokenKind = 'offense' | 'defense' | 'goalie' | 'cone' | 'ball' | 'coach'
