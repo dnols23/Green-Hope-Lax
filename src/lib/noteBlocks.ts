@@ -60,12 +60,12 @@ export interface NoteChart {
 
 export type NoteBlock = NoteHeading | NoteText | NoteList | NoteBoard | NoteChart
 
-export const NOTE_BLOCK_KINDS: { key: NoteBlockKind; label: string; icon: string }[] = [
-  { key: 'heading', label: 'Section', icon: '#' },
-  { key: 'text', label: 'Text', icon: '¶' },
-  { key: 'list', label: 'Checklist', icon: '☑' },
-  { key: 'board', label: 'Field', icon: '🥍' },
-  { key: 'chart', label: 'Chart', icon: '▥' },
+export const NOTE_BLOCK_KINDS: { key: NoteBlockKind; label: string }[] = [
+  { key: 'heading', label: 'Section' },
+  { key: 'text', label: 'Text' },
+  { key: 'list', label: 'Checklist' },
+  { key: 'board', label: 'Field' },
+  { key: 'chart', label: 'Chart' },
 ]
 
 export function emptyNoteBlock(kind: NoteBlockKind): NoteBlock {
