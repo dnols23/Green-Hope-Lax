@@ -9,7 +9,9 @@ import { categoriesFor, readRating, ratingsAverage, tierFor, type Evaluation } f
 import { POSITION_LABELS, positionGroup } from '@/lib/positions'
 import { TEAM_LABELS, type Player } from '@/lib/types'
 import { formatShortDate } from '@/lib/format'
-import { createPlayerInvite, returnEquipment, revokePlayerInvite } from '@/lib/actions'
+import { createPlayerInvite, returnEquipment, revokePlayerInvite, savePlayerBasics, savePlayerContact } from '@/lib/actions'
+import { ImageField } from '@/components/admin/ImageField'
+import { contactsReady, firstCall, getContact, PREFERRED_OPTIONS } from '@/lib/playerContacts'
 import { InviteLink } from '../InviteLink'
 
 export const dynamic = 'force-dynamic'
@@ -46,6 +48,9 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
     equipmentReady(),
   ])
   const kit = hasEquipment ? await listAssignments({ playerId: id, includeReturned: true }) : []
+  const hasContacts = await contactsReady()
+  const contact = hasContacts ? await getContact(id) : null
+  const call = firstCall(contact)
   const out = kit.filter((k) => !k.returned_at)
   const returned = kit.filter((k) => k.returned_at)
 
@@ -81,12 +86,21 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
 
       {/* ── Who he is ── */}
       <div className="card p-5 flex flex-wrap items-center gap-4">
-        <span
-          className="shrink-0 w-14 h-14 rounded-full flex items-center justify-center font-black text-white text-lg"
-          style={{ background: 'var(--gh-green)' }}
-        >
-          {player.number ?? '–'}
-        </span>
+        {player.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={player.photo_url}
+            alt={player.name}
+            className="shrink-0 w-14 h-14 rounded-full object-cover border border-gray-200"
+          />
+        ) : (
+          <span
+            className="shrink-0 w-14 h-14 rounded-full flex items-center justify-center font-black text-white text-lg"
+            style={{ background: 'var(--gh-green)' }}
+          >
+            {player.number ?? '–'}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-black leading-tight">{player.name}</h1>
           <p className="text-sm text-gray-500">
@@ -109,6 +123,17 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
           </div>
         )}
       </div>
+
+      {call && (
+        <div className="rounded-xl border px-4 py-3 text-sm"
+          style={{ borderColor: '#F3C9CD', background: '#FDF3F4' }}>
+          <span className="font-bold" style={{ color: 'var(--gh-maroon)' }}>Call first:</span>{' '}
+          {call.name ? `${call.name} (${call.who})` : call.who} —{' '}
+          <a href={`tel:${call.phone.replace(/[^\d+]/g, '')}`} className="font-bold underline">
+            {call.phone}
+          </a>
+        </div>
+      )}
 
       {/* ── Evaluations ── */}
       <section className="card p-5">
@@ -291,6 +316,148 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
           against results, shooting by spot on the field.
         </p>
       </section>
+
+      {/* ── The roster details ── */}
+      <details className="card p-5">
+        <summary className="cursor-pointer font-bold text-gray-700 list-none">
+          Photo &amp; roster details
+          <span className="ml-2 text-xs font-normal text-gray-400">shown on the public roster</span>
+        </summary>
+        <form action={savePlayerBasics} className="mt-4 space-y-4">
+          <input type="hidden" name="id" value={player.id} />
+          <ImageField name="photo_url" defaultValue={player.photo_url} folder="players" label="Photo" />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="field-label">Number</label>
+              <input name="number" defaultValue={player.number ?? ''} className="field" />
+            </div>
+            <div>
+              <label className="field-label">Position</label>
+              <input name="position" defaultValue={player.position ?? ''} className="field"
+                placeholder="Attack, Midfield, LSM, Goalie…" />
+            </div>
+            <div>
+              <label className="field-label">Class year</label>
+              <input name="class_year" defaultValue={player.class_year ?? ''} className="field" placeholder="2028" />
+            </div>
+            <div>
+              <label className="field-label">Height</label>
+              <input name="height" defaultValue={player.height ?? ''} className="field" placeholder="6'0&quot;" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="field-label">Hometown</label>
+              <input name="hometown" defaultValue={player.hometown ?? ''} className="field" />
+            </div>
+          </div>
+          <button type="submit" className="btn btn-primary">Save details</button>
+        </form>
+      </details>
+
+      {/* ── Contacts ── */}
+      <details className="card p-5">
+        <summary className="cursor-pointer font-bold text-gray-700 list-none">
+          Contact &amp; emergency
+          <span className="ml-2 text-xs font-normal text-gray-400">coaches only — never on the public site</span>
+        </summary>
+        {!hasContacts ? (
+          <p className="text-sm text-gray-500 mt-3">
+            Run <code className="font-mono text-xs">0028_player_contacts.sql</code> in Supabase to
+            start keeping these.
+          </p>
+        ) : (
+          <form action={savePlayerContact} className="mt-4 space-y-4">
+            <input type="hidden" name="id" value={player.id} />
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="field-label">His email</label>
+                <input name="player_email" type="email" defaultValue={contact?.player_email ?? ''} className="field" />
+              </div>
+              <div>
+                <label className="field-label">His phone</label>
+                <input name="player_phone" type="tel" defaultValue={contact?.player_phone ?? ''} className="field" />
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div>
+                <label className="field-label">Guardian</label>
+                <input name="guardian_name" defaultValue={contact?.guardian_name ?? ''} className="field" />
+              </div>
+              <div>
+                <label className="field-label">Email</label>
+                <input name="guardian_email" type="email" defaultValue={contact?.guardian_email ?? ''} className="field" />
+              </div>
+              <div>
+                <label className="field-label">Phone</label>
+                <input name="guardian_phone" type="tel" defaultValue={contact?.guardian_phone ?? ''} className="field" />
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div>
+                <label className="field-label">Second guardian</label>
+                <input name="guardian2_name" defaultValue={contact?.guardian2_name ?? ''} className="field" />
+              </div>
+              <div>
+                <label className="field-label">Email</label>
+                <input name="guardian2_email" type="email" defaultValue={contact?.guardian2_email ?? ''} className="field" />
+              </div>
+              <div>
+                <label className="field-label">Phone</label>
+                <input name="guardian2_phone" type="tel" defaultValue={contact?.guardian2_phone ?? ''} className="field" />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-[#F3C9CD] bg-[#FDF3F4] p-3">
+              <div className="section-label mb-2" style={{ color: 'var(--gh-maroon)' }}>
+                Emergency
+              </div>
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="field-label">Who</label>
+                  <input name="emergency_name" defaultValue={contact?.emergency_name ?? ''} className="field" />
+                </div>
+                <div>
+                  <label className="field-label">Phone</label>
+                  <input name="emergency_phone" type="tel" defaultValue={contact?.emergency_phone ?? ''} className="field" />
+                </div>
+                <div>
+                  <label className="field-label">Relation</label>
+                  <input name="emergency_relation" defaultValue={contact?.emergency_relation ?? ''} className="field"
+                    placeholder="Mother, uncle, neighbour…" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="field-label">Call this one first</label>
+                <select name="preferred" defaultValue={contact?.preferred ?? 'emergency'} className="field">
+                  {PREFERRED_OPTIONS.map((o) => (
+                    <option key={o.key} value={o.key}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="field-label">Anything the staff should know</label>
+                <input name="notes" defaultValue={contact?.notes ?? ''} className="field"
+                  placeholder="Allergies, asthma inhaler, rides home with…" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button type="submit" className="btn btn-primary">Save contacts</button>
+              {contact?.updated_at && (
+                <span className="text-xs text-gray-400">
+                  Last changed {formatShortDate(contact.updated_at)}
+                  {contact.updated_by ? ` by ${contact.updated_by}` : ''}
+                </span>
+              )}
+            </div>
+          </form>
+        )}
+      </details>
 
       {/* ── His own access ── */}
       <section className="card p-5">

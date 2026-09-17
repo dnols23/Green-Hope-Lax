@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { latestDrillSet } from '@/lib/drillSets'
 import { createServiceClient } from '@/lib/supabase-server'
 import { EVAL_CATEGORIES, readRating, tierFor, type Evaluation } from '@/lib/evaluations'
-import { drillCategoryLabel, positionGroup, POSITION_LABELS } from '@/lib/prescribe'
+import { drillCategoryLabel } from '@/lib/prescribe'
+import { looksLikeYear, positionLabel } from '@/lib/positions'
 import { SETTING_LABELS, type DrillSetting } from '@/lib/drills'
 import { listPlans } from '@/lib/plans'
 import { runningClock, tagFor, clockAt, formatMinutes, totalMinutes } from '@/lib/planner'
@@ -91,7 +92,7 @@ export async function PlayerWork({ player, preview = false }: { player: Player; 
           <div>
             <h1 className="page-title mb-1">{player.name}</h1>
             <p className="text-gray-500 text-sm">
-              {[player.number ? `#${player.number}` : null, POSITION_LABELS[positionGroup(player.position)], player.class_year]
+              {[player.number ? `#${player.number}` : null, positionLabel(player.position), looksLikeYear(player.class_year) ? player.class_year : null]
                 .filter(Boolean)
                 .join(' · ')}
             </p>

@@ -16,6 +16,24 @@ export const POSITION_LABELS: Record<PositionGroup, string> = {
   fogo: 'Face-off',
 }
 
+/** A year, as a roster spells one. Anything else in that column is not a year. */
+export function looksLikeYear(value: string | null | undefined): boolean {
+  return /^(19|20)\d{2}$/.test(String(value ?? '').trim())
+}
+
+/**
+ * What to show for a player's position: his coach's own words.
+ *
+ * Deliberately not positionGroup(): that answers "which bucket do I train him
+ * in" and falls back to midfield, which meant every player with no position on
+ * the roster was labelled Midfield — a guess, printed as a fact, on every
+ * screen he appeared on.
+ */
+export function positionLabel(position: string | null | undefined): string | null {
+  const text = String(position ?? '').trim()
+  return text || null
+}
+
 /** Read the position a coach typed on the roster. Free text, so be generous. */
 export function positionGroup(position: string | null | undefined): PositionGroup {
   const p = String(position ?? '').toLowerCase()
