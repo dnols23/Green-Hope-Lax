@@ -1221,6 +1221,17 @@ export async function renameShotAction(formData: FormData) {
   revalidatePath('/admin/library')
 }
 
+/** Everything that was ticked, in one go. */
+export async function deleteLibraryAction(formData: FormData) {
+  await requireSection('library')
+  const shots = str(formData.get('shots')).split(',').filter(Boolean)
+  const plays = str(formData.get('plays')).split(',').filter(Boolean)
+  for (const id of shots) await deleteShot(id)
+  for (const id of plays) await deletePlay(id)
+  revalidatePath('/admin/library')
+  revalidatePath('/admin/playboard')
+}
+
 export async function deleteShotAction(formData: FormData) {
   await requireSection('library')
   const id = str(formData.get('id'))
