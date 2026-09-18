@@ -1,8 +1,10 @@
 'use client'
+import Link from 'next/link'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { FieldBoard } from '@/components/planner/FieldBoard'
 import { ClipPlayer } from '@/components/planner/ClipPlayer'
 import { savePlayAction, deletePlayAction, saveShotAction } from '@/lib/actions'
+import { clipLength } from '@/lib/planner'
 import { EMPTY_BOARD, readBoard, type Board, type BoardClip, type BoardFrame } from '@/lib/planner'
 
 /**
@@ -59,6 +61,9 @@ export default function QuickBoard({ plays, ready }: { plays: SavedPlay[]; ready
   const frames = useRef<BoardFrame[]>([])
   const startedAt = useRef(0)
   const [shot, setShot] = useState<string | null>(null)
+  /* The recent saves, behind one button. A row of chips was fine at two plays
+     and a wall at twenty. */
+  const [openList, setOpenList] = useState(false)
 
   /** Every change to the board goes through here, so recording is simply on or off. */
   function change(next: Board) {
@@ -114,6 +119,15 @@ export default function QuickBoard({ plays, ready }: { plays: SavedPlay[]; ready
   }
 
   useEffect(() => {
+    if (!openList) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenList(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [openList])
+
+  useEffect(() => {
     try {
       localStorage.setItem(SCRATCH, JSON.stringify(board))
     } catch {
@@ -139,6 +153,7 @@ export default function QuickBoard({ plays, ready }: { plays: SavedPlay[]; ready
     setName(play.name)
     setClip(play.clip)
     setWatching(false)
+    setOpenList(false)
   }
 
   return (
@@ -174,45 +189,95 @@ export default function QuickBoard({ plays, ready }: { plays: SavedPlay[]; ready
         >
           New
         </button>
+        {/* Recent saves, one tap away, newest first. */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpenList(!openList)}
+            aria-expanded={openList}
+            disabled={plays.length === 0}
+            className="btn btn-ghost !py-1.5 text-sm disabled:opacity-40"
+            title={plays.length ? 'Open a play you saved' : 'Nothing saved yet'}
+          >
+            Open{plays.length > 0 && <span className="text-gray-400"> · {plays.length}</span>} ▾
+          </button>
+
+          {openList && (
+            <>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setOpenList(false)}
+                className="fixed inset-0 z-40 cursor-default"
+              />
+              <div
+                className="absolute left-0 top-full mt-1 z-50 w-72 rounded-xl border border-gray-200 bg-white shadow-2xl overflow-hidden"
+                style={{ maxHeight: '60vh', overflowY: 'auto' }}
+              >
+                <div className="px-3 pt-2 pb-1 text-[0.65rem] font-black tracking-wider uppercase text-gray-400">
+                  Recent
+                </div>
+                {plays.slice(0, 12).map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-1 px-1.5 hover:bg-gray-50"
+                    style={{ background: openId === p.id ? '#f0f4f1' : undefined }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => open(p)}
+                      title={p.createdBy ? `Drawn by ${p.createdBy}` : undefined}
+                      className="flex-1 text-left px-2 py-2 text-sm font-semibold truncate"
+                    >
+                      {p.name}
+                      {p.clip && (
+                        <span className="text-[0.65rem] font-black text-gray-400 ml-1.5">
+                          ▶ {(clipLength(p.clip) / 1000).toFixed(0)}s
+                        </span>
+                      )}
+                    </button>
+                    <form
+                      ref={formRef}
+                      action={deletePlayAction}
+                      onSubmit={() => { if (openId === p.id) setOpenId(null) }}
+                    >
+                      <input type="hidden" name="id" value={p.id} />
+                      <button
+                        type="submit"
+                        aria-label={`Delete ${p.name}`}
+                        className="px-2 py-2 text-gray-300 hover:text-[var(--gh-maroon)]"
+                      >
+                        ×
+                      </button>
+                    </form>
+                  </div>
+                ))}
+                <Link
+                  href="/admin/library"
+                  onClick={() => setOpenList(false)}
+                  className="block px-3 py-2.5 text-sm font-bold border-t border-gray-100"
+                  style={{ color: 'var(--gh-green)' }}
+                >
+                  Everything in the Library →
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+
+        <Link
+          href="/admin/library"
+          className="btn btn-ghost !py-1.5 text-sm"
+          title="Every play, every recording, every screenshot"
+        >
+          Library
+        </Link>
+
         <span className="text-xs text-gray-400 ml-auto">
           {ready ? 'Saved plays open on any device, for every coach' : 'Run the plays SQL to save plays'}
         </span>
       </div>
 
-      {plays.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          {plays.map((p) => (
-            <span
-              key={p.id}
-              className="inline-flex items-center rounded-full border bg-white text-sm"
-              style={{ borderColor: openId === p.id ? 'var(--gh-green)' : '#e5e7eb' }}
-            >
-              <button
-                type="button"
-                onClick={() => open(p)}
-                title={p.createdBy ? `Drawn by ${p.createdBy}` : undefined}
-                className="px-3 py-1 font-semibold hover:text-[var(--gh-green)]"
-              >
-                {p.name}
-              </button>
-              <form
-                ref={formRef}
-                action={deletePlayAction}
-                onSubmit={() => { if (openId === p.id) setOpenId(null) }}
-              >
-                <input type="hidden" name="id" value={p.id} />
-                <button
-                  type="submit"
-                  aria-label={`Delete ${p.name}`}
-                  className="pr-2.5 pl-1 text-gray-300 hover:text-[var(--gh-maroon)]"
-                >
-                  ×
-                </button>
-              </form>
-            </span>
-          ))}
-        </div>
-      )}
 
       {shot && <p className="text-xs text-gray-500 -mt-1">{shot}</p>}
 
