@@ -13,7 +13,15 @@ import {
   type TextAlign,
 } from '@/lib/planner'
 
-export type Selection = { type: 'token' | 'path' | 'text'; id: string } | null
+export type Selection = { type: 'token' | 'path' | 'text' | 'group'; id: string } | null
+
+/** Everything boxed up, and what can be done to the lot of it. */
+export interface GroupActions {
+  count: number
+  onDelete: () => void
+  onColor: (color: string) => void
+  onSaveLook: (name: string) => void
+}
 
 /**
  * The menu you get on a right-click, or on a long press on a phone.
@@ -43,6 +51,7 @@ export function BoardMenu({
   board,
   selection,
   at,
+  group,
   onChange,
   onClose,
 }: {
@@ -50,9 +59,12 @@ export function BoardMenu({
   selection: Selection
   /** Where the press happened, in viewport pixels. */
   at: { x: number; y: number }
+  /** Given when the press was on a boxed group rather than one thing. */
+  group?: GroupActions
   onChange: (next: Board) => void
   onClose: () => void
 }) {
+  const [lookName, setLookName] = useState('')
   const card = useRef<HTMLDivElement>(null)
   const [place, setPlace] = useState({ left: at.x, top: at.y })
 
@@ -78,6 +90,86 @@ export function BoardMenu({
   }, [onClose])
 
   if (!selection) return null
+
+  if (selection.type === 'group') {
+    if (!group) return null
+    return (
+      <>
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={onClose}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            onClose()
+          }}
+          className="fixed inset-0 z-40 cursor-default"
+        />
+        <div
+          ref={card}
+          role="menu"
+          aria-label="Group options"
+          onContextMenu={(e) => e.preventDefault()}
+          className="fixed z-50 rounded-xl border border-gray-200 bg-white shadow-2xl p-3 space-y-2.5"
+          style={{ left: place.left, top: place.top, width: MENU_W }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-[0.65rem] font-black tracking-wider uppercase text-gray-400">
+              {group.count} picked
+            </span>
+            <button
+              type="button"
+              onClick={group.onDelete}
+              className="ml-auto text-xs font-bold text-[var(--gh-maroon)]"
+            >
+              Delete group
+            </button>
+            <button type="button" onClick={onClose} aria-label="Close" className="text-xs font-bold text-gray-400 px-1">
+              ×
+            </button>
+          </div>
+
+          <Row label="Keep">
+            <input
+              value={lookName}
+              onChange={(e) => setLookName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  group.onSaveLook(lookName)
+                }
+              }}
+              placeholder="Name this look"
+              className="field !py-1 text-sm flex-1"
+            />
+            <button
+              type="button"
+              onClick={() => group.onSaveLook(lookName)}
+              disabled={!lookName.trim()}
+              className="px-2 py-1 rounded-lg text-xs font-bold border disabled:opacity-40"
+              style={{ background: 'var(--gh-green)', color: '#fff', borderColor: 'var(--gh-green)' }}
+            >
+              Save
+            </button>
+          </Row>
+
+          <Row label="Colour">
+            {BOARD_COLORS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => group.onColor(c.key)}
+                title={c.label}
+                aria-label={c.label}
+                className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
+                style={{ background: c.key, borderColor: 'rgba(0,0,0,.12)' }}
+              />
+            ))}
+          </Row>
+        </div>
+      </>
+    )
+  }
 
   const token = selection.type === 'token' ? board.tokens.find((t) => t.id === selection.id) : undefined
   const path = selection.type === 'path' ? board.paths.find((p) => p.id === selection.id) : undefined
