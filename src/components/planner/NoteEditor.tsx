@@ -1,11 +1,11 @@
 'use client'
 import { useState } from 'react'
+import { ChartBlock } from './ChartBlock'
 import { FieldBoard } from './FieldBoard'
 import { ClipPlayer } from './ClipPlayer'
 import { LibraryPicker } from './LibraryPicker'
 import {
   NOTE_BLOCK_KINDS,
-  chartMax,
   emptyNoteBlock,
   type NoteBlock,
   type NoteBlockKind,
@@ -129,62 +129,10 @@ export function NoteEditor({
           )}
 
           {b.kind === 'chart' && (
-            <div className="pr-16">
-              <input
-                value={b.label}
-                onChange={(e) => patch(b.id, { label: e.target.value })}
-                placeholder="What is this a chart of?"
-                className="w-full bg-transparent border-0 p-0 font-bold focus:outline-none focus:ring-0 mb-2"
-              />
-              <div className="space-y-1">
-                {b.rows.map((row, idx) => {
-                  const max = chartMax(b.rows)
-                  return (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        value={row.label}
-                        onChange={(e) =>
-                          patch(b.id, { rows: b.rows.map((x, j) => (j === idx ? { ...x, label: e.target.value } : x)) })
-                        }
-                        placeholder="Label"
-                        className="w-28 shrink-0 bg-transparent border-0 p-0 text-sm focus:outline-none focus:ring-0"
-                      />
-                      <div className="flex-1 h-4 rounded-sm bg-gray-100 overflow-hidden">
-                        <div
-                          className="h-full rounded-sm transition-all"
-                          style={{ width: `${(Math.abs(row.value) / max) * 100}%`, background: 'var(--gh-green)' }}
-                        />
-                      </div>
-                      <input
-                        type="number"
-                        value={row.value}
-                        onChange={(e) =>
-                          patch(b.id, {
-                            rows: b.rows.map((x, j) => (j === idx ? { ...x, value: Number(e.target.value) || 0 } : x)),
-                          })
-                        }
-                        className="w-16 shrink-0 bg-transparent border-0 p-0 text-sm text-right tabular-nums focus:outline-none focus:ring-0"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => patch(b.id, { rows: b.rows.filter((_, j) => j !== idx) })}
-                        aria-label="Remove row"
-                        className="text-xs text-gray-300 hover:text-[var(--gh-maroon)]"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-              <button
-                type="button"
-                onClick={() => patch(b.id, { rows: [...b.rows, { label: '', value: 0 }] })}
-                className="text-xs font-bold text-[var(--gh-green)] mt-1"
-              >
-                + row
-              </button>
-            </div>
+            <ChartBlock
+              block={b}
+              onChange={(next) => patch(b.id, next)}
+            />
           )}
 
           {b.kind === 'board' && (

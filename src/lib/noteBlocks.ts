@@ -1,3 +1,4 @@
+import { CHART_KINDS, MAX_SERIES, type ChartType } from './charts'
 import {
   EMPTY_BOARD,
   newId,
@@ -60,13 +61,23 @@ export interface NoteBoard {
 
 export interface NoteChartRow {
   label: string
-  value: number
+  /** One number per series — one per column of the little table in the editor. */
+  values: number[]
 }
 
 export interface NoteChart {
   id: string
   kind: 'chart'
+  /** The title. It is what the chart is of, so a single series needs no legend. */
   label: string
+  /** Which kind of chart to draw. Missing means columns, which is the old one. */
+  type?: ChartType
+  /** What the rows are — Opponent, Game, Player. Names the across axis. */
+  axis?: string
+  /** What the numbers are — Goals, Shots, Minutes. Names the value axis. */
+  unit?: string
+  /** One per column of numbers. Their names are the legend. */
+  series?: { name: string }[]
   rows: NoteChartRow[]
 }
 
@@ -90,7 +101,16 @@ export function emptyNoteBlock(kind: NoteBlockKind): NoteBlock {
     case 'board':
       return { id, kind, label: '', board: EMPTY_BOARD }
     case 'chart':
-      return { id, kind, label: '', rows: [{ label: '', value: 0 }] }
+      return {
+        id,
+        kind,
+        label: '',
+        type: 'column',
+        axis: '',
+        unit: '',
+        series: [{ name: '' }],
+        rows: [{ label: '', values: [0] }],
+      }
     default:
       return { id, kind: 'text', text: '' }
   }
@@ -136,20 +156,43 @@ export function readNoteBlocks(raw: unknown): NoteBlock[] {
           shotUrl: readShotUrl(b.shotUrl),
         })
         break
-      case 'chart':
+      case 'chart': {
+        const series = Array.isArray(b.series)
+          ? b.series
+              .slice(0, MAX_SERIES)
+              .map((x) => ({ name: text((x as Record<string, unknown>)?.name) }))
+          : []
+        const rows = Array.isArray(b.rows)
+          ? b.rows.map((r) => {
+              const row = (r ?? {}) as Record<string, unknown>
+              // Charts written before there were columns kept one number called
+              // `value`. That is the first column now.
+              const values = Array.isArray(row.values)
+                ? row.values.map((v) => (Number.isFinite(Number(v)) ? Number(v) : 0))
+                : [Number.isFinite(Number(row.value)) ? Number(row.value) : 0]
+              return { label: text(row.label), values: values.slice(0, MAX_SERIES) }
+            })
+          : []
+        // However many numbers the widest row actually carries — the chart is
+        // drawn from the data, not from a count that could disagree with it.
+        const width = Math.max(1, series.length, ...rows.map((r) => r.values.length))
         out.push({
           id,
           kind: 'chart',
           label: text(b.label),
-          rows: Array.isArray(b.rows)
-            ? b.rows.map((r) => {
-                const row = (r ?? {}) as Record<string, unknown>
-                const value = Number(row.value)
-                return { label: text(row.label), value: Number.isFinite(value) ? value : 0 }
-              })
-            : [],
+          type: CHART_KINDS.some((k) => k.key === b.type) ? (b.type as ChartType) : 'column',
+          axis: text(b.axis),
+          unit: text(b.unit),
+          series: Array.from({ length: Math.min(width, MAX_SERIES) }, (_, i) => ({
+            name: series[i]?.name ?? '',
+          })),
+          rows: rows.map((r) => ({
+            label: r.label,
+            values: Array.from({ length: Math.min(width, MAX_SERIES) }, (_, i) => r.values[i] ?? 0),
+          })),
         })
         break
+      }
       default:
       // A kind from a future build, or junk. Leaving it out is better than
       // rendering something nobody meant.
@@ -161,7 +204,10 @@ export function readNoteBlocks(raw: unknown): NoteBlock[] {
 
 /** The tallest bar, used to scale a chart. Never zero, so nothing divides by it. */
 export function chartMax(rows: NoteChartRow[]): number {
-  return Math.max(1, ...rows.map((r) => (Number.isFinite(r.value) ? Math.abs(r.value) : 0)))
+  return Math.max(
+    1,
+    ...rows.flatMap((r) => r.values.map((v) => (Number.isFinite(v) ? Math.abs(v) : 0)))
+  )
 }
 
 /** A one-line description for the planner list: "3 sections · a field · a chart". */
