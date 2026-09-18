@@ -242,6 +242,14 @@ export interface PlanBlock {
   clip?: BoardClip | null
   /** A screenshot pulled in from the Library, shown instead of a field. */
   shotUrl?: string | null
+  /**
+   * Runs at the same time as the block above it.
+   *
+   * A split block is two halves of one slot: the defense at one end with one
+   * coach, the offense at the other with another. The clock does not advance
+   * between them — the session moves on when the longer half is done.
+   */
+  parallel?: boolean
   /** The drill from the bank this block is running, if any. */
   drillId?: string | null
   /** A link carried over from that drill, so the block stands on its own. */
@@ -296,15 +304,40 @@ export function emptyBlock(): PlanBlock {
 export function runningClock(blocks: PlanBlock[]): number[] {
   const out: number[] = []
   let total = 0
-  for (const b of blocks) {
+  let group = 0 // the longest half of the split that is open
+
+  for (const [i, b] of blocks.entries()) {
+    const mins = Math.max(0, Number(b.minutes) || 0)
+    // A parallel block is the other half of the slot above it, so it starts
+    // when that one did. The first block has nothing to run beside.
+    if (b.parallel && i > 0) {
+      out.push(out[i - 1])
+      group = Math.max(group, mins)
+      continue
+    }
+    total += group
     out.push(total)
-    total += Math.max(0, Number(b.minutes) || 0)
+    group = mins
   }
   return out
 }
 
 export function totalMinutes(blocks: PlanBlock[]): number {
-  return blocks.reduce((sum, b) => sum + Math.max(0, Number(b.minutes) || 0), 0)
+  const clock = runningClock(blocks)
+  let end = 0
+  for (const [i, b] of blocks.entries()) {
+    end = Math.max(end, clock[i] + Math.max(0, Number(b.minutes) || 0))
+  }
+  return end
+}
+
+/** The blocks sharing a slot with this one, this one included. */
+export function splitGroup(blocks: PlanBlock[], index: number): number[] {
+  let first = index
+  while (first > 0 && blocks[first]?.parallel) first--
+  const group = [first]
+  for (let i = first + 1; i < blocks.length && blocks[i].parallel; i++) group.push(i)
+  return group
 }
 
 /** Minutes per tag, biggest first — how the session was actually spent. */
@@ -352,6 +385,7 @@ export function readBlocks(raw: unknown): PlanBlock[] {
       tag: typeof b.tag === 'string' ? b.tag : 'individual',
       notes: typeof b.notes === 'string' ? b.notes : '',
       board: readBoard(b.board),
+      parallel: b.parallel === true,
       clip: readClip(b.clip),
       shotUrl: readShotUrl(b.shotUrl),
       drillId: typeof b.drillId === 'string' ? b.drillId : null,
