@@ -21,6 +21,7 @@ import { DRILL_CATEGORIES, categoryFor, type Drill } from '@/lib/drills'
 import { FieldBoard } from './FieldBoard'
 import { ClipPlayer } from './ClipPlayer'
 import { LibraryPicker } from './LibraryPicker'
+import { ReviewPriorities } from './ReviewPriorities'
 import { imageFromClipboard, uploadImage } from '@/lib/uploadImage'
 import { NoteEditor } from './NoteEditor'
 import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
@@ -74,6 +75,41 @@ export function PlanEditor({
   const [toCoaches, setToCoaches] = useState(plan.publish_coaches)
   const [openId, setOpenId] = useState<string | null>(null)
   const [fieldOpen, setFieldOpen] = useState<string | null>(null)
+  /**
+   * Break a slot in two.
+   *
+   * The copy keeps the minutes and what the block is for, and drops everything
+   * that belongs to one group — the coach, the players, the field — because the
+   * point of splitting is that those differ. Time does not advance between the
+   * halves: the session moves on when the longer one is done.
+   */
+  function splitBlock(id: string) {
+    setBlocks((bs) => {
+      const at = bs.findIndex((x) => x.id === id)
+      if (at < 0) return bs
+      const from = bs[at]
+      const half: PlanBlock = {
+        ...from,
+        id: newId('b'),
+        parallel: true,
+        coach: null,
+        players: [],
+        board: null,
+        clip: null,
+        shotUrl: null,
+        notes: '',
+      }
+      // The new half goes after the last one already sharing this slot, so
+      // splitting twice gives three groups rather than an interleaved mess.
+      let after = at
+      while (after + 1 < bs.length && bs[after + 1].parallel) after++
+      const next = [...bs]
+      next.splice(after + 1, 0, half)
+      return next
+    })
+    setOpenId(null)
+  }
+
   /** Which block, if any, is picking something off the Library shelf. */
   const [picking, setPicking] = useState<string | null>(null)
   /** What a paste is doing, per block. */
@@ -274,6 +310,9 @@ export function PlanEditor({
               ))}
             </div>
           )}
+          {/* The whole point of writing something down on a sideline is that it
+              is in front of you when the plan is being made. */}
+          <ReviewPriorities />
           <button type="submit" disabled={saving} className="btn btn-primary !py-1.5 disabled:opacity-60">
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -338,8 +377,21 @@ export function PlanEditor({
                 onClick={() => setOpenId(open ? null : b.id)}
               >
                 <span className="text-gray-300 select-none" title="Drag to reorder">☰</span>
-                <span className="text-xs font-black tabular-nums w-16 shrink-0" style={{ color: tag.color }}>
-                  {at ?? `+${clock[i]}m`}
+                <span className="text-xs font-black tabular-nums w-[4.6rem] shrink-0" style={{ color: tag.color }}>
+                  {b.parallel ? (
+                    <span
+                      className="inline-flex items-center gap-1 font-bold text-gray-400 text-[0.65rem] whitespace-nowrap"
+                      title="Runs at the same time as the block above"
+                    >
+                      <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth={2.5} strokeLinecap="round" aria-hidden>
+                        <path d="M6 5v14M18 5v14" />
+                      </svg>
+                      same time
+                    </span>
+                  ) : (
+                    (at ?? `+${clock[i]}m`)
+                  )}
                 </span>
                 <span className="flex-1 min-w-0 truncate text-sm font-semibold">
                   {b.title || <span className="text-gray-400 font-normal">Untitled block</span>}
@@ -366,6 +418,10 @@ export function PlanEditor({
                 <div className="px-2.5 pb-2.5 space-y-2 border-t border-gray-100 pt-2.5">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div className="col-span-2 sm:col-span-4">
+                      <label className="field-label">Title</label>
+                      <input value={b.title} onChange={(e) => patch(b.id, { title: e.target.value })} className="field !py-1.5" />
+                    </div>
+                    <div className="col-span-2 sm:col-span-4">
                       <label className="field-label">Drill</label>
                       <select
                         value={b.drillId ?? ''}
@@ -385,10 +441,6 @@ export function PlanEditor({
                           )
                         })}
                       </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="field-label">Title</label>
-                      <input value={b.title} onChange={(e) => patch(b.id, { title: e.target.value })} className="field !py-1.5" />
                     </div>
                     <div>
                       <label className="field-label">Minutes</label>
@@ -499,6 +551,24 @@ export function PlanEditor({
                     >
                       Library
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => splitBlock(b.id)}
+                      className="font-bold text-gray-500 hover:text-[var(--gh-green)]"
+                      title="Run two groups at once — the defense at one end, the offense at the other"
+                    >
+                      Split
+                    </button>
+                    {b.parallel && (
+                      <button
+                        type="button"
+                        onClick={() => patch(b.id, { parallel: false })}
+                        className="font-bold text-gray-500 hover:text-[var(--gh-green)]"
+                        title="Give this its own slot on the clock again"
+                      >
+                        Unsplit
+                      </button>
+                    )}
                     {pasting?.id === b.id && <span className="text-gray-500">{pasting.say}</span>}
                     {!b.shotUrl && !pasting && (
                       <span className="text-gray-300">or paste a picture</span>

@@ -34,6 +34,14 @@ import { listDrills } from './drillsData'
 import { signOut, markReturned, markOutAgain, deleteAssignment } from './equipment'
 import { savePlay, deletePlay, clearPlayClip } from './plays'
 import { saveShot, renameShot, deleteShot } from './library'
+import {
+  addList as addPriorityList,
+  renameList as renamePriorityList,
+  deleteList as deletePriorityList,
+  addItem as addPriorityItem,
+  setItem as setPriorityItem,
+  deleteItem as deletePriorityItem,
+} from './priorities'
 import { saveContact } from './playerContacts'
 import { readSigninSettings } from './joinLinks'
 import { buildDrillSet, positionGroup } from './prescribe'
@@ -1246,6 +1254,59 @@ export async function clearPlayClipAction(formData: FormData) {
   if (id) await clearPlayClip(id)
   revalidatePath('/admin/playboard')
   revalidatePath('/admin/library')
+}
+
+// ── Priorities ───────────────────────────────────────────────────────────────
+// What the staff noticed on the sideline, kept where practice planning starts.
+
+export async function addPriorityListAction(formData: FormData) {
+  const viewer = await requireSection('priorities')
+  const name = str(formData.get('name'))
+  if (name) await addPriorityList(name, viewer.name || viewer.email)
+  revalidatePath('/admin/priorities')
+}
+
+export async function renamePriorityListAction(formData: FormData) {
+  await requireSection('priorities')
+  const id = str(formData.get('id'))
+  const name = str(formData.get('name'))
+  if (id && name) await renamePriorityList(id, name)
+  revalidatePath('/admin/priorities')
+}
+
+export async function deletePriorityListAction(formData: FormData) {
+  await requireSection('priorities')
+  const id = str(formData.get('id'))
+  if (id) await deletePriorityList(id)
+  revalidatePath('/admin/priorities')
+}
+
+export async function addPriorityAction(formData: FormData) {
+  const viewer = await requireSection('priorities')
+  const listId = str(formData.get('listId'))
+  const body = str(formData.get('body'))
+  const level = Number(str(formData.get('level'))) || 2
+  if (listId && body) await addPriorityItem(listId, body, level, viewer.name || viewer.email)
+  revalidatePath('/admin/priorities')
+}
+
+export async function setPriorityAction(formData: FormData) {
+  await requireSection('priorities')
+  const id = str(formData.get('id'))
+  if (!id) return
+  const next: { body?: string; level?: number; done?: boolean } = {}
+  if (formData.has('body')) next.body = str(formData.get('body'))
+  if (formData.has('level')) next.level = Number(str(formData.get('level')))
+  if (formData.has('done')) next.done = str(formData.get('done')) === 'true'
+  await setPriorityItem(id, next)
+  revalidatePath('/admin/priorities')
+}
+
+export async function deletePriorityAction(formData: FormData) {
+  await requireSection('priorities')
+  const id = str(formData.get('id'))
+  if (id) await deletePriorityItem(id)
+  revalidatePath('/admin/priorities')
 }
 
 // ── Equipment sign-out ───────────────────────────────────────────────────────

@@ -23,6 +23,7 @@ export const HUB_MODES: HubMode[] = [
   { key: 'drills',    label: 'Drill Bank',       section: 'drills',   icon: '📓', href: '/admin/drills' },
   { key: 'playboard', label: 'Playboard',        section: 'playboard', icon: '🖍', href: '/admin/playboard' },
   { key: 'library',   label: 'Library',          section: 'library',  icon: '🗄', href: '/admin/library' },
+  { key: 'priorities', label: 'Priorities',      section: 'priorities', icon: '🎯', href: '/admin/priorities' },
   { key: 'team',      label: 'Team Hub',         section: 'team',     icon: '🗣', href: '/admin/team' },
   { key: 'players',   label: 'Players',          section: 'hub',      icon: '🧍', href: '/admin/hub/players' },
   { key: 'evaluate',  label: 'Evaluate',         section: 'hub',      icon: '📝', href: '/admin/hub/evaluate' },
