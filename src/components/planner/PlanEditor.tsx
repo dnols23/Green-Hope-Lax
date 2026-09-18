@@ -21,6 +21,7 @@ import { DRILL_CATEGORIES, categoryFor, type Drill } from '@/lib/drills'
 import { FieldBoard } from './FieldBoard'
 import { ClipPlayer } from './ClipPlayer'
 import { LibraryPicker } from './LibraryPicker'
+import { imageFromClipboard, uploadImage } from '@/lib/uploadImage'
 import { NoteEditor } from './NoteEditor'
 import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
 
@@ -75,6 +76,29 @@ export function PlanEditor({
   const [fieldOpen, setFieldOpen] = useState<string | null>(null)
   /** Which block, if any, is picking something off the Library shelf. */
   const [picking, setPicking] = useState<string | null>(null)
+  /** What a paste is doing, per block. */
+  const [pasting, setPasting] = useState<{ id: string; say: string } | null>(null)
+
+  /**
+   * A picture pasted into a block.
+   *
+   * Copying a screenshot and pasting it where you want it is how every drawing
+   * tool works, and it used to do nothing here. A text paste falls through to
+   * whatever was focused, as it should.
+   */
+  async function pasteInto(id: string, e: React.ClipboardEvent) {
+    const file = imageFromClipboard(e.clipboardData)
+    if (!file) return
+    e.preventDefault()
+    setPasting({ id, say: 'Saving the picture…' })
+    const { url, error } = await uploadImage(file, 'library')
+    if (url) {
+      patch(id, { shotUrl: url })
+      setPasting(null)
+    } else {
+      setPasting({ id, say: error ?? 'That picture would not save.' })
+    }
+  }
   const [dragId, setDragId] = useState<string | null>(null)
 
   const clock = runningClock(blocks)
@@ -304,6 +328,7 @@ export function PlanEditor({
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => dropOn(b.id)}
               onDragEnd={() => setDragId(null)}
+              onPaste={(e) => void pasteInto(b.id, e)}
               className="card"
               style={{ borderLeft: `4px solid ${tag.color}`, opacity: dragId === b.id ? 0.4 : 1 }}
             >
@@ -474,6 +499,10 @@ export function PlanEditor({
                     >
                       Library
                     </button>
+                    {pasting?.id === b.id && <span className="text-gray-500">{pasting.say}</span>}
+                    {!b.shotUrl && !pasting && (
+                      <span className="text-gray-300">or paste a picture</span>
+                    )}
                     <span className="ml-auto flex items-center gap-1">
                       <button type="button" onClick={() => move(b.id, -1)} className="px-1.5 text-gray-400 hover:text-gray-700" aria-label="Move up">↑</button>
                       <button type="button" onClick={() => move(b.id, 1)} className="px-1.5 text-gray-400 hover:text-gray-700" aria-label="Move down">↓</button>

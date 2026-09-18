@@ -4,6 +4,7 @@ import { ChartBlock } from './ChartBlock'
 import { FieldBoard } from './FieldBoard'
 import { ClipPlayer } from './ClipPlayer'
 import { LibraryPicker } from './LibraryPicker'
+import { imageFromClipboard, uploadImage } from '@/lib/uploadImage'
 import {
   NOTE_BLOCK_KINDS,
   emptyNoteBlock,
@@ -30,6 +31,26 @@ export function NoteEditor({
   const [openBoard, setOpenBoard] = useState<string | null>(null)
   /** Which block, if any, is picking something off the Library shelf. */
   const [picking, setPicking] = useState<string | null>(null)
+  /** What a paste is doing, per block. */
+  const [pasting, setPasting] = useState<{ id: string; say: string } | null>(null)
+
+  /**
+   * A picture pasted into a field block. A text paste falls through to whatever
+   * was focused, as it should.
+   */
+  async function pasteInto(id: string, e: React.ClipboardEvent) {
+    const file = imageFromClipboard(e.clipboardData)
+    if (!file) return
+    e.preventDefault()
+    setPasting({ id, say: 'Saving the picture…' })
+    const { url, error } = await uploadImage(file, 'library')
+    if (url) {
+      patch(id, { shotUrl: url } as Partial<NoteBlock>)
+      setPasting(null)
+    } else {
+      setPasting({ id, say: error ?? 'That picture would not save.' })
+    }
+  }
 
   const patch = (id: string, next: Partial<NoteBlock>) =>
     onChange(blocks.map((b) => (b.id === id ? ({ ...b, ...next } as NoteBlock) : b)))
@@ -136,7 +157,7 @@ export function NoteEditor({
           )}
 
           {b.kind === 'board' && (
-            <div className="pr-16">
+            <div className="pr-16" onPaste={(e) => void pasteInto(b.id, e)}>
               <div className="flex items-center gap-2 mb-2">
                 <input
                   value={b.label}
@@ -151,6 +172,7 @@ export function NoteEditor({
                 >
                   Library
                 </button>
+                {pasting?.id === b.id && <span className="text-xs text-gray-500">{pasting.say}</span>}
                 <button
                   type="button"
                   onClick={() => setOpenBoard(openBoard === b.id ? null : b.id)}
