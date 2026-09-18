@@ -18,17 +18,13 @@ export async function boardToPng(svg: SVGSVGElement): Promise<Blob> {
   const w = Math.round((box?.width || svg.clientWidth || 120) * SCALE)
   const h = Math.round((box?.height || svg.clientHeight || 60) * SCALE)
 
+  // The grass is drawn inside the board, not set as a CSS background — a
+  // background is not painted into a canvas, so a copy of the markup is the
+  // whole picture.
   const copy = svg.cloneNode(true) as SVGSVGElement
   copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   copy.setAttribute('width', String(w))
   copy.setAttribute('height', String(h))
-  // The grass is a CSS background on the live element, and a background is not
-  // painted into a canvas — so the picture would come out on glass. Draw it.
-  const grass = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-  grass.setAttribute('width', '100%')
-  grass.setAttribute('height', '100%')
-  grass.setAttribute('fill', svg.style.background || '#4a7f52')
-  copy.insertBefore(grass, copy.firstChild)
 
   const markup = new XMLSerializer().serializeToString(copy)
   const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml;charset=utf-8' }))

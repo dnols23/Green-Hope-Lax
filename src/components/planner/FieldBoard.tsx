@@ -1,5 +1,5 @@
 'use client'
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   FIELD,
   POSITION_TOKENS,
@@ -15,6 +15,14 @@ import {
   type PathKind,
   type TokenKind,
 } from '@/lib/planner'
+import {
+  FORMATIONS,
+  facingAt,
+  goalNear,
+  placeLook,
+  placeSpots,
+  type SavedLook,
+} from '@/lib/formations'
 import { BoardMenu, type Selection } from './BoardMenu'
 
 /** A player who can be dropped onto the field. */
@@ -59,10 +67,29 @@ export function FieldBoard({
      shapes below. */
   const capColors = Array.from(new Set(board.paths.map((p) => pathLook(p).color)))
   const [shooting, setShooting] = useState(false)
+  const [half, setHalf] = useState<'off' | 'right' | 'left'>('off')
+  const [turn, setTurn] = useState(0)
   const svgRef = useRef<SVGSVGElement>(null)
+  /* The group everything is drawn in, in field yards. Every screen point is
+     turned into yards through this one element's matrix. */
+  const fieldRef = useRef<SVGGElement>(null)
+
+  /* A set waiting to be put down. Tap a formation, then tap the field: the tap
+     is where the cage is, and near a cage it snaps to it exactly. */
+  const [placing, setPlacing] = useState<{ kind: 'formation' | 'look'; key: string } | null>(null)
+  /* The staff's own saved groups. Fetched by the board rather than handed down,
+     so a note with four fields in it does not load the shelf four times. */
+  const [looks, setLooks] = useState<SavedLook[]>([])
+  /* Boxing a group: the rubber band while it is being drawn, then what it
+     caught. */
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  const [picked, setPicked] = useState<string[]>([])
+  const groupFrom = useRef<{ x: number; y: number } | null>(null)
+  /** The board before a group drag started — the one undo should come back to. */
+  const groupBefore = useRef<Board | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [full, setFull] = useState(false)
-  const [tool, setTool] = useState<'move' | PathKind>('move')
+  const [tool, setTool] = useState<'move' | 'select' | PathKind>('move')
   const [dragId, setDragId] = useState<string | null>(null)
   const [draft, setDraft] = useState<{ x: number; y: number }[] | null>(null)
   const [nextKind, setNextKind] = useState<TokenKind>('offense')
@@ -118,19 +145,62 @@ export function FieldBoard({
     openMenu(sel, { x: e.clientX, y: e.clientY })
   }
 
-  const viewW = FIELD.length + PAD * 2
-  const viewH = FIELD.width + PAD * 2
+  useEffect(() => {
+    if (readOnly) return
+    let live = true
+    fetch('/api/looks')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('no'))))
+      .then((d: { looks?: SavedLook[] }) => live && setLooks(d.looks ?? []))
+      .catch(() => {
+        // No shelf is not an error — the preset sets are still there.
+      })
+    return () => {
+      live = false
+    }
+  }, [readOnly])
 
-  /** Screen point → field yards. */
+  /* Which part of the field is on the glass, and which way up.
+     A play is drawn in one end, and a 110-yard field shrunk to fit a phone is a
+     ribbon — so the half field is the useful view, and the turn is for a phone
+     held upright, where the cage wants to be at the top. */
+  const win =
+    half === 'off'
+      ? { x: 0, y: 0, w: FIELD.length + PAD * 2, h: FIELD.width + PAD * 2 }
+      : half === 'right'
+        ? { x: FIELD.length / 2 + PAD, y: 0, w: FIELD.length / 2 + PAD, h: FIELD.width + PAD * 2 }
+        : { x: 0, y: 0, w: FIELD.length / 2 + PAD, h: FIELD.width + PAD * 2 }
+
+  const turned = turn === 90 || turn === 270
+  const viewBox = turned
+    ? `0 0 ${win.h} ${win.w}`
+    : `${win.x} ${win.y} ${win.w} ${win.h}`
+  /* Turning the board is one transform on the group everything hangs off.
+     Nothing else in here knows about it, because the pointer maths asks the
+     browser where a point landed rather than working it out. */
+  const spin =
+    turn === 90
+      ? `translate(${win.h},0) rotate(90) translate(${-win.x},${-win.y})`
+      : turn === 180
+        ? `translate(${win.w},${win.h}) rotate(180) translate(${-win.x},${-win.y})`
+        : turn === 270
+          ? `translate(0,${win.w}) rotate(270) translate(${-win.x},${-win.y})`
+          : undefined
+
+  /**
+   * Screen point → field yards.
+   *
+   * Asked of the browser rather than worked out from the bounding box: with the
+   * board turned, or letterboxed inside a full-screen panel, the arithmetic
+   * version puts a disc somewhere the finger was not.
+   */
   function toField(e: { clientX: number; clientY: number }) {
-    const svg = svgRef.current
-    if (!svg) return { x: 0, y: 0 }
-    const r = svg.getBoundingClientRect()
-    const x = ((e.clientX - r.left) / r.width) * viewW - PAD
-    const y = ((e.clientY - r.top) / r.height) * viewH - PAD
+    const g = fieldRef.current
+    const m = g?.getScreenCTM()
+    if (!g || !m) return { x: 0, y: 0 }
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse())
     return {
-      x: Math.max(0, Math.min(FIELD.length, Math.round(x * 10) / 10)),
-      y: Math.max(0, Math.min(FIELD.width, Math.round(y * 10) / 10)),
+      x: Math.max(0, Math.min(FIELD.length, Math.round(p.x * 10) / 10)),
+      y: Math.max(0, Math.min(FIELD.width, Math.round(p.y * 10) / 10)),
     }
   }
 
@@ -191,6 +261,123 @@ export function FieldBoard({
     setSelected({ type: 'text', id })
   }
 
+  /** Put the waiting set down, with the cage at the tap. */
+  function dropPlacing(at: { x: number; y: number }) {
+    if (!placing) return
+    // Within a dozen yards of a cage, it is that cage — a coach aiming at the
+    // goal should not have to hit it to the yard.
+    const goal = goalNear(at.x)
+    const near = Math.hypot(at.x - goal.x, at.y - goal.y) < 12 ? goal : at
+
+    const made =
+      placing.kind === 'formation'
+        ? (() => {
+            const f = FORMATIONS.find((x) => x.key === placing.key)
+            return f ? placeSpots(f.spots, near, facingAt(near.x)) : []
+          })()
+        : (() => {
+            const l = looks.find((x) => x.id === placing.key)
+            return l ? placeLook(l, near) : []
+          })()
+
+    setPlacing(null)
+    if (made.length) emit({ ...board, tokens: [...board.tokens, ...made] })
+  }
+
+  // ── Boxing a group ────────────────────────────────────────────────────────
+
+  const inBox = (
+    box: { x0: number; y0: number; x1: number; y1: number },
+    p: { x: number; y: number }
+  ) =>
+    p.x >= Math.min(box.x0, box.x1) &&
+    p.x <= Math.max(box.x0, box.x1) &&
+    p.y >= Math.min(box.y0, box.y1) &&
+    p.y <= Math.max(box.y0, box.y1)
+
+  /** What the box caught. A line counts only if the whole of it is inside. */
+  function caughtBy(box: { x0: number; y0: number; x1: number; y1: number }): string[] {
+    return [
+      ...board.tokens.filter((t) => inBox(box, t)).map((t) => t.id),
+      ...(board.texts ?? []).filter((t) => inBox(box, t)).map((t) => t.id),
+      ...board.paths.filter((p) => p.points.every((pt) => inBox(box, pt))).map((p) => p.id),
+    ]
+  }
+
+  /** The rectangle round everything picked, with a little air. */
+  function pickedBox() {
+    const xs: number[] = []
+    const ys: number[] = []
+    for (const t of board.tokens) if (picked.includes(t.id)) { xs.push(t.x); ys.push(t.y) }
+    for (const t of board.texts ?? []) if (picked.includes(t.id)) { xs.push(t.x); ys.push(t.y) }
+    for (const p of board.paths) {
+      if (!picked.includes(p.id)) continue
+      for (const pt of p.points) { xs.push(pt.x); ys.push(pt.y) }
+    }
+    if (!xs.length) return null
+    const pad = 2.5
+    return {
+      x: Math.min(...xs) - pad,
+      y: Math.min(...ys) - pad,
+      w: Math.max(...xs) - Math.min(...xs) + pad * 2,
+      h: Math.max(...ys) - Math.min(...ys) + pad * 2,
+    }
+  }
+
+  /** Shift everything picked by the same amount. */
+  function nudgeGroup(dx: number, dy: number) {
+    onChange?.({
+      ...board,
+      tokens: board.tokens.map((t) => (picked.includes(t.id) ? { ...t, x: t.x + dx, y: t.y + dy } : t)),
+      texts: (board.texts ?? []).map((t) =>
+        picked.includes(t.id) ? { ...t, x: t.x + dx, y: t.y + dy } : t
+      ),
+      paths: board.paths.map((p) =>
+        picked.includes(p.id)
+          ? { ...p, points: p.points.map((pt) => ({ x: pt.x + dx, y: pt.y + dy })) }
+          : p
+      ),
+    })
+  }
+
+  function deleteGroup() {
+    emit({
+      ...board,
+      tokens: board.tokens.filter((t) => !picked.includes(t.id)),
+      texts: (board.texts ?? []).filter((t) => !picked.includes(t.id)),
+      paths: board.paths.filter((p) => !picked.includes(p.id)),
+    })
+    setPicked([])
+    setMenu(null)
+  }
+
+  function colorGroup(c: string) {
+    emit({
+      ...board,
+      tokens: board.tokens.map((t) => (picked.includes(t.id) ? { ...t, color: c } : t)),
+      texts: (board.texts ?? []).map((t) => (picked.includes(t.id) ? { ...t, color: c } : t)),
+      paths: board.paths.map((p) => (picked.includes(p.id) ? { ...p, color: c } : p)),
+    })
+  }
+
+  /** Keep the discs in the box as a look, on the shelf for every coach. */
+  async function saveLook(name: string) {
+    const tokens = board.tokens.filter((t) => picked.includes(t.id))
+    if (!tokens.length) return
+    setMenu(null)
+    try {
+      const res = await fetch('/api/looks', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, tokens }),
+      })
+      const body = (await res.json()) as { looks?: SavedLook[] }
+      if (res.ok && body.looks) setLooks(body.looks)
+    } catch {
+      // Saving the shelf failing must not take the board down with it.
+    }
+  }
+
   /**
    * A picture of the field as it stands. The selection halo and the draft line
    * are working marks, not part of the play, so they come off first — otherwise
@@ -214,9 +401,27 @@ export function FieldBoard({
 
   function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (readOnly) return
+
+    // A set waiting to be put down goes down wherever you tap.
+    if (placing) {
+      dropPlacing(toField(e))
+      return
+    }
+
+    if (tool === 'select') {
+      const at = toField(e)
+      setPicked([])
+      setSelected(null)
+      setMarquee({ x0: at.x, y0: at.y, x1: at.x, y1: at.y })
+      return
+    }
+
     if (tool === 'move') {
       // A tap on the grass is "never mind".
-      if (e.target === svgRef.current) setSelected(null)
+      if (e.target === svgRef.current) {
+        setSelected(null)
+        setPicked([])
+      }
       return
     }
     try {
@@ -233,6 +438,18 @@ export function FieldBoard({
   function onPointerMove(e: React.PointerEvent<SVGSVGElement>) {
     if (readOnly) return
     pressMoved(e)
+
+    if (marquee) {
+      const at = toField(e)
+      setMarquee({ ...marquee, x1: at.x, y1: at.y })
+      return
+    }
+    if (groupFrom.current) {
+      const at = toField(e)
+      nudgeGroup(at.x - groupFrom.current.x, at.y - groupFrom.current.y)
+      groupFrom.current = at
+      return
+    }
     if (dragId) {
       const { x, y } = toField(e)
       // Discs and words both drag; whichever one this id belongs to moves.
@@ -253,8 +470,28 @@ export function FieldBoard({
 
   function onPointerUp() {
     cancelPress()
+    if (marquee) {
+      const caught = caughtBy(marquee)
+      setMarquee(null)
+      setPicked(caught)
+      // Boxed, and now you want to move it — so hand the move tool back.
+      if (caught.length) setTool('move')
+      return
+    }
+    if (groupFrom.current) {
+      groupFrom.current = null
+      // One entry in the history for the whole drag, not one per pixel — and it
+      // is where the group started, not where it ended up.
+      const before = groupBefore.current
+      groupBefore.current = null
+      if (before) {
+        setPast((p) => [...p.slice(-49), before])
+        setFuture([])
+      }
+      return
+    }
     if (dragId) { setDragId(null); return }
-    if (draft && tool !== 'move') {
+    if (draft && tool !== 'move' && tool !== 'select') {
       if (draft.length >= 2) {
         emit({ ...board, paths: [...board.paths, { id: newId('p'), kind: tool, points: draft }] })
       }
@@ -285,6 +522,17 @@ export function FieldBoard({
     }
   }
 
+  /** Press inside the box to take the whole group with you. */
+  function startGroupDrag(e: React.PointerEvent) {
+    if (tool !== 'move') return
+    e.stopPropagation()
+    groupFrom.current = toField(e)
+    groupBefore.current = board
+    armPress({ type: 'group', id: 'group' }, e)
+  }
+
+  const groupBox = picked.length > 0 ? pickedBox() : null
+
   const toolBtn = (active: boolean) =>
     `px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
       active ? 'text-white' : 'text-gray-600 bg-white hover:bg-gray-50'
@@ -304,6 +552,21 @@ export function FieldBoard({
             }}
           >
             Move
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTool('select')
+              setPicked([])
+            }}
+            className={toolBtn(tool === 'select')}
+            style={{
+              background: tool === 'select' ? 'var(--gh-green)' : undefined,
+              borderColor: tool === 'select' ? 'var(--gh-green)' : '#e5e7eb',
+            }}
+            title="Draw a box round a group to move it, delete it or keep it"
+          >
+            Select
           </button>
           {PATH_KINDS.map((p) => (
             <button
@@ -385,6 +648,33 @@ export function FieldBoard({
 
           <button
             type="button"
+            onClick={() => setHalf(half === 'off' ? 'right' : half === 'right' ? 'left' : 'off')}
+            className={toolBtn(half !== 'off')}
+            style={{
+              background: half !== 'off' ? 'var(--gh-green)' : undefined,
+              borderColor: half !== 'off' ? 'var(--gh-green)' : '#e5e7eb',
+            }}
+            title="Show one end, big — press again for the other end, and again for the whole field"
+          >
+            {half === 'off' ? 'Half field' : half === 'right' ? 'Right end' : 'Left end'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTurn((t) => (t + 90) % 360)}
+            className={toolBtn(turn !== 0)}
+            style={{
+              background: turn !== 0 ? 'var(--gh-green)' : undefined,
+              borderColor: turn !== 0 ? 'var(--gh-green)' : '#e5e7eb',
+            }}
+            title="Turn the board a quarter turn"
+          >
+            Rotate
+          </button>
+
+          <span className="w-px h-5 bg-gray-200 mx-1" />
+
+          <button
+            type="button"
             onClick={toggleFullscreen}
             className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 bg-white hover:bg-gray-50"
             title="Fill the screen — turn a phone sideways"
@@ -416,6 +706,53 @@ export function FieldBoard({
           >
             Clear
           </button>
+        </div>
+      )}
+
+      {!readOnly && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          <span className="text-[0.65rem] font-black tracking-wider uppercase text-gray-400 mr-0.5">
+            Sets
+          </span>
+          {FORMATIONS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() =>
+                setPlacing(placing?.key === f.key ? null : { kind: 'formation', key: f.key })
+              }
+              title={f.blurb}
+              className={toolBtn(placing?.key === f.key)}
+              style={{
+                background: placing?.key === f.key ? 'var(--gh-green)' : undefined,
+                borderColor: placing?.key === f.key ? 'var(--gh-green)' : '#e5e7eb',
+              }}
+            >
+              {f.name}
+            </button>
+          ))}
+
+          {looks.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => setPlacing(placing?.key === l.id ? null : { kind: 'look', key: l.id })}
+              title={`${l.spots.length} discs, saved by the staff`}
+              className={toolBtn(placing?.key === l.id)}
+              style={{
+                background: placing?.key === l.id ? 'var(--gh-maroon)' : undefined,
+                borderColor: placing?.key === l.id ? 'var(--gh-maroon)' : '#e5e7eb',
+              }}
+            >
+              {l.name}
+            </button>
+          ))}
+
+          {placing && (
+            <span className="text-xs font-semibold" style={{ color: 'var(--gh-green)' }}>
+              Tap the cage you&rsquo;re attacking — or anywhere you want it
+            </span>
+          )}
         </div>
       )}
 
@@ -465,15 +802,28 @@ export function FieldBoard({
 
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${viewW} ${viewH}`}
+        viewBox={viewBox}
         className={`w-full rounded-xl select-none touch-none ${full ? 'flex-1 min-h-0' : ''}`}
-        style={{ background: '#4a7f52', cursor: tool === 'move' ? 'default' : 'crosshair' }}
+        style={{
+          cursor: placing ? 'copy' : tool === 'move' ? 'default' : 'crosshair',
+          /* A half field, or a turned one, is nearly square — left to fill the
+             width it would be taller than the screen and the coach would be
+             scrolling to see his own play. */
+          maxHeight: full ? undefined : '72vh',
+        }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
       >
-        <g transform={`translate(${PAD} ${PAD})`}>
+        {/* The grass is drawn rather than set as a background colour, so a board
+            that has to letterbox — a half field on a wide laptop — shows a field
+            with the page either side of it, not a slab of green. It also means a
+            screenshot has grass in it without anything being added. */}
+        <rect width="100%" height="100%" fill="#4a7f52" rx={1.5} />
+
+        <g transform={spin}>
+        <g ref={fieldRef} transform={`translate(${PAD} ${PAD})`}>
           <FieldLines />
 
           {board.paths.map((p) => {
@@ -537,6 +887,9 @@ export function FieldBoard({
               fontStyle={t.italic ? 'italic' : undefined}
               textDecoration={t.underline ? 'underline' : undefined}
               textAnchor={t.align ?? 'middle'}
+              /* Turning the board must not turn the reading. A word written on
+                 the field reads the same way up whichever way the field is. */
+              transform={turn ? `rotate(${-turn} ${t.x} ${t.y})` : undefined}
               style={{
                 cursor: readOnly ? 'default' : 'grab',
                 userSelect: 'none',
@@ -555,13 +908,13 @@ export function FieldBoard({
             </text>
           ))}
 
-          {draft && draft.length > 1 && tool !== 'move' && (
+          {draft && draft.length > 1 && tool !== 'move' && tool !== 'select' && (
             <polyline
               points={draft.map((pt) => `${pt.x},${pt.y}`).join(' ')}
               fill="none"
-              stroke={pathStyle(tool).color}
+              stroke={pathStyle(tool as PathKind).color}
               strokeWidth={0.7}
-              strokeDasharray={pathStyle(tool).dash}
+              strokeDasharray={pathStyle(tool as PathKind).dash}
               opacity={0.7}
             />
           )}
@@ -572,6 +925,7 @@ export function FieldBoard({
               token={t}
               readOnly={readOnly}
               selected={selected?.type === 'token' && selected.id === t.id}
+              turn={turn}
               onGrab={(e) => {
                 setSelected({ type: 'token', id: t.id })
                 armPress({ type: 'token', id: t.id }, e)
@@ -581,6 +935,40 @@ export function FieldBoard({
               onRemove={() => removeToken(t.id)}
             />
           ))}
+
+          {/* The rubber band, while a box is being drawn round a group. */}
+          {marquee && (
+            <rect
+              x={Math.min(marquee.x0, marquee.x1)}
+              y={Math.min(marquee.y0, marquee.y1)}
+              width={Math.abs(marquee.x1 - marquee.x0)}
+              height={Math.abs(marquee.y1 - marquee.y0)}
+              fill="rgba(255,255,255,0.12)"
+              stroke="#ffffff"
+              strokeWidth={0.35}
+              strokeDasharray="1.2 1"
+              pointerEvents="none"
+            />
+          )}
+
+          {/* What the box caught. Drag anywhere inside it to move the lot;
+              right-click it for delete and for keeping it as a look. */}
+          {!readOnly && groupBox && (
+            <rect
+              x={groupBox.x}
+              y={groupBox.y}
+              width={groupBox.w}
+              height={groupBox.h}
+              fill="rgba(255,255,255,0.10)"
+              stroke="#ffffff"
+              strokeWidth={0.3}
+              strokeDasharray="1.6 1.2"
+              style={{ cursor: 'move' }}
+              onPointerDown={startGroupDrag}
+              onContextMenu={(e) => onMenu({ type: 'group', id: 'group' }, e)}
+            />
+          )}
+        </g>
         </g>
 
         <defs>
@@ -618,6 +1006,12 @@ export function FieldBoard({
           board={board}
           selection={selected}
           at={menu}
+          group={{
+            count: picked.length,
+            onDelete: deleteGroup,
+            onColor: colorGroup,
+            onSaveLook: saveLook,
+          }}
           onChange={emit}
           onClose={() => setMenu(null)}
         />
@@ -626,7 +1020,8 @@ export function FieldBoard({
       {!readOnly && (
         <p className="text-[0.7rem] text-gray-400 mt-1.5">
           Drag a disc to move it · right-click, or press and hold on a phone, for everything you can
-          change about it · double-click a disc to take it off
+          change about it · Select draws a box round a group to move it, delete it or keep it as a
+          look · double-click a disc to take it off
         </p>
       )}
     </div>
@@ -731,6 +1126,7 @@ function Token({
   token,
   readOnly,
   selected,
+  turn,
   onGrab,
   onInspect,
   onRemove,
@@ -738,6 +1134,8 @@ function Token({
   token: BoardToken
   readOnly: boolean
   selected: boolean
+  /** How far the board is turned, so the letter on the disc stays upright. */
+  turn: number
   onGrab: (e: React.PointerEvent) => void
   /** Right-click: the way people ask "what can I change?" */
   onInspect: (e: React.MouseEvent) => void
@@ -772,6 +1170,8 @@ function Token({
           fontSize={r * 1.1}
           fontWeight={800}
           fill={style.ink}
+          /* The disc turns with the board; the letter on it does not. */
+          transform={turn ? `rotate(${-turn})` : undefined}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
           {token.label.slice(0, 4)}
