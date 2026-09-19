@@ -19,7 +19,7 @@ import { newId } from './planner'
 export interface ChartTemplate {
   key: string
   name: string
-  group: 'Offense' | 'Defense' | 'Goalie' | 'Specialty' | 'The game'
+  group: 'Offense' | 'Defense' | 'Ride and clear' | 'Goalie' | 'Specialty' | 'The game'
   blurb: string
   type: ChartType
   /** What the rows are — names the across axis. */
@@ -123,16 +123,79 @@ export const CHART_TEMPLATES: ChartTemplate[] = [
     series: [{ name: 'Caused' }, { name: 'Given away' }],
     rows: QUARTERS,
   },
+  // ── Ride and clear ───────────────────────────────────────────────────────
   {
     key: 'clear-pct',
     name: 'Clearing %',
-    group: 'Defense',
+    group: 'Ride and clear',
     blurb: 'Clears made out of clears tried, game by game.',
     type: 'column',
     axis: 'Game',
     unit: 'Clearing %',
     series: [input('Cleared'), input('Tried'), rate('Clearing %', 0, 1)],
     rows: games(10),
+  },
+  {
+    key: 'ride-pct',
+    name: 'Riding %',
+    group: 'Ride and clear',
+    blurb: 'How often the ride got the ball back — stops out of their clear attempts.',
+    type: 'column',
+    axis: 'Game',
+    unit: 'Riding %',
+    series: [input('Stops'), input('They tried'), rate('Riding %', 0, 1)],
+    rows: games(10),
+  },
+  {
+    key: 'clear-vs-ride',
+    name: 'Clearing against riding',
+    group: 'Ride and clear',
+    blurb: 'Both ends of the same fight on one chart — our clears out, their clears stopped.',
+    type: 'line',
+    axis: 'Game',
+    unit: '%',
+    series: [
+      input('Cleared'),
+      input('We tried'),
+      input('Stops'),
+      input('They tried'),
+      rate('Clearing %', 0, 1),
+      rate('Riding %', 2, 3),
+    ],
+    rows: games(10),
+  },
+  {
+    key: 'clears-by-start',
+    name: 'Clears by how they started',
+    group: 'Ride and clear',
+    blurb: 'Which kind of clear is the one breaking down.',
+    type: 'column',
+    axis: 'Started with',
+    unit: 'Clearing %',
+    series: [input('Cleared'), input('Tried'), rate('Clearing %', 0, 1)],
+    rows: ['After a save', 'After a goal', 'Dead ball', 'Off a turnover'],
+  },
+  {
+    key: 'clear-breakdown',
+    name: 'Where clears broke down',
+    group: 'Ride and clear',
+    blurb: 'Every failed clear, by what actually went wrong.',
+    type: 'pie',
+    axis: 'What happened',
+    unit: 'Failed clears',
+    series: [{ name: 'Failed clears' }],
+    rows: ['Bad pass', 'Dropped', 'Over the midline', 'Stalled out', 'Ran out of room'],
+  },
+  {
+    key: 'ride-turnovers',
+    name: 'Where the ride caused it',
+    group: 'Ride and clear',
+    blurb: 'Every ball the ride won back, by where on the field it happened.',
+    type: 'pie',
+    axis: 'Where',
+    unit: 'Balls won',
+    series: [{ name: 'Balls won' }],
+    rows: ['Behind their cage', 'Their box', 'At the midline', 'Our box'],
   },
 
   // ── Goalie ───────────────────────────────────────────────────────────────
@@ -233,6 +296,7 @@ export const CHART_TEMPLATES: ChartTemplate[] = [
 export const TEMPLATE_GROUPS: ChartTemplate['group'][] = [
   'Offense',
   'Defense',
+  'Ride and clear',
   'Goalie',
   'Specialty',
   'The game',
