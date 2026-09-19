@@ -65,6 +65,21 @@ export interface NoteChartRow {
   values: number[]
 }
 
+/**
+ * A column of numbers.
+ *
+ * Most are typed in and drawn. Some are typed in only to feed another — the
+ * shots and goals behind a shooting percentage — and some are not typed in at
+ * all because they are worked out from two that were.
+ */
+export interface NoteChartSeries {
+  name: string
+  /** Typed in, but kept off the chart because it feeds a worked-out column. */
+  input?: boolean
+  /** Worked out: this column is top ÷ bottom as a percentage. */
+  percent?: { top: number; bottom: number }
+}
+
 export interface NoteChart {
   id: string
   kind: 'chart'
@@ -76,8 +91,8 @@ export interface NoteChart {
   axis?: string
   /** What the numbers are — Goals, Shots, Minutes. Names the value axis. */
   unit?: string
-  /** One per column of numbers. Their names are the legend. */
-  series?: { name: string }[]
+  /** One per column of numbers. The ones that get drawn are the legend. */
+  series?: NoteChartSeries[]
   rows: NoteChartRow[]
 }
 
@@ -157,10 +172,22 @@ export function readNoteBlocks(raw: unknown): NoteBlock[] {
         })
         break
       case 'chart': {
-        const series = Array.isArray(b.series)
-          ? b.series
-              .slice(0, MAX_SERIES)
-              .map((x) => ({ name: text((x as Record<string, unknown>)?.name) }))
+        const series: NoteChartSeries[] = Array.isArray(b.series)
+          ? b.series.slice(0, MAX_SERIES).map((x) => {
+              const col = (x ?? {}) as Record<string, unknown>
+              const pc = (col.percent ?? null) as Record<string, unknown> | null
+              const top = Number(pc?.top)
+              const bottom = Number(pc?.bottom)
+              const worked =
+                pc && Number.isInteger(top) && Number.isInteger(bottom) && top >= 0 && bottom >= 0
+                  ? { top, bottom }
+                  : undefined
+              return {
+                name: text(col.name),
+                input: col.input === true,
+                percent: worked,
+              }
+            })
           : []
         const rows = Array.isArray(b.rows)
           ? b.rows.map((r) => {
@@ -185,6 +212,8 @@ export function readNoteBlocks(raw: unknown): NoteBlock[] {
           unit: text(b.unit),
           series: Array.from({ length: Math.min(width, MAX_SERIES) }, (_, i) => ({
             name: series[i]?.name ?? '',
+            input: series[i]?.input,
+            percent: series[i]?.percent,
           })),
           rows: rows.map((r) => ({
             label: r.label,
