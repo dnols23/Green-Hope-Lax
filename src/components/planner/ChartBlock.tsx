@@ -35,6 +35,9 @@ export function ChartBlock({
   const [showTable, setShowTable] = useState(true)
   /* A brand-new chart opens on the templates, because picking a chart type and
      naming six columns is the part nobody wants to do on a Sunday night. */
+  /* Which groups are open. All shut to start with: the whole list is two
+     screens on a phone, and the group names alone fit on one. */
+  const [openGroups, setOpenGroups] = useState<string[]>([])
   const [showTemplates, setShowTemplates] = useState(
     block.rows.length <= 1 && !block.rows.some((r) => r.label.trim())
   )
@@ -119,36 +122,72 @@ export function ChartBlock({
 
         {showTemplates && (
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 mt-1.5 space-y-2.5">
-            {TEMPLATE_GROUPS.map((group) => (
-              <div key={group}>
-                <div className="text-[0.65rem] font-black tracking-wider uppercase text-gray-400 mb-1">
-                  {group}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {CHART_TEMPLATES.filter((t) => t.group === group).map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      title={t.top ? `${t.blurb} · One of the two worth keeping above all` : t.blurb}
-                      onClick={() => {
-                        onChange(applyTemplate(block, t))
-                        setShowTemplates(false)
-                        setShowTable(true)
-                      }}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold border border-gray-200 bg-white hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
-                      style={t.top ? { borderColor: 'var(--gh-green)' } : undefined}
+            {TEMPLATE_GROUPS.map((group) => {
+              const inGroup = CHART_TEMPLATES.filter((t) => t.group === group)
+              const isOpen = openGroups.includes(group)
+              return (
+                <div key={group}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenGroups((g) => (isOpen ? g.filter((x) => x !== group) : [...g, group]))
+                    }
+                    aria-expanded={isOpen}
+                    className="w-full flex items-center gap-2 py-1 text-left"
+                  >
+                    <svg
+                      className="w-3 h-3 shrink-0 text-gray-400 transition-transform"
+                      style={{ transform: isOpen ? 'rotate(90deg)' : undefined }}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
                     >
-                      {t.top && (
-                        <span className="text-[var(--gh-green)] mr-1" aria-hidden>
-                          ★
-                        </span>
-                      )}
-                      {t.name}
-                    </button>
-                  ))}
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span className="text-[0.65rem] font-black tracking-wider uppercase text-gray-500">
+                      {group}
+                    </span>
+                    <span className="text-[0.65rem] font-bold text-gray-300">{inGroup.length}</span>
+                    {!isOpen && inGroup.some((t) => t.top) && (
+                      <span className="text-[var(--gh-green)] text-xs" aria-hidden>
+                        ★
+                      </span>
+                    )}
+                  </button>
+
+                  {isOpen && (
+                    <div className="flex flex-wrap gap-1.5 pl-5 pb-1">
+                      {inGroup.map((t) => (
+                        <button
+                          key={t.key}
+                          type="button"
+                          title={t.top ? `${t.blurb} · One of the two worth keeping above all` : t.blurb}
+                          onClick={() => {
+                            onChange(applyTemplate(block, t))
+                            setShowTemplates(false)
+                            setShowTable(true)
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold border border-gray-200 bg-white hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
+                          style={t.top ? { borderColor: 'var(--gh-green)' } : undefined}
+                        >
+                          {t.top && (
+                            <span className="text-[var(--gh-green)] mr-1" aria-hidden>
+                              ★
+                            </span>
+                          )}
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
+
             <p className="text-[0.7rem] text-gray-400">
               Picking one sets the chart, names the columns and lays out the rows. Percentages and
               ratios work themselves out — type the two numbers behind them.{' '}
