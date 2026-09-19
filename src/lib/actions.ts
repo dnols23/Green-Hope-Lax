@@ -1816,21 +1816,43 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   }
 
   const svc = createServiceClient()
-  const { error } = await svc
+  const blocksOut = readBlocks(blocks)
+  const contentOut = readNoteBlocks(content)
+  const common = {
+    title: str(formData.get('title')) || 'Untitled',
+    plan_date: str(formData.get('plan_date')) || null,
+    season: str(formData.get('season')) || null,
+    summary: str(formData.get('summary')) || null,
+    roster_id: str(formData.get('roster_id')) || null,
+    blocks: blocksOut,
+    publish_players: str(formData.get('publish_players')) === 'true',
+    publish_coaches: str(formData.get('publish_coaches')) === 'true',
+    updated_at: new Date().toISOString(),
+  }
+
+  let { error } = await svc
     .from('plans')
-    .update({
-      title: str(formData.get('title')) || 'Untitled',
-      plan_date: str(formData.get('plan_date')) || null,
-      season: str(formData.get('season')) || null,
-      summary: str(formData.get('summary')) || null,
-      roster_id: str(formData.get('roster_id')) || null,
-      blocks: readBlocks(blocks),
-      content: readNoteBlocks(content),
-      publish_players: str(formData.get('publish_players')) === 'true',
-      publish_coaches: str(formData.get('publish_coaches')) === 'true',
-      updated_at: new Date().toISOString(),
-    })
+    .update({ ...common, content: contentOut })
     .eq('id', id)
+
+  /* A note is made of blocks that live in their own column, and that column
+     arrives with its own SQL. Without it the whole save was failing — so a
+     practice plan, which has no note blocks at all, could not be saved over a
+     column it does not use. Save everything else, and only complain if there
+     were blocks that had nowhere to go. */
+  const missingContent = error && /content/i.test(error.message) && /column|schema cache/i.test(error.message)
+  if (missingContent) {
+    const retry = await svc.from('plans').update(common).eq('id', id)
+    error = retry.error
+    if (!error && contentOut.length > 0) {
+      return {
+        ok: false,
+        error:
+          'Saved everything but the note itself — notes need supabase/migrations/0026_note_content.sql run in the Supabase SQL editor.',
+      }
+    }
+  }
+
   if (error) {
     console.error('[savePlan]', error)
     return { ok: false, error: `Couldn\u2019t save: ${error.message}` }
