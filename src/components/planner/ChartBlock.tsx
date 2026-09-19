@@ -7,6 +7,7 @@ import {
   drawnSeries,
   fits,
   seriesColor,
+  isWorkedOut,
   valueAt,
   whyNot,
   type ChartType,
@@ -60,7 +61,10 @@ export function ChartBlock({
   const dependents = (i: number) =>
     series
       .map((s, j) => ({ s, j }))
-      .filter(({ s, j }) => j !== i && s.percent && (s.percent.top === i || s.percent.bottom === i))
+      .filter(({ s, j }) => {
+        const worked = s.percent ?? s.ratio
+        return j !== i && worked && (worked.top === i || worked.bottom === i)
+      })
       .map(({ j }) => j)
 
   const dropSeries = (i: number) => {
@@ -73,12 +77,14 @@ export function ChartBlock({
     const moved = new Map(keep.map((j, at) => [j, at]))
     const left = keep.map((j) => {
       const col = series[j]
-      if (!col.percent) return { ...col }
-      const top = moved.get(col.percent.top)
-      const bottom = moved.get(col.percent.bottom)
-      return top === undefined || bottom === undefined
-        ? { name: col.name }
-        : { ...col, percent: { top, bottom } }
+      const worked = col.percent ?? col.ratio
+      if (!worked) return { ...col }
+      const top = moved.get(worked.top)
+      const bottom = moved.get(worked.bottom)
+      if (top === undefined || bottom === undefined) return { name: col.name }
+      return col.percent
+        ? { ...col, percent: { top, bottom } }
+        : { ...col, ratio: { top, bottom } }
     })
     onChange({
       series: left,
@@ -123,14 +129,20 @@ export function ChartBlock({
                     <button
                       key={t.key}
                       type="button"
-                      title={t.blurb}
+                      title={t.top ? `${t.blurb} · One of the two worth keeping above all` : t.blurb}
                       onClick={() => {
                         onChange(applyTemplate(block, t))
                         setShowTemplates(false)
                         setShowTable(true)
                       }}
                       className="px-2.5 py-1 rounded-lg text-xs font-bold border border-gray-200 bg-white hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
+                      style={t.top ? { borderColor: 'var(--gh-green)' } : undefined}
                     >
+                      {t.top && (
+                        <span className="text-[var(--gh-green)] mr-1" aria-hidden>
+                          ★
+                        </span>
+                      )}
                       {t.name}
                     </button>
                   ))}
@@ -138,8 +150,10 @@ export function ChartBlock({
               </div>
             ))}
             <p className="text-[0.7rem] text-gray-400">
-              Picking one sets the chart, names the columns and lays out the rows. Percentages work
-              themselves out — type the two numbers behind them.
+              Picking one sets the chart, names the columns and lays out the rows. Percentages and
+              ratios work themselves out — type the two numbers behind them.{' '}
+              <span className="text-[var(--gh-green)]">★</span> marks shooting percentage and
+              possession ratio, the two to keep if you keep nothing else.
             </p>
           </div>
         )}
@@ -268,13 +282,14 @@ export function ChartBlock({
                       />
                     </td>
                     {series.map((col, si) =>
-                      col.percent ? (
+                      isWorkedOut(col) ? (
                         <td key={si} className="px-1">
                           <span
                             className="inline-block w-20 text-right text-sm tabular-nums font-bold px-2 py-1"
                             title="Worked out from the two columns before it"
                           >
-                            {valueAt(row, series, si)}%
+                            {valueAt(row, series, si)}
+                            {col.percent ? '%' : ''}
                           </span>
                         </td>
                       ) : (
