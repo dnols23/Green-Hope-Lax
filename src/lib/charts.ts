@@ -136,7 +136,44 @@ export interface ChartPoint {
   values: number[]
 }
 
+/** A column of numbers, as the chart needs to know it. */
+export interface ChartSeries {
+  name: string
+  input?: boolean
+  percent?: { top: number; bottom: number }
+}
+
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
+
+/**
+ * The number this column holds for this row.
+ *
+ * A worked-out column has nothing stored in it — it is two of the other columns
+ * divided. Nothing over nothing is nothing, not an error: a player who has not
+ * shot yet is on 0%, which is the honest answer until he shoots.
+ */
+export function valueAt(row: ChartPoint, series: ChartSeries[], i: number): number {
+  const col = series[i]
+  if (col?.percent) {
+    const bottom = num(row.values[col.percent.bottom])
+    if (!bottom) return 0
+    return Math.round((num(row.values[col.percent.top]) / bottom) * 1000) / 10
+  }
+  return num(row.values[i])
+}
+
+/** Which columns actually get drawn — the inputs stay off the chart. */
+export function drawnSeries(series: ChartSeries[]): number[] {
+  const drawn = series.map((_, i) => i).filter((i) => !series[i]?.input)
+  // A chart of nothing is not better than a chart of everything.
+  return drawn.length ? drawn : series.map((_, i) => i)
+}
+
+/** The rows as the chart sees them: worked-out columns filled in, inputs dropped. */
+export function drawnRows(rows: ChartPoint[], series: ChartSeries[]): ChartPoint[] {
+  const cols = drawnSeries(series)
+  return rows.map((r) => ({ label: r.label, values: cols.map((i) => valueAt(r, series, i)) }))
+}
 
 /**
  * What the value axis has to cover.

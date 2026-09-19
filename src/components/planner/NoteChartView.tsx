@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import {
+  drawnRows,
+  drawnSeries,
   niceTicks,
   scatterRange,
   seriesColor,
@@ -60,9 +62,18 @@ export function NoteChartView({ chart }: { chart: NoteChart }) {
   const [hover, setHover] = useState<Hover>(null)
 
   const type: ChartType = chart.type ?? 'column'
-  const names = (chart.series ?? []).map((s) => s.name)
-  const count = Math.max(1, chart.series?.length ?? 1)
-  const rows = chart.rows.filter((r) => r.label.trim() || r.values.some((v) => v !== 0))
+  /* Columns that only feed a worked-out one — the shots and goals behind a
+     shooting percentage — are typed in but never drawn. Putting shots (0–35)
+     and a percentage (0–100) on one axis would need two scales, which is how a
+     chart invents a relationship that is not in the numbers. */
+  const cols = chart.series ?? [{ name: '' }]
+  const drawn = drawnSeries(cols)
+  const names = drawn.map((i) => cols[i]?.name ?? '')
+  const count = Math.max(1, drawn.length)
+  const rows = drawnRows(
+    chart.rows.filter((r) => r.label.trim() || r.values.some((v) => v !== 0)),
+    cols
+  )
 
   if (rows.length === 0) {
     return (
