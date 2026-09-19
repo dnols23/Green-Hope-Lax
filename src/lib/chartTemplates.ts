@@ -19,6 +19,8 @@ import { newId } from './planner'
 export interface ChartTemplate {
   key: string
   name: string
+  /** The handful worth keeping if you only keep a handful. */
+  top?: boolean
   group: 'Offense' | 'Defense' | 'Ride and clear' | 'Goalie' | 'Specialty' | 'The game'
   blurb: string
   type: ChartType
@@ -40,6 +42,11 @@ const rate = (name: string, top: number, bottom: number): NoteChartSeries => ({
   name,
   percent: { top, bottom },
 })
+/** One number over another as it stands — 1.08 possessions for every one of theirs. */
+const ratio = (name: string, top: number, bottom: number): NoteChartSeries => ({
+  name,
+  ratio: { top, bottom },
+})
 const input = (name: string): NoteChartSeries => ({ name, input: true })
 
 export const CHART_TEMPLATES: ChartTemplate[] = [
@@ -47,6 +54,7 @@ export const CHART_TEMPLATES: ChartTemplate[] = [
   {
     key: 'shooting-pct',
     name: 'Shooting %',
+    top: true,
     group: 'Offense',
     blurb: 'Shots and goals per player. The percentage works itself out.',
     type: 'bar',
@@ -54,6 +62,28 @@ export const CHART_TEMPLATES: ChartTemplate[] = [
     unit: 'Shooting %',
     series: [input('Shots'), input('Goals'), rate('Shooting %', 1, 0)],
     rows: blanks(8),
+  },
+  {
+    key: 'offensive-efficiency',
+    name: 'Offensive efficiency',
+    group: 'Offense',
+    blurb: 'Goals per possession. What we did with the ball when we had it.',
+    type: 'column',
+    axis: 'Game',
+    unit: 'Goals per possession',
+    series: [input('Goals'), input('Possessions'), rate('Efficiency', 0, 1)],
+    rows: games(10),
+  },
+  {
+    key: 'quality-shots',
+    name: 'Quality shot ratio',
+    group: 'Offense',
+    blurb: 'Scorable shots per possession — how often we got a real look, not just a shot.',
+    type: 'column',
+    axis: 'Game',
+    unit: 'Scorable shots per possession',
+    series: [input('Scorable shots'), input('Possessions'), rate('Quality shots', 0, 1)],
+    rows: games(10),
   },
   {
     key: 'points',
@@ -100,6 +130,39 @@ export const CHART_TEMPLATES: ChartTemplate[] = [
     unit: 'Goals',
     series: [{ name: 'For' }, { name: 'Against' }],
     rows: games(10),
+  },
+  {
+    key: 'opp-shooting-pct',
+    name: 'Opponent shooting %',
+    group: 'Defense',
+    blurb: 'What they did with their shots. The other half of shooting percentage.',
+    type: 'column',
+    axis: 'Game',
+    unit: 'Opponent shooting %',
+    series: [input('Their goals'), input('Their shots'), rate('Opponent shooting %', 0, 1)],
+    rows: games(10),
+  },
+  {
+    key: 'opp-off-target',
+    name: 'Their shots off target %',
+    group: 'Defense',
+    blurb: 'How many of their shots missed the cage entirely — pressure, not luck.',
+    type: 'column',
+    axis: 'Game',
+    unit: 'Off target %',
+    series: [input('Missed the cage'), input('Their shots'), rate('Off target %', 0, 1)],
+    rows: games(10),
+  },
+  {
+    key: 'ground-balls-split',
+    name: 'Ground balls, face-offs apart',
+    group: 'Defense',
+    blurb: 'A face-off man hoovering up his own wins is not the same as winning it in the open.',
+    type: 'stacked',
+    axis: 'Player',
+    unit: 'Ground balls',
+    series: [{ name: 'In the open' }, { name: 'Off face-offs' }],
+    rows: blanks(8),
   },
   {
     key: 'ground-balls',
@@ -279,6 +342,29 @@ export const CHART_TEMPLATES: ChartTemplate[] = [
     unit: 'Goals',
     series: [{ name: 'Us' }, { name: 'Them' }],
     rows: QUARTERS,
+  },
+  {
+    key: 'possession-ratio',
+    name: 'Possession ratio',
+    top: true,
+    group: 'The game',
+    blurb: 'Our possessions for every one of theirs. Above 1 and we had the ball more.',
+    type: 'column',
+    axis: 'Game',
+    unit: 'Possessions for every one of theirs',
+    series: [input('Ours'), input('Theirs'), ratio('Possession ratio', 0, 1)],
+    rows: games(10),
+  },
+  {
+    key: 'shots-us-them',
+    name: 'Shots, us and them',
+    group: 'The game',
+    blurb: 'Two lines. If ours is under theirs the possession numbers will say why.',
+    type: 'line',
+    axis: 'Game',
+    unit: 'Shots',
+    series: [{ name: 'Ours' }, { name: 'Theirs' }],
+    rows: games(10),
   },
   {
     key: 'possession',

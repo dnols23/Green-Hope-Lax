@@ -141,6 +141,7 @@ export interface ChartSeries {
   name: string
   input?: boolean
   percent?: { top: number; bottom: number }
+  ratio?: { top: number; bottom: number }
 }
 
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
@@ -154,12 +155,21 @@ const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
  */
 export function valueAt(row: ChartPoint, series: ChartSeries[], i: number): number {
   const col = series[i]
-  if (col?.percent) {
-    const bottom = num(row.values[col.percent.bottom])
+  const worked = col?.percent ?? col?.ratio
+  if (worked) {
+    const bottom = num(row.values[worked.bottom])
     if (!bottom) return 0
-    return Math.round((num(row.values[col.percent.top]) / bottom) * 1000) / 10
+    const share = num(row.values[worked.top]) / bottom
+    return col.percent
+      ? Math.round(share * 1000) / 10
+      : Math.round(share * 100) / 100
   }
   return num(row.values[i])
+}
+
+/** True when nothing goes in this column by hand. */
+export function isWorkedOut(col: ChartSeries | undefined): boolean {
+  return !!(col?.percent || col?.ratio)
 }
 
 /** Which columns actually get drawn — the inputs stay off the chart. */

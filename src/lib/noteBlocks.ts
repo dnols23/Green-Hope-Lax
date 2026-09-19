@@ -78,6 +78,8 @@ export interface NoteChartSeries {
   input?: boolean
   /** Worked out: this column is top ÷ bottom as a percentage. */
   percent?: { top: number; bottom: number }
+  /** Worked out: top ÷ bottom as it is — 1.08 possessions for every one of theirs. */
+  ratio?: { top: number; bottom: number }
 }
 
 export interface NoteChart {
@@ -175,17 +177,19 @@ export function readNoteBlocks(raw: unknown): NoteBlock[] {
         const series: NoteChartSeries[] = Array.isArray(b.series)
           ? b.series.slice(0, MAX_SERIES).map((x) => {
               const col = (x ?? {}) as Record<string, unknown>
-              const pc = (col.percent ?? null) as Record<string, unknown> | null
-              const top = Number(pc?.top)
-              const bottom = Number(pc?.bottom)
-              const worked =
-                pc && Number.isInteger(top) && Number.isInteger(bottom) && top >= 0 && bottom >= 0
+              const pair = (raw: unknown) => {
+                const v = (raw ?? null) as Record<string, unknown> | null
+                const top = Number(v?.top)
+                const bottom = Number(v?.bottom)
+                return v && Number.isInteger(top) && Number.isInteger(bottom) && top >= 0 && bottom >= 0
                   ? { top, bottom }
                   : undefined
+              }
               return {
                 name: text(col.name),
                 input: col.input === true,
-                percent: worked,
+                percent: pair(col.percent),
+                ratio: pair(col.ratio),
               }
             })
           : []
@@ -214,6 +218,7 @@ export function readNoteBlocks(raw: unknown): NoteBlock[] {
             name: series[i]?.name ?? '',
             input: series[i]?.input,
             percent: series[i]?.percent,
+            ratio: series[i]?.ratio,
           })),
           rows: rows.map((r) => ({
             label: r.label,
