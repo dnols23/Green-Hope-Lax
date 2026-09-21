@@ -19,7 +19,7 @@ import { requireOwner, getViewer, requireTeamScope, requireSection } from './per
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
-import { readBlocks, type PlanKind } from './planner'
+import { readBlocks, readStart, type PlanKind } from './planner'
 import { readNoteBlocks } from './noteBlocks'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
 import {
@@ -1863,6 +1863,7 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   const common = {
     title: str(formData.get('title')) || 'Untitled',
     plan_date: str(formData.get('plan_date')) || null,
+    start_time: readStart(str(formData.get('start_time'))),
     season: str(formData.get('season')) || null,
     summary: str(formData.get('summary')) || null,
     roster_id: str(formData.get('roster_id')) || null,
@@ -1891,6 +1892,24 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
         ok: false,
         error:
           'Saved everything but the note itself — notes need supabase/migrations/0026_note_content.sql run in the Supabase SQL editor.',
+      }
+    }
+  }
+
+  // The start-time column arrives with its own SQL as well. Without it the
+  // plan still saves; it just opens back at four o'clock.
+  if (error && /start_time/i.test(error.message) && /column|schema cache/i.test(error.message)) {
+    const { start_time: _dropped, ...withoutStart } = common
+    const retry = await svc
+      .from('plans')
+      .update(contentOut.length || !missingContent ? { ...withoutStart, content: contentOut } : withoutStart)
+      .eq('id', id)
+    error = retry.error
+    if (!error) {
+      return {
+        ok: false,
+        error:
+          'Saved, but not the start time — run supabase/migrations/0032_plan_start_time.sql in the Supabase SQL editor.',
       }
     }
   }
