@@ -112,7 +112,8 @@ export async function joinAsCoach(_prev: FormState, formData: FormData): Promise
     ),
   })
 
-  redirect('/admin/login?joined=1')
+  // Back to the coaches' own door, not the owner's.
+  redirect('/staff?joined=1')
 }
 
 // ── Settings, head coach only ──

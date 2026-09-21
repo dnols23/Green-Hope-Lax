@@ -1,5 +1,6 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { Suspense, useState, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { login } from '@/lib/actions'
 import { FalconHead } from '@/components/Logo'
 import { PasswordField } from '@/components/PasswordField'
@@ -8,6 +9,22 @@ import { PasswordField } from '@/components/PasswordField'
 // same Supabase sign-in — what a coach may actually open is decided by their
 // permissions, not by which door they came through, so this page is branding and
 // a friendlier landing rather than a second security boundary.
+/**
+ * "Your account is made, now sign in."
+ *
+ * Its own component because reading the query string suspends, and the sign-in
+ * form should be on the glass whether or not that has settled.
+ */
+function JustJoined() {
+  const joined = useSearchParams().get('joined')
+  if (!joined) return null
+  return (
+    <p className="rounded-lg px-3 py-2 text-sm font-semibold mb-4" style={{ background: '#e8f2ea', color: 'var(--gh-green-dk)' }}>
+      Account made. Sign in with the email and password you just chose.
+    </p>
+  )
+}
+
 export default function StaffSignIn() {
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -32,6 +49,10 @@ export default function StaffSignIn() {
           <h1 className="text-white text-2xl font-black mt-3">Falcons Coaches</h1>
           <p className="text-white/60 text-sm">Sign in to the coaching staff area</p>
         </div>
+
+        <Suspense fallback={null}>
+          <JustJoined />
+        </Suspense>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 space-y-4">
           <div>
