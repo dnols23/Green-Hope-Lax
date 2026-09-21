@@ -74,6 +74,9 @@ export function PlanEditor({
      is still there when the plan is opened again. */
   const [start, setStart] = useState(plan.start_time ?? DEFAULT_START)
   const [summary, setSummary] = useState(plan.summary ?? '')
+  /* Open on a plan that has something to read, folded on one that does not —
+     an empty box does not need three lines of the header. */
+  const [summaryOpen, setSummaryOpen] = useState(Boolean(plan.summary?.trim()))
   const [rosterId, setRosterId] = useState(plan.roster_id ?? '')
   const [blocks, setBlocks] = useState<PlanBlock[]>(plan.blocks)
   const [content, setContent] = useState<NoteBlock[]>(() => readNoteBlocks(plan.content))
@@ -301,26 +304,56 @@ export function PlanEditor({
           </div>
           {/* The only unlabelled field in this row, which made it the only one
               nobody could tell the purpose of. It is not a note to yourself:
-              the players read it. */}
+              the players read it. And it is a box you can read back, not a
+              slit that scrolls sideways while you type into it. */}
           <div className="col-span-2 sm:col-span-4">
-            <label className="field-label">
-              {plan.kind === 'game' ? 'What the day is' : 'What the session is for'}
-            </label>
-            <input
-              name="summary"
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              className="field !py-1.5 text-sm"
-              placeholder={
-                plan.kind === 'game'
-                  ? 'One line — what wins us this one'
-                  : 'One line — ride and clear, then 6v6 to finish'
-              }
-            />
-            <p className="text-[0.7rem] text-gray-400 mt-1">
-              One line, in the planner list beside the date and on the players&rsquo; page under the
-              plan. Leave it blank and nothing shows.
-            </p>
+            <div className="flex items-center gap-2">
+              <label className="field-label !mb-0">
+                {plan.kind === 'game' ? 'What the day is' : 'What the session is for'}
+              </label>
+              <button
+                type="button"
+                onClick={() => setSummaryOpen(!summaryOpen)}
+                aria-expanded={summaryOpen}
+                className="text-xs font-bold text-gray-400 hover:text-[var(--gh-green)]"
+              >
+                {summaryOpen ? 'Collapse' : summary.trim() ? 'Expand' : 'Write one'}
+              </button>
+            </div>
+
+            {summaryOpen ? (
+              <>
+                <textarea
+                  name="summary"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  rows={Math.min(10, Math.max(3, summary.split('\n').length + 1))}
+                  className="field !py-1.5 text-sm grow-with-text mt-1"
+                  placeholder={
+                    plan.kind === 'game'
+                      ? 'What wins us this one. Say as much as it takes.'
+                      : 'What the session is for. Say as much as it takes.'
+                  }
+                />
+                <p className="text-[0.7rem] text-gray-400 mt-1">
+                  Shows in the planner list beside the date and on the players&rsquo; page under the
+                  plan. Leave it blank and nothing shows.
+                </p>
+              </>
+            ) : (
+              <>
+                {/* Folded away, it still has to be here for the save — a
+                    collapsed box must not quietly wipe what is in it. */}
+                <input type="hidden" name="summary" value={summary} />
+                <button
+                  type="button"
+                  onClick={() => setSummaryOpen(true)}
+                  className="w-full text-left text-sm text-gray-600 truncate mt-1 py-1.5"
+                >
+                  {summary.trim() || <span className="text-gray-400">Nothing written yet.</span>}
+                </button>
+              </>
+            )}
           </div>
         </div>
 

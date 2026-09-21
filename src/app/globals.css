@@ -307,3 +307,12 @@ summary::-webkit-details-marker { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .status-dot-live { animation: none; }
 }
+
+/* A textarea that is as tall as what is in it.
+   Supported in Chrome and Safari; elsewhere the rows attribute is the floor,
+   so the box is never a one-line slit either way. */
+.grow-with-text {
+  field-sizing: content;
+  min-height: 4.5rem;
+  max-height: 18rem;
+}
