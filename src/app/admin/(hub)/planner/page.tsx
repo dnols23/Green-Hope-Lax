@@ -6,12 +6,18 @@ import { createPlan } from '@/lib/actions'
 import { PLAN_KINDS, formatMinutes, totalMinutes, minutesByTag } from '@/lib/planner'
 import { describeNote, readNoteBlocks } from '@/lib/noteBlocks'
 import { formatShortDate } from '@/lib/format'
+import { readTeam, teamLabel, withTeam } from '@/lib/teams'
 
 export const metadata = { title: 'Planner' }
 export const dynamic = 'force-dynamic'
 
-export default async function PlannerPage() {
+export default async function PlannerPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   await requireSection('planner')
+  const team = readTeam((await searchParams).team)
 
   if (!(await plannerReady())) {
     return (
@@ -28,15 +34,25 @@ export default async function PlannerPage() {
     )
   }
 
-  const [plans, rosters] = await Promise.all([listPlans(), listRosters()])
+  const [plans, rosters] = await Promise.all([listPlans(team), listRosters()])
 
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-xl font-black mb-1">Planner</h1>
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <h1 className="text-xl font-black">
+            {team === 'varsity' ? 'Planner' : `${teamLabel(team)} planner`}
+          </h1>
+          <Link
+            href={withTeam('/admin/planner', team === 'varsity' ? 'jv' : 'varsity')}
+            className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
+          >
+            {team === 'varsity' ? 'JV' : 'Varsity'} →
+          </Link>
+        </div>
         <p className="text-gray-500 text-sm">
-          Practices, game plans and notes. Blocks carry their own field diagrams, so what you drew on
-          Tuesday is still on the plan in March.
+          Practices, game plans and notes for the {teamLabel(team).toLowerCase()}. Blocks carry their
+          own field diagrams, so what you drew on Tuesday is still on the plan in March.
         </p>
       </div>
 
@@ -44,6 +60,7 @@ export default async function PlannerPage() {
         {PLAN_KINDS.map((k) => (
           <form key={k.key} action={createPlan} className="card p-4 flex flex-col">
             <input type="hidden" name="kind" value={k.key} />
+            <input type="hidden" name="team" value={team} />
             <input type="hidden" name="roster_id" value={rosters.find((r) => r.is_public)?.id ?? ''} />
             <div className="text-2xl mb-1" aria-hidden>{k.icon}</div>
             <div className="font-bold text-gray-700">{k.label}</div>
@@ -66,7 +83,7 @@ export default async function PlannerPage() {
                 return (
                   <Link
                     key={p.id}
-                    href={`/admin/planner/${p.id}`}
+                    href={withTeam(`/admin/planner/${p.id}`, team)}
                     className="card p-4 flex items-center justify-between gap-3 hover:shadow-md transition-shadow"
                   >
                     <div className="min-w-0">

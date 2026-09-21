@@ -9,6 +9,7 @@ import { deletePlan, duplicatePlan } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PlanEditor } from '@/components/planner/PlanEditor'
 import { PLAN_KINDS } from '@/lib/planner'
+import { teamLabel, withTeam } from '@/lib/teams'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,8 +35,20 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-        <Link href="/admin/planner" className="text-sm font-bold text-[var(--gh-green)]">← Planner</Link>
+        {/* Back to the list this plan is actually in, not whichever one you
+            happened to come from. */}
+        <Link href={withTeam('/admin/planner', plan.team)} className="text-sm font-bold text-[var(--gh-green)]">
+          ← {plan.team === 'varsity' ? 'Planner' : `${teamLabel(plan.team)} planner`}
+        </Link>
         <div className="flex items-center gap-3">
+          {plan.team !== 'varsity' && (
+            <span
+              className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: '#fde8ea', color: 'var(--gh-maroon)' }}
+            >
+              {teamLabel(plan.team)}
+            </span>
+          )}
           <span className="text-xs text-gray-400">{kind?.icon} {kind?.label}</span>
           <form action={duplicatePlan}>
             <input type="hidden" name="id" value={plan.id} />

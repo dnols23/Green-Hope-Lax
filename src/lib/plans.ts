@@ -1,5 +1,6 @@
 import { createServiceClient } from './supabase-server'
 import { readBlocks, type Plan, type PlanKind } from './planner'
+import { isTeam, type Team } from './teams'
 
 // Reading plans. Coach-only data, so the service client throughout — the table
 // has RLS on with no policies for anyone else.
@@ -17,6 +18,9 @@ function shape(row: Record<string, unknown>): Plan {
     // column is missing entirely until 0026 has been run.
     content: Array.isArray(row.content) ? (row.content as unknown[]) : [],
     roster_id: (row.roster_id as string) ?? null,
+    // Rows written before the two staffs were split are varsity, which is what
+    // they were.
+    team: (isTeam(row.team) ? row.team : 'varsity') as Team,
     is_template: row.is_template === true,
     publish_players: row.publish_players === true,
     // Older rows predate the column; a plan without it behaves as it always did.
@@ -34,7 +38,14 @@ export async function plannerReady(): Promise<boolean> {
   return !error
 }
 
-export async function listPlans(): Promise<Plan[]> {
+/**
+ * One team's plans, or every plan when no team is named.
+ *
+ * Asking the database to filter would fail outright on a site whose owner has
+ * not run the team SQL yet, taking the whole planner with it — so the column is
+ * read back and filtered here, where a missing one simply reads as varsity.
+ */
+export async function listPlans(team?: Team): Promise<Plan[]> {
   const svc = createServiceClient()
   const { data, error } = await svc
     .from('plans')
@@ -42,7 +53,8 @@ export async function listPlans(): Promise<Plan[]> {
     .order('plan_date', { ascending: false, nullsFirst: false })
     .order('updated_at', { ascending: false })
   if (error) return []
-  return ((data ?? []) as Record<string, unknown>[]).map(shape)
+  const all = ((data ?? []) as Record<string, unknown>[]).map(shape)
+  return team ? all.filter((p) => p.team === team) : all
 }
 
 export async function getPlan(id: string): Promise<Plan | null> {
