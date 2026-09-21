@@ -34,6 +34,7 @@ import { listDrills } from './drillsData'
 import { signOut, markReturned, markOutAgain, deleteAssignment } from './equipment'
 import { savePlay, deletePlay, clearPlayClip } from './plays'
 import { saveShot, renameShot, deleteShot } from './library'
+import { readTeam, withTeam } from './teams'
 import {
   addList as addPriorityList,
   renameList as renamePriorityList,
@@ -1773,26 +1774,35 @@ export async function createPlan(formData: FormData) {
   const kind: PlanKind = kindRaw === 'game' || kindRaw === 'note' ? kindRaw : 'practice'
   const title = str(formData.get('title')) || (kind === 'game' ? 'New game plan' : kind === 'note' ? 'New note' : 'New practice')
 
+  const team = readTeam(str(formData.get('team')))
   const svc = createServiceClient()
-  const { data, error } = await svc
-    .from('plans')
-    .insert({
-      kind,
-      title,
-      plan_date: str(formData.get('plan_date')) || null,
-      season: str(formData.get('season')) || null,
-      roster_id: str(formData.get('roster_id')) || null,
-      created_by: viewer?.email ?? null,
-      blocks: [],
-    })
-    .select('id')
-    .single()
+  const row = {
+    kind,
+    title,
+    plan_date: str(formData.get('plan_date')) || null,
+    season: str(formData.get('season')) || null,
+    roster_id: str(formData.get('roster_id')) || null,
+    created_by: viewer?.email ?? null,
+    blocks: [],
+  }
+
+  let { data, error } = await svc.from('plans').insert({ ...row, team }).select('id').single()
+
+  // The team column arrives with its own SQL. Until it is run there is one
+  // staff's worth of plans, which is how it was — better than refusing to make
+  // a plan at all.
+  if (error && /team/i.test(error.message ?? '')) {
+    const retry = await svc.from('plans').insert(row).select('id').single()
+    data = retry.data
+    error = retry.error
+  }
+
   if (error || !data) {
     console.error('[createPlan]', error)
     return
   }
   revalidatePath('/admin/planner')
-  redirect(`/admin/planner/${(data as { id: string }).id}`)
+  redirect(withTeam(`/admin/planner/${(data as { id: string }).id}`, team))
 }
 
 /**

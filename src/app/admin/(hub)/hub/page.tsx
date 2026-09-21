@@ -10,6 +10,7 @@ import { getGames } from '@/lib/queries'
 import { formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { quoteOfTheDay } from '@/lib/warRoom'
 import { formatDate, formatShortDate, formatTime, TEAM_TIME_ZONE } from '@/lib/format'
+import { readTeam, teamLabel, withTeam } from '@/lib/teams'
 import { WarRoomPanels, type Panel } from './WarRoomPanels'
 
 export const metadata = { title: 'War Room' }
@@ -20,7 +21,15 @@ function todayIso(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TEAM_TIME_ZONE }).format(new Date())
 }
 
-export default async function WarRoom() {
+export default async function WarRoom({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  /* Which staff's week this is. It rides in the URL so the two can be open side
+     by side, and so a link to a JV plan lands on the JV side without anybody
+     switching first. */
+  const team = readTeam((await searchParams).team)
   const coach = await getCurrentCoach()
   const viewer = await getViewer()
   const isOwner = viewer?.isOwner ?? false
@@ -32,7 +41,7 @@ export default async function WarRoom() {
   const { error: evalError } = await svc.from('evaluations').select('id').limit(1)
 
   const hasPlanner = await plannerReady()
-  const plans = hasPlanner ? await listPlans() : []
+  const plans = hasPlanner ? await listPlans(team) : []
   const todaysPlan = plans.find((p) => p.kind === 'practice' && p.plan_date === today)
   const nextPractice = plans.find((p) => p.kind === 'practice' && p.plan_date && p.plan_date > today)
   const gamePlans = plans.filter((p) => p.kind === 'game').slice(0, 3)
@@ -50,14 +59,14 @@ export default async function WarRoom() {
       return (
         <p className="text-sm text-gray-500">
           Nothing yet.{' '}
-          <Link href="/admin/planner" className="font-semibold text-[var(--gh-green)]">Write one →</Link>
+          <Link href={withTeam('/admin/planner', team)} className="font-semibold text-[var(--gh-green)]">Write one →</Link>
         </p>
       )
     }
     const clock = runningClock(plan.blocks)
     return (
       <div>
-        <Link href={`/admin/planner/${plan.id}`} className="font-bold hover:underline">{plan.title}</Link>
+        <Link href={withTeam(`/admin/planner/${plan.id}`, team)} className="font-bold hover:underline">{plan.title}</Link>
         <div className="text-xs text-gray-500 mb-2">
           {formatMinutes(totalMinutes(plan.blocks))} · {plan.blocks.length} blocks
           {plan.plan_date && title !== 'Today’s plan' ? ` · ${formatShortDate(plan.plan_date)}` : ''}
@@ -125,7 +134,7 @@ export default async function WarRoom() {
         gamePlans.length === 0 ? (
           <p className="text-sm text-gray-500">
             None written.{' '}
-            <Link href="/admin/planner" className="font-semibold text-[var(--gh-green)]">Start one →</Link>
+            <Link href={withTeam('/admin/planner', team)} className="font-semibold text-[var(--gh-green)]">Start one →</Link>
           </p>
         ) : (
           <ul className="space-y-1">
@@ -169,7 +178,16 @@ export default async function WarRoom() {
   return (
     <div>
       <div className="flex items-center gap-2 mb-1 flex-wrap">
-        <h1 className="text-xl font-black">War Room</h1>
+        <h1 className="text-xl font-black">
+          {team === 'varsity' ? 'War Room' : `${teamLabel(team)} War Room`}
+        </h1>
+        {/* The other staff's week, one tap away — the same screen, their plans. */}
+        <Link
+          href={withTeam('/admin/hub', team === 'varsity' ? 'jv' : 'varsity')}
+          className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
+        >
+          {team === 'varsity' ? 'JV' : 'Varsity'} →
+        </Link>
         {coach && (
           <span
             className="text-xs font-bold px-2 py-0.5 rounded-full"

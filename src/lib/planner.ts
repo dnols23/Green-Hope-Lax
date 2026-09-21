@@ -272,6 +272,8 @@ export interface Plan {
   content: unknown[]
   roster_id: string | null
   is_template: boolean
+  /** Varsity or JV — which staff's week this belongs to. */
+  team: 'varsity' | 'jv'
   /** On the players' page in the Team Hub. */
   publish_players: boolean
   /** In the coaches' War Room. A plan starts as the author's working document. */
