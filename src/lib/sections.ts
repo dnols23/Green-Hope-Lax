@@ -83,6 +83,7 @@ export const SECTIONS: AdminSection[] = [
   { key: 'pages',        label: 'Pages',        href: '/admin/pages',        group: 'Content',
     views: [{ audience: 'public', href: '/' }] },
   { key: 'submissions',  label: 'Submissions',  href: '/admin/submissions',  group: 'Admin' },
+  { key: 'dashboard',    label: 'Dashboard',    href: '/admin/dashboard',    group: 'Admin', ownerOnly: true },
   { key: 'notifications', label: 'Notifications', href: '/admin/notifications', group: 'Admin', ownerOnly: true },
   { key: 'signin',       label: 'Sign-in',      href: '/admin/signin',       group: 'Admin', ownerOnly: true },
   { key: 'access',       label: 'Coach Access', href: '/admin/access',       group: 'Admin', ownerOnly: true },
