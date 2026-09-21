@@ -286,14 +286,28 @@ export function PlanEditor({
               ))}
             </select>
           </div>
+          {/* The only unlabelled field in this row, which made it the only one
+              nobody could tell the purpose of. It is not a note to yourself:
+              the players read it. */}
           <div className="col-span-2 sm:col-span-4">
+            <label className="field-label">
+              {plan.kind === 'game' ? 'What the day is' : 'What the session is for'}
+            </label>
             <input
               name="summary"
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
               className="field !py-1.5 text-sm"
-              placeholder="One line on the day — ride and clear, then 6v6 to finish"
+              placeholder={
+                plan.kind === 'game'
+                  ? 'One line — what wins us this one'
+                  : 'One line — ride and clear, then 6v6 to finish'
+              }
             />
+            <p className="text-[0.7rem] text-gray-400 mt-1">
+              One line, in the planner list beside the date and on the players&rsquo; page under the
+              plan. Leave it blank and nothing shows.
+            </p>
           </div>
         </div>
 
