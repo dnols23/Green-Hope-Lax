@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { getViewer, canSee } from '@/lib/permissions'
 
@@ -15,7 +16,15 @@ async function counts() {
 }
 
 export default async function AdminDashboard() {
-  const [c, viewer] = await Promise.all([counts(), getViewer()])
+  /* A coach signs in to coach. This page counts signups, news posts and store
+     products — the owner's job, not theirs — so everyone else goes straight
+     through to the War Room, which is the dashboard they actually want. It
+     catches every way in at once: signing in, finishing a first-time password,
+     and landing back here from the login page. */
+  const viewer = await getViewer()
+  if (viewer && !viewer.isOwner) redirect('/admin/hub')
+
+  const c = await counts()
 
   // Each tile names the section it belongs to, so a coach never sees a count for
   // something they can't open — Submissions in particular carries parent contacts.
