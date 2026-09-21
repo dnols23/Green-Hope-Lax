@@ -7,7 +7,7 @@ import { HUB_MODES, isModeOn } from '@/lib/hubModes'
 import { saveHubModes } from '@/lib/actions'
 import { listPlans, plannerReady } from '@/lib/plans'
 import { getGames } from '@/lib/queries'
-import { formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
+import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { quoteOfTheDay } from '@/lib/warRoom'
 import { formatDate, formatShortDate, formatTime, TEAM_TIME_ZONE } from '@/lib/format'
 import { readTeam, teamLabel, withTeam } from '@/lib/teams'
@@ -75,7 +75,7 @@ export default async function WarRoom({
           {plan.blocks.slice(0, 8).map((b, i) => (
             <li key={b.id} className="flex items-center gap-2 text-sm">
               <span className="w-14 shrink-0 text-xs font-black tabular-nums" style={{ color: tagFor(b.tag).color }}>
-                {clockAt('16:00', clock[i])}
+                {clockAt(plan.start_time ?? DEFAULT_START, clock[i])}
               </span>
               <span className="truncate flex-1">{b.title || 'Untitled'}</span>
               <span className="text-xs text-gray-400 tabular-nums shrink-0">{b.minutes}m</span>

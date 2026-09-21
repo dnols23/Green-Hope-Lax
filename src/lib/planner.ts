@@ -274,6 +274,8 @@ export interface Plan {
   is_template: boolean
   /** Varsity or JV — which staff's week this belongs to. */
   team: 'varsity' | 'jv'
+  /** 24-hour "HH:MM". The whole plan's clock runs from here. */
+  start_time: string | null
   /** On the players' page in the Team Hub. */
   publish_players: boolean
   /** In the coaches' War Room. A plan starts as the author's working document. */
@@ -361,6 +363,20 @@ export function formatMinutes(mins: number): string {
   const h = Math.floor(mins / 60)
   const m = mins % 60
   return h ? (m ? `${h}h ${m}m` : `${h}h`) : `${m}m`
+}
+
+/** The hour a plan runs from when nobody has said otherwise. */
+export const DEFAULT_START = '16:00'
+
+/** A start time we are willing to run a clock off. */
+export function readStart(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const m = raw.trim().match(/^(\d{1,2}):(\d{2})/)
+  if (!m) return null
+  const h = Number(m[1])
+  const min = Number(m[2])
+  if (h > 23 || min > 59) return null
+  return `${String(h).padStart(2, '0')}:${m[2]}`
 }
 
 /** Clock time for a block, given a start like "16:00". */

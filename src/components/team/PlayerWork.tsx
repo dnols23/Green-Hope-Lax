@@ -6,7 +6,7 @@ import { drillCategoryLabel } from '@/lib/prescribe'
 import { looksLikeYear, positionLabel } from '@/lib/positions'
 import { SETTING_LABELS, type DrillSetting } from '@/lib/drills'
 import { listPlans } from '@/lib/plans'
-import { runningClock, tagFor, clockAt, formatMinutes, totalMinutes } from '@/lib/planner'
+import { DEFAULT_START, runningClock, tagFor, clockAt, formatMinutes, totalMinutes } from '@/lib/planner'
 import { FalconHead } from '@/components/Logo'
 import { TEAM_TIME_ZONE } from '@/lib/format'
 import type { Player } from '@/lib/types'
@@ -116,7 +116,7 @@ export async function PlayerWork({ player, preview = false }: { player: Player; 
                     className="w-16 shrink-0 text-xs font-black tabular-nums"
                     style={{ color: tagFor(b.tag).color }}
                   >
-                    {clockAt('16:00', runningClock(todaysPlan.blocks)[i])}
+                    {clockAt(todaysPlan.start_time ?? DEFAULT_START, runningClock(todaysPlan.blocks)[i])}
                   </span>
                   <span className="flex-1">{b.title || 'Untitled'}</span>
                   <span className="text-xs text-gray-400 tabular-nums">{b.minutes}m</span>

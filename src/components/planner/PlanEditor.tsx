@@ -6,6 +6,7 @@ import {
   BLOCK_TAGS,
   EMPTY_BOARD,
   clockAt,
+  DEFAULT_START,
   emptyBlock,
   formatMinutes,
   minutesByTag,
@@ -68,7 +69,10 @@ export function PlanEditor({
   const [state, save, saving] = useActionState(savePlan, EMPTY)
   const [title, setTitle] = useState(plan.title)
   const [date, setDate] = useState(plan.plan_date ?? '')
-  const [start, setStart] = useState('16:00')
+  /* The whole plan's clock runs off this. It is the plan's own now rather than
+     four o'clock every time — moving it re-times every block on screen, and it
+     is still there when the plan is opened again. */
+  const [start, setStart] = useState(plan.start_time ?? DEFAULT_START)
   const [summary, setSummary] = useState(plan.summary ?? '')
   const [rosterId, setRosterId] = useState(plan.roster_id ?? '')
   const [blocks, setBlocks] = useState<PlanBlock[]>(plan.blocks)
@@ -275,7 +279,13 @@ export function PlanEditor({
           </div>
           <div>
             <label className="field-label">Starts</label>
-            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="field !py-1.5" />
+            <input
+              type="time"
+              name="start_time"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              className="field !py-1.5"
+            />
           </div>
           <div className="col-span-2">
             <label className="field-label">Roster</label>
