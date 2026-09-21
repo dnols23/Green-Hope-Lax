@@ -19,7 +19,13 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   const plan = await getPlan(id)
   if (!plan) notFound()
 
-  const [rosters, staff, drills] = await Promise.all([listRosters(), listStaff(), listDrills()])
+  const [live, staff, drills] = await Promise.all([listRosters(), listStaff(), listDrills()])
+  /* A plan written last season still points at last season's roster. Offering
+     only the live ones would show this plan's own roster as blank and quietly
+     change it on the next save — so a plan keeps its own, archived or not. */
+  const rosters = live.some((r) => r.id === plan.roster_id)
+    ? live
+    : [...live, ...(await listRosters(true)).filter((r) => r.id === plan.roster_id)]
   /* Every roster's players travel with the page: switching the roster in the
      editor then changes who you can pick straight away, rather than waiting for
      a save and a reload — which looked like the switch doing nothing at all. */
@@ -60,7 +66,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
 
       <PlanEditor
         plan={plan}
-        rosters={rosters.map((r) => ({ id: r.id, name: r.name }))}
+        rosters={rosters.map((r) => ({ id: r.id, name: r.name, is_archived: r.is_archived }))}
         playersByRoster={playersByRoster}
         coaches={staff.map((c) => c.name).sort((a, b) => a.localeCompare(b))}
         drills={drills}

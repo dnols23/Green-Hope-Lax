@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireSection } from '@/lib/permissions'
 import { listRosters, rostersReady, playersOnNoRoster } from '@/lib/rosters'
-import { createRoster, setRosterPublic } from '@/lib/actions'
+import { createRoster, setRosterPublic, setRosterArchived } from '@/lib/actions'
 import { AdoptCard } from './AdoptCard'
 
 export const metadata = { title: 'Rosters' }
@@ -109,18 +109,35 @@ export default async function RostersPage() {
                   <div className="text-2xl font-black" style={{ color: 'var(--gh-green)' }}>{r.memberCount}</div>
                   <div className="text-xs text-gray-400">players</div>
                 </div>
-                {/* The one thing you come to this page to change, on the page
+                {/* The two things you come to this page to change, on the page
                     rather than three clicks inside the roster. */}
-                <form action={setRosterPublic} className="shrink-0">
-                  <input type="hidden" name="id" value={r.id} />
-                  <input type="hidden" name="public" value={r.is_public ? 'false' : 'true'} />
-                  <button
-                    type="submit"
-                    className={`btn text-xs !py-1.5 !px-3 ${r.is_public ? 'btn-ghost' : 'btn-primary'}`}
-                  >
-                    {r.is_public ? 'Take off public site' : 'Publish'}
-                  </button>
-                </form>
+                <div className="shrink-0 flex items-center gap-2">
+                  <form action={setRosterPublic}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <input type="hidden" name="public" value={r.is_public ? 'false' : 'true'} />
+                    <button
+                      type="submit"
+                      className={`btn text-xs !py-1.5 !px-3 ${r.is_public ? 'btn-ghost' : 'btn-primary'}`}
+                    >
+                      {r.is_public ? 'Take off public site' : 'Publish'}
+                    </button>
+                  </form>
+                  <form action={setRosterArchived}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <input type="hidden" name="archived" value="true" />
+                    <button
+                      type="submit"
+                      title={
+                        r.is_public
+                          ? 'Puts the season away and takes it off the public site. Nothing is deleted.'
+                          : 'Puts the season away. It leaves the dropdowns; nothing is deleted.'
+                      }
+                      className="text-xs font-semibold text-gray-400 hover:text-gray-700"
+                    >
+                      Archive
+                    </button>
+                  </form>
+                </div>
               </div>
             ))}
           </div>
@@ -129,13 +146,31 @@ export default async function RostersPage() {
 
       {archived.length > 0 && (
         <section>
-          <h2 className="font-bold text-gray-700 mb-3">Archived ({archived.length})</h2>
+          <h2 className="font-bold text-gray-700 mb-1">Seasons put away ({archived.length})</h2>
+          <p className="text-xs text-gray-400 mb-3">
+            Still here, still readable, out of every dropdown. Last year&rsquo;s evaluations and the
+            plans that ran off these are untouched.
+          </p>
           <div className="space-y-2">
             {archived.map((r) => (
-              <Link key={r.id} href={`/admin/rosters/${r.id}`} className="card p-3 flex items-center justify-between gap-3 opacity-70">
-                <span className="font-semibold text-sm">{r.name}</span>
-                <span className="text-xs text-gray-400">{r.memberCount} players</span>
-              </Link>
+              <div key={r.id} className="card p-3 flex items-center justify-between gap-3">
+                <Link href={`/admin/rosters/${r.id}`} className="min-w-0 flex-1 hover:underline">
+                  <span className="font-semibold text-sm text-gray-500">{r.name}</span>
+                  {r.season && <span className="text-xs text-gray-400 ml-2">{r.season}</span>}
+                </Link>
+                <span className="text-xs text-gray-400 shrink-0">{r.memberCount} players</span>
+                <form action={setRosterArchived} className="shrink-0">
+                  <input type="hidden" name="id" value={r.id} />
+                  <input type="hidden" name="archived" value="false" />
+                  <button
+                    type="submit"
+                    className="text-xs font-semibold text-[var(--gh-green)]"
+                    title="Back into the dropdowns"
+                  >
+                    Bring back
+                  </button>
+                </form>
+              </div>
             ))}
           </div>
         </section>

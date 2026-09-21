@@ -31,6 +31,8 @@ const EMPTY: FormState = { ok: true }
 export interface RosterOption {
   id: string
   name: string
+  /** A season put away. Only ever here because this plan already uses it. */
+  is_archived?: boolean
 }
 
 export interface PlayerOption {
@@ -282,6 +284,7 @@ export function PlanEditor({
               {rosters.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name} ({(playersByRoster[r.id] ?? []).length})
+                  {r.is_archived ? ' · put away' : ''}
                 </option>
               ))}
             </select>

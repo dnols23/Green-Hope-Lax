@@ -1763,6 +1763,38 @@ export async function setRosterPublic(formData: FormData) {
   revalidatePath('/roster')
 }
 
+/**
+ * Put a season away, or get it back out.
+ *
+ * Archiving takes a roster out of every dropdown a coach meets — the planner's
+ * especially — without deleting a thing: last year's squad, who was on it and
+ * every evaluation written against it all stay exactly where they are.
+ *
+ * A season that is over comes off the public site at the same time. Leaving
+ * last year's squad on the roster page is worse than any surprise in taking it
+ * down, and the Publish button is right there to put a new one up.
+ */
+export async function setRosterArchived(formData: FormData) {
+  await requireSection('rosters')
+  const id = str(formData.get('id'))
+  const archived = str(formData.get('archived')) === 'true'
+  if (!id) return
+
+  const svc = createServiceClient()
+  await svc
+    .from('player_lists')
+    .update({
+      is_archived: archived,
+      ...(archived ? { is_public: false } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+
+  revalidatePath('/admin/rosters')
+  revalidatePath(`/admin/rosters/${id}`)
+  revalidatePath('/roster')
+}
+
 // ── Planner ──
 // Practice plans, game plans and coaching notes. Every coach may write them;
 // they never reach the public site.
