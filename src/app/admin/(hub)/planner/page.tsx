@@ -1,12 +1,12 @@
 import Link from 'next/link'
-import { requireSection } from '@/lib/permissions'
+import { requireTeam } from '@/lib/permissions'
 import { listPlans, plannerReady } from '@/lib/plans'
 import { listRosters } from '@/lib/rosters'
 import { createPlan } from '@/lib/actions'
 import { PLAN_KINDS, formatMinutes, totalMinutes, minutesByTag } from '@/lib/planner'
 import { describeNote, readNoteBlocks } from '@/lib/noteBlocks'
 import { formatShortDate } from '@/lib/format'
-import { readTeam, teamLabel, withTeam } from '@/lib/teams'
+import { teamLabel, withTeam } from '@/lib/teams'
 
 export const metadata = { title: 'Planner' }
 export const dynamic = 'force-dynamic'
@@ -16,8 +16,7 @@ export default async function PlannerPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireSection('planner')
-  const team = readTeam((await searchParams).team)
+  const { team, locked } = await requireTeam('planner', (await searchParams).team)
 
   if (!(await plannerReady())) {
     return (
@@ -43,12 +42,14 @@ export default async function PlannerPage({
           <h1 className="text-xl font-black">
             {team === 'varsity' ? 'Planner' : `${teamLabel(team)} planner`}
           </h1>
-          <Link
-            href={withTeam('/admin/planner', team === 'varsity' ? 'jv' : 'varsity')}
-            className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
-          >
-            {team === 'varsity' ? 'JV' : 'Varsity'} →
-          </Link>
+          {!locked && (
+            <Link
+              href={withTeam('/admin/planner', team === 'varsity' ? 'jv' : 'varsity')}
+              className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
+            >
+              {team === 'varsity' ? 'JV' : 'Varsity'} →
+            </Link>
+          )}
         </div>
         <p className="text-gray-500 text-sm">
           Practices, game plans and notes for the {teamLabel(team).toLowerCase()}. Blocks carry their

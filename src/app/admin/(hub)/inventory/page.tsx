@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase-server'
 import Link from 'next/link'
-import { requireTeamScope } from '@/lib/permissions'
-import { readTeam, teamLabel, withTeam, type Team } from '@/lib/teams'
+import { requireTeamScope, teamFor, teamsFor } from '@/lib/permissions'
+import { teamLabel, withTeam, type Team } from '@/lib/teams'
 import { upsertInventoryItem, deleteInventoryItem, signOutEquipment, returnEquipment } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PlayerLink } from '@/components/admin/PlayerLink'
@@ -86,11 +86,12 @@ export default async function InventoryPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const { scope } = await requireTeamScope('inventory', 'inventory-jv')
-  /* Whose shed this is. A coach granted only JV never leaves the JV board,
-     whatever the URL says. */
-  const asked = readTeam((await searchParams).team)
+  const { viewer, scope } = await requireTeamScope('inventory', 'inventory-jv')
+  /* Whose shed this is. Two locks, and either one holds: the JV-only grant on
+     this page, and the side of the program this coach works on at all. */
+  const asked: Team = teamFor(viewer, (await searchParams).team)
   const team: Team = scope === 'jv' ? 'jv' : asked
+  const locked = scope === 'jv' || teamsFor(viewer).length < 2
 
   const svc = createServiceClient()
   // This team's gear, plus what both teams share — balls and goals belong to
@@ -149,7 +150,7 @@ export default async function InventoryPage({
       <div>
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <h1 className="text-xl font-black">{teamLabel(team)} Inventory</h1>
-          {scope !== 'jv' && (
+          {!locked && (
             <Link
               href={withTeam('/admin/inventory', team === 'varsity' ? 'jv' : 'varsity')}
               className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"

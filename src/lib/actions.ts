@@ -15,7 +15,9 @@ import {
 } from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
-import { requireOwner, getViewer, requireTeamScope, requireSection } from './permissions'
+import { requireOwner, getViewer, requireTeamScope, requireSection, canTeam } from './permissions'
+import { isStaffTeam, type StaffTeam, type Viewer } from './sections'
+import { getPlan } from './plans'
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
@@ -37,6 +39,8 @@ import { saveShot, renameShot, deleteShot } from './library'
 import { readTeam, withTeam } from './teams'
 import {
   addList as addPriorityList,
+  listTeamOf as priorityListTeam,
+  itemTeamOf as priorityItemTeam,
   renameList as renamePriorityList,
   deleteList as deletePriorityList,
   addItem as addPriorityItem,
@@ -700,6 +704,19 @@ export async function deletePlayer(id: string) {
 
 // ── games ──
 export async function upsertGame(formData: FormData) {
+  const viewer = await requireSection('schedule')
+  // Which team's game, and whether this coach works on that team at all.
+  const level = str(formData.get('level')) === 'jv' ? 'jv' : 'varsity'
+  if (!canTeam(viewer, level)) return
+  if (id0(formData)) {
+    const { data: existing } = await createServiceClient()
+      .from('games').select('level').eq('id', id0(formData)).maybeSingle()
+    const was = (existing as { level?: string } | null)?.level
+    // Editing somebody else's game, or dragging one across to your own side,
+    // are the same refusal.
+    if (was && !canTeam(viewer, was === 'jv' ? 'jv' : 'varsity')) return
+  }
+
   const supabase = await createClient()
   const id = str(formData.get('id'))
   const payload = {
@@ -714,24 +731,43 @@ export async function upsertGame(formData: FormData) {
     is_conference: str(formData.get('is_conference')) !== 'false',
     notes: str(formData.get('notes')) || null,
   }
-  // Audience is a newer column. Write it when it's there, and fall back to a
-  // plain save when the migration hasn't been run yet, so editing a game never
-  // breaks on a database that's a step behind the code.
-  const withAudience = { ...payload, audience: normalizeAudience(str(formData.get('audience'))) }
+  /* Audience (0016) and level (0035) are both newer columns. Write everything
+     when it is all there, then shed one column at a time, so editing a game
+     never breaks on a database that is a step or two behind the code. */
+  const audience = normalizeAudience(str(formData.get('audience')))
+  const attempts: Record<string, unknown>[] = [
+    { ...payload, audience, level },
+    { ...payload, audience },
+    { ...payload, level },
+    payload,
+  ]
 
   const save = async (row: Record<string, unknown>) =>
     id
       ? await supabase.from('games').update(row).eq('id', id)
       : await supabase.from('games').insert(row)
 
-  const { error } = await save(withAudience)
-  if (error) await save(payload)
+  for (const row of attempts) {
+    const { error } = await save(row)
+    if (!error) break
+  }
   revalidatePath('/schedule')
   revalidatePath('/team')
   revalidatePath('/admin/schedule')
 }
 
+/** The id on a game form, read before the rest of it. */
+function id0(formData: FormData): string {
+  return str(formData.get('id'))
+}
+
 export async function deleteGame(id: string) {
+  const viewer = await requireSection('schedule')
+  const { data: existing } = await createServiceClient()
+    .from('games').select('level').eq('id', id).maybeSingle()
+  const level = (existing as { level?: string } | null)?.level === 'jv' ? 'jv' : 'varsity'
+  if (!canTeam(viewer, level)) return
+
   const supabase = await createClient()
   await supabase.from('games').delete().eq('id', id)
   revalidatePath('/schedule')
@@ -1001,6 +1037,8 @@ export async function createCoachAccount(
   const display_name = str(formData.get('display_name')) || email.split('@')[0]
   const role = str(formData.get('role')) === 'head' ? 'head' : 'assistant'
   const permissions = formData.getAll('permissions').map(String).filter(Boolean)
+  const rawTeam = str(formData.get('staff_team'))
+  const team: StaffTeam = isStaffTeam(rawTeam) ? rawTeam : 'all'
 
   const typed = str(formData.get('password'))
   if (typed && typed.length < 8)
@@ -1019,7 +1057,7 @@ export async function createCoachAccount(
   // Record them so their access can be set; only touch the password if the owner
   // deliberately typed a new one.
   if (error && /already|registered|exists/i.test(error.message ?? '')) {
-    await writeStaff({ email, name: display_name, role, isOwner: false, permissions })
+    await writeStaff({ email, name: display_name, role, isOwner: false, permissions, team })
     const existing = await findAuthUser(email)
     if (existing) {
       if (chosen) await svc.auth.admin.updateUserById(existing.id, { password: pw })
@@ -1038,7 +1076,7 @@ export async function createCoachAccount(
     return { ok: false, error: error?.message ?? 'Could not create that login.' }
   }
 
-  await writeStaff({ email, name: display_name, role, isOwner: false, permissions })
+  await writeStaff({ email, name: display_name, role, isOwner: false, permissions, team })
 
   // The first password is one you handed them, so it's yours as much as theirs.
   // They're prompted to replace it with their own the first time they sign in.
@@ -1084,6 +1122,7 @@ export async function setCoachAccess(formData: FormData) {
     ...existing,
     role: str(formData.get('role')) === 'head' ? 'head' : 'assistant',
     permissions: formData.getAll('permissions').map(String).filter(Boolean),
+    team: isStaffTeam(str(formData.get('staff_team'))) ? (str(formData.get('staff_team')) as StaffTeam) : 'all',
   })
   revalidatePath('/admin/access')
 }
@@ -1098,6 +1137,7 @@ export async function claimOwnership() {
     role: existing?.role ?? 'head',
     isOwner: true,
     permissions: existing?.permissions ?? [],
+    team: 'all',
   })
   revalidatePath('/admin/access')
 }
@@ -1260,26 +1300,41 @@ export async function clearPlayClipAction(formData: FormData) {
 // ── Priorities ───────────────────────────────────────────────────────────────
 // What the staff noticed on the sideline, kept where practice planning starts.
 
+/* The team behind a list or an item, checked against the coach reaching for it.
+   A list nobody can find is still a list somebody can post to. */
+async function mayTouchList(viewer: Viewer | null, listId: string): Promise<boolean> {
+  const team = await priorityListTeam(listId)
+  return team === null ? true : canTeam(viewer, team)
+}
+
+async function mayTouchItem(viewer: Viewer | null, itemId: string): Promise<boolean> {
+  const team = await priorityItemTeam(itemId)
+  return team === null ? true : canTeam(viewer, team)
+}
+
 export async function addPriorityListAction(formData: FormData) {
   const viewer = await requireSection('priorities')
   const name = str(formData.get('name'))
   const team = readTeam(formData.get('team'))
-  if (name) await addPriorityList(name, viewer.name || viewer.email, team)
+  if (!name || !canTeam(viewer, team)) return
+  await addPriorityList(name, viewer.name || viewer.email, team)
   revalidatePath('/admin/priorities')
 }
 
 export async function renamePriorityListAction(formData: FormData) {
-  await requireSection('priorities')
+  const viewer = await requireSection('priorities')
   const id = str(formData.get('id'))
   const name = str(formData.get('name'))
-  if (id && name) await renamePriorityList(id, name)
+  if (!id || !name || !(await mayTouchList(viewer, id))) return
+  await renamePriorityList(id, name)
   revalidatePath('/admin/priorities')
 }
 
 export async function deletePriorityListAction(formData: FormData) {
-  await requireSection('priorities')
+  const viewer = await requireSection('priorities')
   const id = str(formData.get('id'))
-  if (id) await deletePriorityList(id)
+  if (!id || !(await mayTouchList(viewer, id))) return
+  await deletePriorityList(id)
   revalidatePath('/admin/priorities')
 }
 
@@ -1288,14 +1343,15 @@ export async function addPriorityAction(formData: FormData) {
   const listId = str(formData.get('listId'))
   const body = str(formData.get('body'))
   const level = Number(str(formData.get('level'))) || 2
-  if (listId && body) await addPriorityItem(listId, body, level, viewer.name || viewer.email)
+  if (!listId || !body || !(await mayTouchList(viewer, listId))) return
+  await addPriorityItem(listId, body, level, viewer.name || viewer.email)
   revalidatePath('/admin/priorities')
 }
 
 export async function setPriorityAction(formData: FormData) {
-  await requireSection('priorities')
+  const viewer = await requireSection('priorities')
   const id = str(formData.get('id'))
-  if (!id) return
+  if (!id || !(await mayTouchItem(viewer, id))) return
   const next: { body?: string; level?: number; done?: boolean } = {}
   if (formData.has('body')) next.body = str(formData.get('body'))
   if (formData.has('level')) next.level = Number(str(formData.get('level')))
@@ -1305,9 +1361,10 @@ export async function setPriorityAction(formData: FormData) {
 }
 
 export async function deletePriorityAction(formData: FormData) {
-  await requireSection('priorities')
+  const viewer = await requireSection('priorities')
   const id = str(formData.get('id'))
-  if (id) await deletePriorityItem(id)
+  if (!id || !(await mayTouchItem(viewer, id))) return
+  await deletePriorityItem(id)
   revalidatePath('/admin/priorities')
 }
 
@@ -1801,13 +1858,14 @@ export async function setRosterArchived(formData: FormData) {
 // they never reach the public site.
 
 export async function createPlan(formData: FormData) {
-  await requireSection('planner')
-  const viewer = await getViewer()
+  const viewer = await requireSection('planner')
   const kindRaw = str(formData.get('kind'))
   const kind: PlanKind = kindRaw === 'game' || kindRaw === 'note' ? kindRaw : 'practice'
   const title = str(formData.get('title')) || (kind === 'game' ? 'New game plan' : kind === 'note' ? 'New note' : 'New practice')
 
   const team = readTeam(str(formData.get('team')))
+  // Nothing gets written on a side of the program this coach doesn't work on.
+  if (!canTeam(viewer, team)) return
   const svc = createServiceClient()
   const row = {
     kind,
@@ -1845,9 +1903,16 @@ export async function createPlan(formData: FormData) {
  * coach dragging blocks around isn't racing a save per keystroke.
  */
 export async function savePlan(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireSection('planner')
+  const viewer = await requireSection('planner')
   const id = str(formData.get('id'))
   if (!id) return { ok: false, error: 'Missing plan.' }
+
+  // Whose plan this is, read from the plan rather than the form: a JV coach
+  // cannot save over a varsity practice by posting to it.
+  const existing = await getPlan(id)
+  if (existing && !canTeam(viewer, existing.team)) {
+    return { ok: false, error: 'That plan belongs to the other team.' }
+  }
 
   let blocks: unknown = []
   let content: unknown = []

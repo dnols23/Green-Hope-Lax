@@ -92,6 +92,33 @@ export async function addList(name: string, by: string | null, team: Team = DEFA
   if (error) await svc.from('priority_lists').insert(row)
 }
 
+/**
+ * Whose list this is — asked of the database, not of the form.
+ *
+ * Every write goes through here first, because a hidden button is not a lock:
+ * a JV coach posting a varsity list's id has to be turned away by the server.
+ */
+export async function listTeamOf(listId: string): Promise<Team | null> {
+  const { data } = await createServiceClient()
+    .from('priority_lists')
+    .select('team')
+    .eq('id', listId)
+    .maybeSingle()
+  if (!data) return null
+  return teamOf((data as { team?: unknown }).team)
+}
+
+/** The team behind one item, through the list it sits on. */
+export async function itemTeamOf(itemId: string): Promise<Team | null> {
+  const { data } = await createServiceClient()
+    .from('priority_items')
+    .select('list_id')
+    .eq('id', itemId)
+    .maybeSingle()
+  const listId = (data as { list_id?: string } | null)?.list_id
+  return listId ? listTeamOf(listId) : null
+}
+
 export async function renameList(id: string, name: string): Promise<void> {
   await createServiceClient().from('priority_lists').update({ name }).eq('id', id)
 }

@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
 import { createClient } from './supabase-server'
 import { readStaff, hasOwner } from './staff'
-import { canSee, teamScope, type Viewer } from './sections'
+import { canSee, canTeam, teamFor, teamScope, teamsFor, type Viewer } from './sections'
+import type { Team } from './teams'
 
 // ── The three ways in ────────────────────────────────────────────────────────
 //   Parents & players  the Team Hub shared code (see teamAuth.ts)
@@ -15,8 +16,8 @@ import { canSee, teamScope, type Viewer } from './sections'
 // Server-only — reads cookies and the database. Client components that just need
 // the section list should import from ./sections instead.
 
-export { SECTIONS, GRANTABLE, canSee, visibleSections, teamScope } from './sections'
-export type { AdminSection, Viewer, StaffRole } from './sections'
+export { SECTIONS, GRANTABLE, STAFF_TEAMS, canSee, visibleSections, teamScope, teamsFor, canTeam, teamFor } from './sections'
+export type { AdminSection, Viewer, StaffRole, StaffTeam } from './sections'
 
 export async function getViewer(): Promise<Viewer | null> {
   const supabase = await createClient()
@@ -39,6 +40,7 @@ export async function getViewer(): Promise<Viewer | null> {
       role: 'assistant',
       isOwner: bootstrap,
       permissions: [],
+      team: 'all',
       bootstrap,
     }
   }
@@ -49,6 +51,8 @@ export async function getViewer(): Promise<Viewer | null> {
     role: record.role,
     isOwner: record.isOwner || bootstrap,
     permissions: record.permissions,
+    // The owner runs the whole program; nobody can pen them into one half.
+    team: record.isOwner || bootstrap ? 'all' : record.team,
     bootstrap,
   }
 }
@@ -76,6 +80,24 @@ export async function requireTeamScope(
   const scope = teamScope(viewer, fullKey, jvKey)
   if (scope === 'none') notFound()
   return { viewer: viewer as Viewer, scope }
+}
+
+/**
+ * A team-scoped page. Returns the team it should actually open on, and whether
+ * the coach is locked to it — so the page can leave out the "other team →"
+ * switch rather than offering a door that won't open.
+ */
+export async function requireTeam(
+  key: string,
+  asked: unknown
+): Promise<{ viewer: Viewer; team: Team; locked: boolean }> {
+  const viewer = await requireSection(key)
+  return { viewer, team: teamFor(viewer, asked), locked: teamsFor(viewer).length < 2 }
+}
+
+/** Guard for an action that writes to one team's side of the program. */
+export async function mayWriteTeam(viewer: Viewer | null, team: Team): Promise<boolean> {
+  return canTeam(viewer, team)
 }
 
 export async function requireOwner(): Promise<Viewer> {

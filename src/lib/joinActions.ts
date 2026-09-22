@@ -123,6 +123,7 @@ export async function joinAsCoach(_prev: FormState, formData: FormData): Promise
     role: already?.role ?? 'assistant',
     isOwner: already?.isOwner ?? false,
     permissions: already?.permissions ?? [],
+    team: already?.team ?? 'all',
   })
 
   await notifyCoaches({

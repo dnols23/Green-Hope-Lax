@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getCurrentCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
-import { getViewer, canSee } from '@/lib/permissions'
+import { getViewer, canSee, teamFor, teamsFor } from '@/lib/permissions'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
 import { saveHubModes } from '@/lib/actions'
@@ -10,7 +10,7 @@ import { getGames } from '@/lib/queries'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { quoteOfTheDay } from '@/lib/warRoom'
 import { formatDate, formatShortDate, formatTime, TEAM_TIME_ZONE } from '@/lib/format'
-import { readTeam, teamLabel, withTeam } from '@/lib/teams'
+import { teamLabel, withTeam } from '@/lib/teams'
 import { WarRoomPanels, type Panel } from './WarRoomPanels'
 
 export const metadata = { title: 'War Room' }
@@ -29,9 +29,12 @@ export default async function WarRoom({
   /* Which staff's week this is. It rides in the URL so the two can be open side
      by side, and so a link to a JV plan lands on the JV side without anybody
      switching first. */
-  const team = readTeam((await searchParams).team)
   const coach = await getCurrentCoach()
   const viewer = await getViewer()
+  /* A coach kept to one side of the program gets that side, whatever the
+     address bar says. */
+  const team = teamFor(viewer, (await searchParams).team)
+  const locked = teamsFor(viewer).length < 2
   const isOwner = viewer?.isOwner ?? false
   const modesOff = await readModesOff()
   const today = todayIso()
@@ -45,7 +48,7 @@ export default async function WarRoom({
   const nextPractice = plans.find((p) => p.kind === 'practice' && p.plan_date && p.plan_date > today)
   const gamePlans = plans.filter((p) => p.kind === 'game').slice(0, 3)
 
-  const games = await getGames(undefined, 'admin')
+  const games = await getGames(undefined, 'admin', team)
   const upcoming = games
     .filter((g) => g.game_date >= today && g.status !== 'final')
     .slice(0, 4)
@@ -181,13 +184,16 @@ export default async function WarRoom({
         <h1 className="text-xl font-black">
           {team === 'varsity' ? 'War Room' : `${teamLabel(team)} War Room`}
         </h1>
-        {/* The other staff's week, one tap away — the same screen, their plans. */}
-        <Link
-          href={withTeam('/admin/hub', team === 'varsity' ? 'jv' : 'varsity')}
-          className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
-        >
-          {team === 'varsity' ? 'JV' : 'Varsity'} →
-        </Link>
+        {/* The other staff's week, one tap away — the same screen, their plans.
+            Left out for a coach who only works one side. */}
+        {!locked && (
+          <Link
+            href={withTeam('/admin/hub', team === 'varsity' ? 'jv' : 'varsity')}
+            className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
+          >
+            {team === 'varsity' ? 'JV' : 'Varsity'} →
+          </Link>
+        )}
         {coach && (
           <span
             className="text-xs font-bold px-2 py-0.5 rounded-full"

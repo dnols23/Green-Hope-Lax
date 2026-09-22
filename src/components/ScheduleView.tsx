@@ -27,6 +27,8 @@ export function ScheduleView({ games }: { games: Game[] }) {
                   </div>
                   {g.location && <div className="text-xs text-gray-500 mt-0.5">📍 {g.location}</div>}
                   <div className="mt-1 flex gap-2">
+                    {/* A JV game on a shared list has to say so, or it reads as varsity. */}
+                    {g.level === 'jv' && <span className="badge badge-sched">JV</span>}
                     {g.is_conference && <span className="badge badge-conf">Conf</span>}
                     {g.status === 'postponed' && <span className="badge badge-sched">Postponed</span>}
                     {g.status === 'canceled' && <span className="badge badge-loss">Canceled</span>}
@@ -54,6 +56,7 @@ export function ScheduleView({ games }: { games: Game[] }) {
                       <td className="text-gray-400 font-semibold">{homeAwayLabel(g)}</td>
                       <td className="font-bold">
                         {g.opponent}
+                        {g.level === 'jv' && <span className="badge badge-sched ml-2">JV</span>}
                         {g.is_conference && <span className="badge badge-conf ml-2">Conf</span>}
                       </td>
                       <td className="text-gray-500">{g.location ?? '—'}</td>
