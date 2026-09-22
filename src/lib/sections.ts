@@ -83,6 +83,9 @@ export const SECTIONS: AdminSection[] = [
   { key: 'drills',       label: 'Drill Bank',   href: '/admin/drills',       group: 'Coaches Hub', always: true },
   { key: 'playboard',    label: 'Playboard',    href: '/admin/playboard',    group: 'Coaches Hub', always: true },
   { key: 'library',      label: 'Library',      href: '/admin/library',      group: 'Coaches Hub', always: true },
+  // The deck of what we actually run. Every coach may read it once the head
+  // coach publishes it; only he ever writes it, which the pages enforce.
+  { key: 'playbook',     label: 'Playbook',     href: '/admin/playbook',     group: 'Coaches Hub', always: true, hidden: true },
   { key: 'priorities',   label: 'Priorities',   href: '/admin/priorities',   group: 'Coaches Hub', always: true },
   { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaches Hub', always: true,
     views: [{ audience: 'public', href: '/roster' }] },

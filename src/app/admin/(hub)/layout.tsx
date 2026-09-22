@@ -29,7 +29,7 @@ import { TEAMS, withTeam } from '@/lib/teams'
  * and what is in the JV bag are not the varsity staff's business — and, more to
  * the point, a shared board is one where things get written in the wrong place.
  */
-const TEAM_MODES = new Set(['warroom', 'planner', 'priorities', 'inventory'])
+const TEAM_MODES = new Set(['warroom', 'planner', 'priorities', 'inventory', 'playbook'])
 
 export default async function HubLayout({ children }: { children: React.ReactNode }) {
   const [viewer, filmOn, modesOff] = await Promise.all([getViewer(), isPageOn('film-coaches'), readModesOff()])
@@ -88,7 +88,7 @@ export default async function HubLayout({ children }: { children: React.ReactNod
   return (
     <AdminShell>
       <div className="flex flex-col md:flex-row gap-6 items-start">
-        <HubSidebar links={links} />
+        <HubSidebar links={links} noFold={teams.length < 2 ? teams.map((t) => t.label) : []} />
         <div className="flex-1 min-w-0 w-full">{children}</div>
       </div>
       {/* Shown once, the first time a coach lands in the hub. */}

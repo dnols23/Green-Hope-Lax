@@ -6,6 +6,8 @@ import { FalconHead } from '@/components/Logo'
 import { formatDate, formatTime } from '@/lib/format'
 import { TEAM_CATEGORY_META } from '@/lib/types'
 import { isPageOn } from '@/lib/pages'
+import { getSettings } from '@/lib/playbookData'
+import { TEAMS } from '@/lib/teams'
 import { getPageSettings } from '@/lib/queries'
 import { currentPlayer } from '@/lib/playerAccess'
 
@@ -14,6 +16,11 @@ export const dynamic = 'force-dynamic'
 export default async function TeamHubPage() {
   // Film Room can be switched off for the Team Hub in Admin → Pages.
   const filmOn = await isPageOn('film-team')
+  /* The playbook card only appears once a deck is actually published — a link
+     to "nothing published yet" is worse than no link. */
+  const playbookOn = (
+    await Promise.all(TEAMS.map((t) => getSettings(t.key)))
+  ).some((s) => s.publishPlayers)
   /* The quick links are built from the same switches as the public nav. A page
      turned off in Admin → Pages 404s on the way in, so offering a link to it
      here was offering a dead button. */
@@ -135,6 +142,17 @@ export default async function TeamHubPage() {
             </p>
             {filmOn && <Link href="/team/video" className="btn btn-primary w-full">Open the Film Room</Link>}
           </section>
+
+          {playbookOn && (
+            <section className="card p-5">
+              <h2 className="font-black mb-3">📘 Playbook</h2>
+              <p className="text-sm text-gray-500 mb-3">
+                What we run, in the order we install it — every play drawn up, with the reads and
+                the coaching points beside it.
+              </p>
+              <Link href="/team/playbook" className="btn btn-primary w-full">Open the playbook</Link>
+            </section>
+          )}
 
           <section className="card p-5">
             <h2 className="font-black mb-3">🔗 Quick links</h2>

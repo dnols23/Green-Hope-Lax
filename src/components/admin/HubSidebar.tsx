@@ -61,23 +61,36 @@ function applyOrder(links: HubLink[], order: string[]): HubLink[] {
  * own browser, not on the site — because the order that suits the head coach in
  * February is not the one that suits the JV coach in August.
  */
-export function HubSidebar({ links }: { links: HubLink[] }) {
+export function HubSidebar({ links, noFold = [] }: { links: HubLink[]; noFold?: string[] }) {
   /* Reading the query string suspends, and the sidebar is the first thing on
      the page — so it renders without the team marked and settles a beat later
      rather than holding everything up. */
   return (
-    <Suspense fallback={<Rail links={links} team="varsity" />}>
-      <SidebarWithTeam links={links} />
+    <Suspense fallback={<Rail links={links} team="varsity" noFold={noFold} />}>
+      <SidebarWithTeam links={links} noFold={noFold} />
     </Suspense>
   )
 }
 
-function SidebarWithTeam({ links }: { links: HubLink[] }) {
+function SidebarWithTeam({ links, noFold }: { links: HubLink[]; noFold: string[] }) {
   const team = useSearchParams().get('team') === 'jv' ? 'jv' : 'varsity'
-  return <Rail links={links} team={team} />
+  return <Rail links={links} team={team} noFold={noFold} />
 }
 
-function Rail({ links, team }: { links: HubLink[]; team: string }) {
+function Rail({
+  links,
+  team,
+  noFold,
+}: {
+  links: HubLink[]
+  team: string
+  /**
+   * Headings that don't fold. A coach who works one side of the program has
+   * one team heading, and a fold on the only thing there is to look at is a
+   * way to hide your own tools from yourself.
+   */
+  noFold: string[]
+}) {
   const pathname = usePathname()
   const [dragKey, setDragKey] = useState<string | null>(null)
   /* Which headings are folded away, kept in this browser like the order is. A
@@ -155,40 +168,48 @@ function Rail({ links, team }: { links: HubLink[]; team: string }) {
     <nav className="w-full md:w-56 shrink-0" data-tour="sidebar">
       <div className="card p-2 space-y-1">
         {groups.map((group) => {
-          const isShut = folded.includes(group.name)
+          const fixed = noFold.includes(group.name)
+          const isShut = !fixed && folded.includes(group.name)
           const hasOpenPage = group.items.some((l) => isActive(l.href))
+          const heading = (
+            <span className="text-[0.65rem] font-black tracking-[0.18em] uppercase text-gray-400">
+              {group.name}
+            </span>
+          )
           return (
             <div key={group.name}>
-              <button
-                type="button"
-                onClick={() => toggleGroup(group.name)}
-                aria-expanded={!isShut}
-                className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left"
-              >
-                <svg
-                  className="w-3 h-3 shrink-0 text-gray-400 transition-transform"
-                  style={{ transform: isShut ? undefined : 'rotate(90deg)' }}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={3}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
+              {fixed ? (
+                <div className="flex items-center gap-1.5 px-2 py-1.5">{heading}</div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.name)}
+                  aria-expanded={!isShut}
+                  className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left rounded-lg hover:bg-gray-50"
                 >
-                  <path d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="text-[0.65rem] font-black tracking-[0.18em] uppercase text-gray-400">
-                  {group.name}
-                </span>
-                {isShut && hasOpenPage && (
-                  <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: 'var(--gh-green)' }}
-                    aria-label="You are on a page in here"
-                  />
-                )}
-              </button>
+                  <svg
+                    className="w-3 h-3 shrink-0 text-gray-400 transition-transform"
+                    style={{ transform: isShut ? undefined : 'rotate(90deg)' }}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M9 5l7 7-7 7" />
+                  </svg>
+                  {heading}
+                  {isShut && hasOpenPage && (
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: 'var(--gh-green)' }}
+                      aria-label="You are on a page in here"
+                    />
+                  )}
+                </button>
+              )}
 
               {!isShut && (
                 <ul className="flex flex-col gap-0.5">
