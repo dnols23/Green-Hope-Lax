@@ -36,7 +36,7 @@ export default async function MyEvaluations() {
         </div>
         <Link href="/admin/hub/evaluate" className="btn btn-primary">+ Evaluate a player</Link>
       </div>
-      <p className="text-gray-500 text-sm mb-6">The evaluations you’ve submitted this season. Only you and the head coach can see them.</p>
+      <p className="text-gray-500 text-sm mb-6">The evaluations you’ve submitted this season. Every coach on staff can see them — that’s the point of the board.</p>
 
       {evals.length === 0 ? (
         <div className="card p-6 text-sm text-gray-500">

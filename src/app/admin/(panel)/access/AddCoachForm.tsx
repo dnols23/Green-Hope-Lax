@@ -103,8 +103,8 @@ Username: ${state.email}${state.password ? `\nPassword: ${state.password}` : ''}
         <div>
           <label className="field-label">Evaluation role</label>
           <select name="role" defaultValue="assistant" className="field">
-            <option value="assistant">Assistant — sees only their own evaluations</option>
-            <option value="head">Head — sees the compiled board</option>
+            <option value="assistant">Assistant — can delete only their own evaluations</option>
+            <option value="head">Head — can delete anybody’s</option>
           </select>
         </div>
       </div>

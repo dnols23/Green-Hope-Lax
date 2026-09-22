@@ -33,7 +33,6 @@ export default async function WarRoom({
   const coach = await getCurrentCoach()
   const viewer = await getViewer()
   const isOwner = viewer?.isOwner ?? false
-  const isHead = coach?.role === 'head' || isOwner
   const modesOff = await readModesOff()
   const today = todayIso()
 
@@ -156,9 +155,10 @@ export default async function WarRoom({
         <ul className="space-y-1.5 text-sm">
           <li><Link href="/admin/hub/evaluate" className="font-semibold hover:underline">📝 Evaluate a player</Link></li>
           <li><Link href="/admin/hub/mine" className="font-semibold hover:underline">📋 My evaluations</Link></li>
-          {isHead && <li><Link href="/admin/hub/board" className="font-semibold hover:underline">📊 Team evaluation board</Link></li>}
+          <li><Link href="/admin/hub/board" className="font-semibold hover:underline">📊 Team evaluation board</Link></li>
           {canSee(viewer, 'drills') && <li><Link href="/admin/drills" className="font-semibold hover:underline">📓 Drill bank</Link></li>}
           {canSee(viewer, 'rosters') && <li><Link href="/admin/rosters" className="font-semibold hover:underline">🥍 Rosters</Link></li>}
+          {isOwner && <li><Link href="/admin/coach-reviews" className="font-semibold hover:underline">🧢 Coach reviews</Link></li>}
           {isOwner && <li><Link href="/admin/access" className="font-semibold hover:underline">👥 Coach access</Link></li>}
         </ul>
       ),

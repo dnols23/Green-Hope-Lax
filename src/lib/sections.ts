@@ -42,6 +42,12 @@ export interface AdminSection {
   ownerOnly?: boolean
   /** Every coach gets this without it being ticked — it's the job. */
   always?: boolean
+  /**
+   * Kept out of the admin menu even for whoever can see it. For a page that
+   * belongs to one place — the Coaches Hub sidebar — and would only be noise
+   * repeated in the panel nav.
+   */
+  hidden?: boolean
   /** The same content, seen by everyone else who can see it. */
   views?: SectionView[]
 }
@@ -57,6 +63,9 @@ export const SECTIONS: AdminSection[] = [
   { key: 'priorities',   label: 'Priorities',   href: '/admin/priorities',   group: 'Coaches Hub', always: true },
   { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaches Hub', always: true,
     views: [{ audience: 'public', href: '/roster' }] },
+  // The head coach's review of his own staff. Lives only in the hub sidebar.
+  { key: 'coach-reviews', label: 'Coach Reviews', href: '/admin/coach-reviews', group: 'Coaches Hub',
+    ownerOnly: true, hidden: true },
   { key: 'inventory',    label: 'Inventory',    href: '/admin/inventory',    group: 'Coaches Hub' },
   { key: 'inventory-jv', label: 'JV Inventory', href: '/admin/inventory',    group: 'Coaches Hub' },
   { key: 'schedule',     label: 'Schedule',     href: '/admin/schedule',     group: 'Coaches Hub',
@@ -123,6 +132,7 @@ export function canSee(viewer: Viewer | null, key: string): boolean {
 export function visibleSections(viewer: Viewer | null): AdminSection[] {
   const seen = new Set<string>()
   return SECTIONS.filter((s) => {
+    if (s.hidden) return false
     if (!canSee(viewer, s.key)) return false
     if (seen.has(s.href)) return false
     seen.add(s.href)

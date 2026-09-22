@@ -46,7 +46,7 @@ export default async function EvaluateForm({
         </div>
       </div>
       <p className="text-gray-500 text-sm mb-5">
-        {ev ? 'Updating your evaluation.' : 'Your evaluation.'} Only you and the head coach can see it.
+        {ev ? 'Updating your evaluation.' : 'Your evaluation.'} Every coach on staff can see it.
       </p>
 
       {saved && (
