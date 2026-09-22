@@ -244,7 +244,10 @@ export function PlanEditor({
    * sentences into. None of that has anything to do with writing down what to
    * say at an interest meeting, so a note gets a title, a date and a page.
    */
-  if (plan.kind === 'note') {
+  /* A scout is a note about an opponent: the same page of headings, lists and
+     field diagrams, started from the right headings. It wants the same editor,
+     not a running clock. */
+  if (plan.kind === 'note' || plan.kind === 'scout') {
     return (
       <form action={save}>
         <input type="hidden" name="id" value={plan.id} />

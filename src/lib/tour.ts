@@ -12,88 +12,99 @@ export interface TourStep {
   title: string
   body: string
   /**
-   * What to put the spotlight on. A `mode:` target is one row of the sidebar,
-   * matched on its key; anything else is a plain `data-tour` attribute. A step
-   * whose target isn't on the page is skipped — a coach who can't open the
-   * playboard shouldn't be shown a hole where it would be.
+   * What to put the spotlight on.
+   *
+   *   sidebar        a plain `data-tour` attribute
+   *   mode:<key>     one row of the sidebar, matched exactly
+   *   team:<key>     that row on whichever side of the program this coach
+   *                  works on — the JV coach's JV planner, the head coach's
+   *                  varsity one — because a tour pointing at a varsity row a
+   *                  JV coach does not have would just skip the step.
+   *
+   * A step whose target isn't on the page is skipped, so a coach without the
+   * playboard is never shown a hole where it would be.
    */
   target?: string
-  /** Only shown in the War Room itself. */
-  warRoomOnly?: boolean
 }
 
 export const TOUR_STEPS: TourStep[] = [
   {
     key: 'sidebar',
     target: 'sidebar',
-    title: 'Everything you coach with',
+    title: 'It all lives here',
     body:
-      'Down this side is every tool you have. Drag a row by its ☰ handle to put the ones you use ' +
-      'first at the top, and tap a heading — Varsity, JV, Program — to fold it away.',
+      'Every part of the job, down one side. What you teach, how you teach it, and what you do with ' +
+      'what you find out — no folder on somebody’s laptop, no notebook in the truck. One place, and ' +
+      'you’re in it.',
   },
   {
     key: 'warroom',
-    target: 'mode:varsity:warroom',
-    title: 'The War Room',
+    target: 'team:warroom',
+    title: 'Start in the War Room',
     body:
-      'Your day in one screen: today’s practice, what’s next, the games coming up. Varsity and JV ' +
-      'each have their own, so the two staffs plan two different weeks without treading on each other.',
-  },
-  {
-    key: 'panels',
-    target: 'warroom-panels',
-    warRoomOnly: true,
-    title: 'Put it in your order',
-    body:
-      'Each of these panels moves. Drag one by its ☰ and the War Room lays itself out the way you ' +
-      'think — the plan first, or the schedule, or the quote on the wall.',
+      'Today’s practice. The next one. Who we play next and the scout on them. You look once and you ' +
+      'know where the program is — then you go to work.',
   },
   {
     key: 'planner',
-    target: 'mode:varsity:planner',
-    title: 'The Planner',
+    target: 'team:planner',
+    title: 'Build the practice',
     body:
-      'Build a practice block by block. Say when you take the field and when you have to be off it, ' +
-      'and every block’s time fits itself around that — no arithmetic.',
-  },
-  {
-    key: 'playboard',
-    target: 'mode:playboard',
-    title: 'The Playboard',
-    body:
-      'Draw it up on a real field. Drop a formation, draw the motion, record the play and watch it ' +
-      'back. Save it, or send a picture of it straight to the group.',
+      'Block by block. Tell it when you take the field and when you have to be off it and every ' +
+      'minute fits itself. Open any drill on the plan and it tells you how it’s set up, what it’s ' +
+      'teaching and where the video is — so the coach running it has coached it before he blows the ' +
+      'whistle. Score it, and somebody wins practice. Game plans and scouting reports live here too.',
   },
   {
     key: 'drills',
     target: 'mode:drills',
-    title: 'The Drill Bank',
+    title: 'Every drill we run',
     body:
-      'Every drill the program runs, with the setup and the video. Pull one into a practice plan ' +
-      'instead of writing it out again.',
+      'The whole bank — setup, the point of it, the film. This is the teaching. Pull one straight ' +
+      'onto a plan and it takes all of that with it.',
+  },
+  {
+    key: 'playboard',
+    target: 'mode:playboard',
+    title: 'Draw it up',
+    body:
+      'A real field. Drop a formation, draw the motion, record it and watch it back. What you drew ' +
+      'at the kitchen table is on your phone at practice.',
+  },
+  {
+    key: 'playbook',
+    target: 'team:playbook',
+    title: 'That’s the playbook',
+    body:
+      'The plays you drew, in the order we install them, with the reads and the coaching points ' +
+      'around them. Publish it and the players are reading the same page you are. Teaching becomes ' +
+      'coaching right here.',
   },
   {
     key: 'priorities',
-    target: 'mode:varsity:priorities',
-    title: 'Priorities',
+    target: 'team:priorities',
+    title: 'What you saw on Saturday',
     body:
-      'What you notice on the sideline, written down in seconds while the game is still going. ' +
-      'Then it’s waiting for you — colour-coded — the next time you sit down to plan. ' +
-      'Varsity and JV keep separate lists, so nothing lands on the wrong staff’s desk.',
+      'Ten seconds on the sideline and it’s written down — ranked by how badly it matters. Sunday ' +
+      'night it’s sitting in front of you while you write the plan. Nothing gets lost between the ' +
+      'game and the next practice.',
   },
   {
     key: 'evaluate',
     target: 'mode:evaluate',
-    title: 'Evaluations',
+    title: 'Who’s playing',
     body:
-      'Rate a player on a sliding scale, position by position. Every coach on staff reads every ' +
-      'evaluation and the board compiles them, so the depth chart is a conversation, not a guess.',
+      'Rate a player position by position on a sliding scale. Every coach sees every evaluation and ' +
+      'the board compiles them, so the depth chart is something the staff arrived at together — not ' +
+      'a hunch defended in a meeting.',
   },
   {
     key: 'library',
     target: 'mode:library',
-    title: 'The Library',
-    body: 'Everything you’ve saved — plays, plans, looks — in one place you can search.',
+    title: 'And everything is kept',
+    body:
+      'Plays, screenshots, looks, plans. A season’s work that’s still here next season. That’s it — ' +
+      'go coach.',
   },
 ]
 

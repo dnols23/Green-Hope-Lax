@@ -9,7 +9,9 @@ import { isTeam, type Team } from './teams'
 function shape(row: Record<string, unknown>): Plan {
   return {
     id: String(row.id),
-    kind: (row.kind === 'game' || row.kind === 'note' ? row.kind : 'practice') as PlanKind,
+    kind: (row.kind === 'game' || row.kind === 'note' || row.kind === 'scout'
+      ? row.kind
+      : 'practice') as PlanKind,
     title: String(row.title ?? ''),
     plan_date: (row.plan_date as string) ?? null,
     season: (row.season as string) ?? null,
