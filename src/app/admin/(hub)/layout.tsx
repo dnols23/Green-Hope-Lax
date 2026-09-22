@@ -1,6 +1,7 @@
 import { AdminShell } from '@/components/admin/AdminShell'
 import { HubSidebar, type HubLink } from '@/components/admin/HubSidebar'
 import { HubTour } from '@/components/admin/HubTour'
+import { audienceOf } from '@/lib/tour'
 import { getViewer, canSee, teamsFor } from '@/lib/permissions'
 import { isPageOn } from '@/lib/pages'
 import { readModesOff } from '@/lib/hubSettings'
@@ -91,8 +92,16 @@ export default async function HubLayout({ children }: { children: React.ReactNod
         <HubSidebar links={links} noFold={teams.length < 2 ? teams.map((t) => t.label) : []} />
         <div className="flex-1 min-w-0 w-full">{children}</div>
       </div>
-      {/* Shown once, the first time a coach lands in the hub. */}
-      <HubTour name={viewer?.name?.split(' ')[0] ?? ''} />
+      {/* Shown once, the first time a coach lands in the hub — and which
+          walk-round he gets depends on the job he is actually doing. */}
+      <HubTour
+        name={viewer?.name?.split(' ')[0] ?? ''}
+        audience={audienceOf({
+          isOwner: viewer?.isOwner ?? false,
+          role: viewer?.role ?? 'assistant',
+          team: viewer?.team ?? 'all',
+        })}
+      />
     </AdminShell>
   )
 }

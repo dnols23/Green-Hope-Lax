@@ -18,6 +18,8 @@ export interface LibraryShot {
   title: string
   url: string
   note: string | null
+  /** Whose shelf it is on. Null means the shelf everybody shares. */
+  ownerEmail: string | null
   createdBy: string | null
   createdAt: string
 }
@@ -28,30 +30,37 @@ export async function libraryReady(): Promise<boolean> {
   return !error
 }
 
-export async function listShots(): Promise<LibraryShot[]> {
+/** One coach's shelf, or every shelf when nobody is named. See listPlays. */
+export async function listShots(owner?: string | null): Promise<LibraryShot[]> {
   const { data, error } = await createServiceClient()
     .from('library_items')
     .select('*')
     .order('created_at', { ascending: false })
   if (error) return []
-  return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
-    id: String(row.id),
-    title: String(row.title ?? ''),
-    url: String(row.url ?? ''),
-    note: (row.note as string) ?? null,
-    createdBy: (row.created_by as string) ?? null,
-    createdAt: String(row.created_at ?? ''),
-  }))
+  return ((data ?? []) as Record<string, unknown>[])
+    .map((row) => ({
+      id: String(row.id),
+      title: String(row.title ?? ''),
+      url: String(row.url ?? ''),
+      note: (row.note as string) ?? null,
+      ownerEmail: (row.owner_email as string) ?? null,
+      createdBy: (row.created_by as string) ?? null,
+      createdAt: String(row.created_at ?? ''),
+    }))
+    .filter((s) => !owner || !s.ownerEmail || s.ownerEmail === owner)
 }
 
 export async function saveShot(
   title: string,
   url: string,
-  by: string | null
+  by: string | null,
+  owner?: string | null
 ): Promise<void> {
-  await createServiceClient()
-    .from('library_items')
-    .insert({ kind: 'shot', title, url, created_by: by })
+  const svc = createServiceClient()
+  const row = { kind: 'shot', title, url, created_by: by }
+  const { error } = await svc.from('library_items').insert({ ...row, owner_email: owner ?? null })
+  // No owner column yet: it lands on the shelf everybody shares, as before.
+  if (error) await svc.from('library_items').insert(row)
 }
 
 export async function renameShot(id: string, title: string): Promise<void> {

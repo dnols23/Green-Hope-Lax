@@ -12,6 +12,8 @@ import { EMPTY_BOARD, readBoard, readClip, type Board, type BoardClip } from './
 export interface Play {
   id: string
   name: string
+  /** Whose shelf it is on. Null means the shelf everybody shares. */
+  ownerEmail: string | null
   board: Board
   /** The take, if the coach recorded himself drawing it. */
   clip: BoardClip | null
@@ -25,7 +27,15 @@ export async function playsReady(): Promise<boolean> {
   return !error
 }
 
-export async function listPlays(): Promise<Play[]> {
+/**
+ * The plays on one coach's shelf, or every play when nobody is named.
+ *
+ * Filtered here rather than in the query, so a site whose owner has not run
+ * 0038 yet still shows its plays instead of failing on a column that isn't
+ * there. A play with no owner is on the shelf everybody shares — which is
+ * where every play was before there were shelves.
+ */
+export async function listPlays(owner?: string | null): Promise<Play[]> {
   const { data, error } = await createServiceClient()
     .from('plays')
     .select('*')
@@ -36,9 +46,10 @@ export async function listPlays(): Promise<Play[]> {
     name: String(row.name ?? ''),
     board: readBoard(row.board) ?? EMPTY_BOARD,
     clip: readClip(row.clip),
+    ownerEmail: (row.owner_email as string) ?? null,
     createdBy: (row.created_by as string) ?? null,
     updatedAt: String(row.updated_at ?? ''),
-  }))
+  })).filter((p) => !owner || !p.ownerEmail || p.ownerEmail === owner)
 }
 
 /**
@@ -49,12 +60,24 @@ export async function savePlay(
   name: string,
   board: unknown,
   by: string | null,
-  clip?: unknown
+  clip?: unknown,
+  /** Whose shelf it goes on. Their login, so a rename doesn't orphan it. */
+  owner?: string | null
 ): Promise<void> {
   const svc = createServiceClient()
   const clean = readBoard(board) ?? EMPTY_BOARD
   const take = readClip(clip)
-  const { data: existing } = await svc.from('plays').select('id').eq('name', name).maybeSingle()
+  /* The same name twice on the same shelf is that play brought up to date.
+     The same name on somebody else's shelf is somebody else's play. */
+  let found = owner
+    ? await svc.from('plays').select('id').eq('name', name).eq('owner_email', owner).maybeSingle()
+    : { data: null, error: null }
+  if (owner && found.error) {
+    // No owner column yet: fall back to the one shelf everybody shared.
+    found = await svc.from('plays').select('id').eq('name', name).maybeSingle()
+  }
+  if (!owner) found = await svc.from('plays').select('id').eq('name', name).maybeSingle()
+  const existing = found.data
 
   // The recording column arrives with its own SQL, so a site whose owner has
   // not run it yet must still be able to save a play — just without the take.
@@ -72,9 +95,14 @@ export async function savePlay(
     if (withoutClip(error)) await svc.from('plays').update(stamped).eq('id', id)
     return
   }
-  const row: Record<string, unknown> = { name, board: clean, created_by: by }
+  const row: Record<string, unknown> = { name, board: clean, created_by: by, owner_email: owner ?? null }
   const { error } = await svc.from('plays').insert(take ? { ...row, clip: take } : row)
-  if (withoutClip(error)) await svc.from('plays').insert(row)
+  if (error) {
+    // Shed the newer columns one at a time rather than lose the play.
+    const { owner_email: _o, ...noOwner } = row
+    const second = await svc.from('plays').insert(take ? { ...noOwner, clip: take } : noOwner)
+    if (second.error) await svc.from('plays').insert(noOwner)
+  }
 }
 
 /** The play saved under this name, if there is one. */
