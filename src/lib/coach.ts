@@ -49,7 +49,7 @@ export async function getCurrentCoach(): Promise<CurrentCoach | null> {
 // Guard for Head-Coach-only pages/actions. Renders 404 for anyone else.
 export async function requireHeadCoach(): Promise<CurrentCoach> {
   const coach = await getCurrentCoach()
-  if (!coach || coach.role !== 'head') notFound()
+  if (!coach || (coach.role !== 'head' && coach.role !== 'jv-head')) notFound()
   return coach
 }
 

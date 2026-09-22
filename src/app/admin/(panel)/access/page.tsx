@@ -1,4 +1,4 @@
-import { requireOwner, GRANTABLE, STAFF_TEAMS } from '@/lib/permissions'
+import { requireOwner, GRANTABLE, STAFF_TEAMS, STAFF_ROLES } from '@/lib/permissions'
 import { listStaff, staffStatuses } from '@/lib/staff'
 import { setCoachAccess, removeCoachAccount, claimOwnership, setCoachPassword } from '@/lib/actions'
 import { PasswordField } from '@/components/PasswordField'
@@ -101,6 +101,11 @@ export default async function CoachAccessPage() {
                         ? 'Coaches Hub and Film Room only'
                         : `Plus ${granted.join(', ')}`}
                   </div>
+                  {!c.isOwner && (c.role === 'head' || c.role === 'jv-head') && (
+                    <div className="text-xs font-bold ml-5 mt-0.5" style={{ color: 'var(--gh-maroon)' }}>
+                      {c.role === 'jv-head' ? 'JV head coach' : 'Head coach'}
+                    </div>
+                  )}
                   {!c.isOwner && c.team !== 'all' && (
                     <div className="text-xs font-bold ml-5 mt-0.5" style={{ color: 'var(--gh-green)' }}>
                       {c.team === 'jv' ? 'JV only' : 'Varsity only'}
@@ -151,14 +156,16 @@ export default async function CoachAccessPage() {
                       </p>
                     </div>
                     <div>
-                      <label className="field-label">Evaluation role</label>
+                      <label className="field-label">Role</label>
                       <select name="role" defaultValue={c.role} className="field">
-                        <option value="assistant">Assistant</option>
-                        <option value="head">Head</option>
+                        {STAFF_ROLES.map((r) => (
+                          <option key={r.key} value={r.key}>{r.label}</option>
+                        ))}
                       </select>
                       <p className="text-xs text-gray-400 mt-1 max-w-[16rem]">
-                        Every coach reads every player evaluation. Head only adds the power to
-                        delete somebody else&rsquo;s.
+                        The job he actually does. It decides the walk-round he gets on his first
+                        sign-in and what the War Room calls him. Everybody evaluates every player
+                        either way.
                       </p>
                     </div>
                     <button type="submit" className="btn btn-primary text-sm">

@@ -16,7 +16,7 @@ import {
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection, canTeam } from './permissions'
-import { isStaffTeam, type StaffTeam, type Viewer } from './sections'
+import { isStaffRole, isStaffTeam, type StaffRole, type StaffTeam, type Viewer } from './sections'
 import { readSides } from './compete'
 import { getPlan } from './plans'
 import { readStaff, writeStaff, deleteStaff } from './staff'
@@ -984,7 +984,7 @@ export async function deleteEvaluation(id: string) {
   const coach = await getCurrentCoach()
   if (!coach) return
   const supabase = createServiceClient()
-  if (coach.role === 'head') {
+  if (coach.role === 'head' || coach.role === 'jv-head') {
     await supabase.from('evaluations').delete().eq('id', id)
   } else {
     await supabase.from('evaluations').delete().eq('id', id).eq('evaluator_email', coach.email)
@@ -1036,7 +1036,8 @@ export async function createCoachAccount(
     return { ok: false, error: 'That login doesn\u2019t look valid.' }
 
   const display_name = str(formData.get('display_name')) || email.split('@')[0]
-  const role = str(formData.get('role')) === 'head' ? 'head' : 'assistant'
+  const roleRaw = str(formData.get('role'))
+  const role: StaffRole = isStaffRole(roleRaw) ? roleRaw : 'assistant'
   const permissions = formData.getAll('permissions').map(String).filter(Boolean)
   const rawTeam = str(formData.get('staff_team'))
   const team: StaffTeam = isStaffTeam(rawTeam) ? rawTeam : 'all'
@@ -1121,7 +1122,7 @@ export async function setCoachAccess(formData: FormData) {
 
   await writeStaff({
     ...existing,
-    role: str(formData.get('role')) === 'head' ? 'head' : 'assistant',
+    role: isStaffRole(str(formData.get('role'))) ? (str(formData.get('role')) as StaffRole) : 'assistant',
     permissions: formData.getAll('permissions').map(String).filter(Boolean),
     team: isStaffTeam(str(formData.get('staff_team'))) ? (str(formData.get('staff_team')) as StaffTeam) : 'all',
   })
