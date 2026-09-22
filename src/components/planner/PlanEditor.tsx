@@ -430,7 +430,7 @@ export function PlanEditor({
           )}
           {/* The whole point of writing something down on a sideline is that it
               is in front of you when the plan is being made. */}
-          <ReviewPriorities />
+          <ReviewPriorities team={plan.team} />
           <button type="submit" disabled={saving} className="btn btn-primary !py-1.5 disabled:opacity-60">
             {saving ? 'Saving…' : 'Save'}
           </button>

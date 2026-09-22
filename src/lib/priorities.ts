@@ -1,5 +1,6 @@
 import { createServiceClient } from './supabase-server'
 import { clampLevel, type PriorityList } from './priorityLevels'
+import { DEFAULT_TEAM, isTeam, type Team } from './teams'
 
 export * from './priorityLevels'
 
@@ -19,16 +20,23 @@ export async function prioritiesReady(): Promise<boolean> {
 }
 
 /**
- * Every list with its items, worst first and the done ones last — which is the
- * order a coach reads them in when the plan is being written.
+ * One team's lists with their items, worst first and the done ones last — which
+ * is the order a coach reads them in when the plan is being written.
+ *
+ * The team is filtered here rather than in the query, so a site whose owner has
+ * not run 0034 yet still shows its lists instead of failing on a column that
+ * isn't there. A row with no team reads as varsity, which is where it was
+ * written.
  */
-export async function listPriorities(): Promise<PriorityList[]> {
+export async function listPriorities(team: Team = DEFAULT_TEAM): Promise<PriorityList[]> {
   const svc = createServiceClient()
-  const { data: lists, error } = await svc
+  const { data: all, error } = await svc
     .from('priority_lists')
     .select('*')
     .order('sort_order', { ascending: true })
   if (error) return []
+
+  const lists = ((all ?? []) as Record<string, unknown>[]).filter((l) => teamOf(l.team) === team)
 
   const { data: items } = await svc
     .from('priority_items')
@@ -37,7 +45,7 @@ export async function listPriorities(): Promise<PriorityList[]> {
     .order('created_at', { ascending: true })
 
   const rows = (items ?? []) as Record<string, unknown>[]
-  return ((lists ?? []) as Record<string, unknown>[]).map((l) => {
+  return lists.map((l) => {
     const id = String(l.id)
     return {
       id,
@@ -60,7 +68,12 @@ export async function listPriorities(): Promise<PriorityList[]> {
   })
 }
 
-export async function addList(name: string, by: string | null): Promise<void> {
+/** A row's team, with anything unrecognised reading as varsity. */
+function teamOf(value: unknown): Team {
+  return isTeam(value) ? value : DEFAULT_TEAM
+}
+
+export async function addList(name: string, by: string | null, team: Team = DEFAULT_TEAM): Promise<void> {
   const svc = createServiceClient()
   const { data: last } = await svc
     .from('priority_lists')
@@ -68,11 +81,15 @@ export async function addList(name: string, by: string | null): Promise<void> {
     .order('sort_order', { ascending: false })
     .limit(1)
     .maybeSingle()
-  await svc.from('priority_lists').insert({
+  const row = {
     name,
     sort_order: (Number((last as { sort_order?: number })?.sort_order) || 0) + 1,
     created_by: by,
-  })
+  }
+  const { error } = await svc.from('priority_lists').insert({ ...row, team })
+  // A site that hasn't run 0034 has no team column; the list still gets made,
+  // it just lands on the varsity side where everything already is.
+  if (error) await svc.from('priority_lists').insert(row)
 }
 
 export async function renameList(id: string, name: string): Promise<void> {

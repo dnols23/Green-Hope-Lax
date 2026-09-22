@@ -10,6 +10,8 @@ import {
 } from '@/lib/actions'
 import { DEFAULT_LEVEL, PRIORITY_LEVELS, levelOf, type PriorityList } from '@/lib/priorityLevels'
 import { LevelSlider, PriorityChip } from '@/components/admin/PriorityBits'
+import { teamLabel, withTeam, type Team } from '@/lib/teams'
+import Link from 'next/link'
 
 /**
  * Keeping the lists.
@@ -18,7 +20,15 @@ import { LevelSlider, PriorityChip } from '@/components/admin/PriorityBits'
  * type the thing, slide how badly it matters, done. Everything else — renaming,
  * reordering, ticking off — is for Sunday.
  */
-export function PrioritiesClient({ lists, ready }: { lists: PriorityList[]; ready: boolean }) {
+export function PrioritiesClient({
+  lists,
+  ready,
+  team,
+}: {
+  lists: PriorityList[]
+  ready: boolean
+  team: Team
+}) {
   const [openList, setOpenList] = useState<string | null>(lists[0]?.id ?? null)
   const [body, setBody] = useState('')
   const [level, setLevel] = useState(DEFAULT_LEVEL)
@@ -50,10 +60,23 @@ export function PrioritiesClient({ lists, ready }: { lists: PriorityList[]; read
   return (
     <div className="max-w-3xl space-y-5">
       <div>
-        <h1 className="text-xl font-black mb-1">Priorities</h1>
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <h1 className="text-xl font-black">
+            {team === 'varsity' ? 'Priorities' : `${teamLabel(team)} Priorities`}
+          </h1>
+          {/* The other staff's list, one tap away — and never the same list. */}
+          <Link
+            href={withTeam('/admin/priorities', team === 'varsity' ? 'jv' : 'varsity')}
+            className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
+          >
+            {team === 'varsity' ? 'JV' : 'Varsity'} &rarr;
+          </Link>
+        </div>
         <p className="text-gray-500 text-sm">
-          What you noticed on the sideline, kept where practice planning starts. Every practice plan
-          and game plan has a Review priorities button that opens this list.
+          What you noticed on the sideline, kept where practice planning starts. This is the{' '}
+          <strong>{teamLabel(team)}</strong> list — {team === 'varsity' ? 'JV' : 'varsity'} keeps its
+          own, so nothing lands in the wrong place. Every practice plan and game plan has a Review
+          priorities button that opens the list for that plan&rsquo;s team.
         </p>
       </div>
 
@@ -102,6 +125,7 @@ export function PrioritiesClient({ lists, ready }: { lists: PriorityList[]; read
         })}
 
         <form action={addPriorityListAction} className="inline-flex items-center gap-1">
+          <input type="hidden" name="team" value={team} />
           <input
             name="name"
             value={newList}

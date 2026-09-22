@@ -1263,7 +1263,8 @@ export async function clearPlayClipAction(formData: FormData) {
 export async function addPriorityListAction(formData: FormData) {
   const viewer = await requireSection('priorities')
   const name = str(formData.get('name'))
-  if (name) await addPriorityList(name, viewer.name || viewer.email)
+  const team = readTeam(formData.get('team'))
+  if (name) await addPriorityList(name, viewer.name || viewer.email, team)
   revalidatePath('/admin/priorities')
 }
 

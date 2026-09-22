@@ -74,11 +74,12 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     key: 'priorities',
-    target: 'mode:priorities',
+    target: 'mode:varsity:priorities',
     title: 'Priorities',
     body:
       'What you notice on the sideline, written down in seconds while the game is still going. ' +
-      'Then it’s waiting for you — colour-coded — the next time you sit down to plan.',
+      'Then it’s waiting for you — colour-coded — the next time you sit down to plan. ' +
+      'Varsity and JV keep separate lists, so nothing lands on the wrong staff’s desk.',
   },
   {
     key: 'evaluate',

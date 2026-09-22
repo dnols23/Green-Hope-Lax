@@ -1,5 +1,7 @@
 import { createServiceClient } from '@/lib/supabase-server'
+import Link from 'next/link'
 import { requireTeamScope } from '@/lib/permissions'
+import { readTeam, teamLabel, withTeam, type Team } from '@/lib/teams'
 import { upsertInventoryItem, deleteInventoryItem, signOutEquipment, returnEquipment } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PlayerLink } from '@/components/admin/PlayerLink'
@@ -24,7 +26,7 @@ const CONDITION_STYLE: Record<InventoryCondition, string> = {
   retire: 'badge-loss',
 }
 
-function ItemFields({ item, jvOnly }: { item?: InventoryItem; jvOnly: boolean }) {
+function ItemFields({ item, team }: { item?: InventoryItem; team: Team }) {
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
       <div className="lg:col-span-2">
@@ -41,16 +43,16 @@ function ItemFields({ item, jvOnly }: { item?: InventoryItem; jvOnly: boolean })
           placeholder="Helmets"
         />
       </div>
-      {!jvOnly && (
-        <div>
-          <label className="field-label">Team</label>
-          <select name="team" defaultValue={item?.team ?? 'program'} className="field">
-            {Object.entries(INVENTORY_TEAM_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* Two choices, not three. You are already on one team's board, so the
+          only real question is whether this piece of gear is theirs or shared
+          — and the board's own team is what it starts on. */}
+      <div>
+        <label className="field-label">Whose</label>
+        <select name="team" defaultValue={item?.team ?? team} className="field">
+          <option value={team}>{teamLabel(team)} only</option>
+          <option value="program">Shared — both teams</option>
+        </select>
+      </div>
       <div>
         <label className="field-label">Quantity</label>
         <input name="quantity" type="number" min={0} defaultValue={item?.quantity ?? 0} className="field" />
@@ -79,14 +81,27 @@ function ItemFields({ item, jvOnly }: { item?: InventoryItem; jvOnly: boolean })
   )
 }
 
-export default async function InventoryPage() {
+export default async function InventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { scope } = await requireTeamScope('inventory', 'inventory-jv')
-  const jvOnly = scope === 'jv'
+  /* Whose shed this is. A coach granted only JV never leaves the JV board,
+     whatever the URL says. */
+  const asked = readTeam((await searchParams).team)
+  const team: Team = scope === 'jv' ? 'jv' : asked
 
   const svc = createServiceClient()
-  let query = svc.from('team_inventory').select('*').order('team').order('category').order('item')
-  if (jvOnly) query = query.eq('team', 'jv')
-  const { data, error } = await query
+  // This team's gear, plus what both teams share — balls and goals belong to
+  // whoever is on the field, and hiding them from one board loses them.
+  const { data, error } = await svc
+    .from('team_inventory')
+    .select('*')
+    .in('team', [team, 'program'])
+    .order('team')
+    .order('category')
+    .order('item')
 
   // The table arrives with migration 0012. Say so plainly instead of erroring.
   if (error) {
@@ -112,8 +127,12 @@ export default async function InventoryPage() {
   const signOutOn = await equipmentReady()
   const assignments = signOutOn ? await listAssignments({ includeReturned: false }) : []
   const outCount = outByItem(assignments)
+  /* Who you can sign it out to. Player teams are spelled boys_varsity /
+     boys_jv / girls, so the JV board asks for boys_jv and the varsity board
+     takes everyone who isn't on it — which keeps the girls' squad in view on
+     the varsity board rather than quietly dropping it. */
   let playerQuery = svc.from('players').select('id, name, number, team').eq('is_active', true).order('name')
-  if (jvOnly) playerQuery = playerQuery.eq('team', 'jv')
+  playerQuery = team === 'jv' ? playerQuery.eq('team', 'boys_jv') : playerQuery.neq('team', 'boys_jv')
   const { data: playerRows } = await playerQuery
   const players = (playerRows ?? []) as Pick<Player, 'id' | 'name' | 'number' | 'team'>[]
   const groups = items.reduce<Record<string, InventoryItem[]>>((acc, i) => {
@@ -128,11 +147,20 @@ export default async function InventoryPage() {
       </datalist>
 
       <div>
-        <h1 className="text-xl font-black mb-1">{jvOnly ? 'JV Inventory' : 'Inventory'}</h1>
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <h1 className="text-xl font-black">{teamLabel(team)} Inventory</h1>
+          {scope !== 'jv' && (
+            <Link
+              href={withTeam('/admin/inventory', team === 'varsity' ? 'jv' : 'varsity')}
+              className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
+            >
+              {team === 'varsity' ? 'JV' : 'Varsity'} &rarr;
+            </Link>
+          )}
+        </div>
         <p className="text-gray-500 text-sm">
-          {jvOnly
-            ? 'Gear assigned to the JV team. Everything you add here is filed under JV.'
-            : 'What the program owns, where it is, and what shape it&rsquo;s in.'}
+          What {teamLabel(team)} owns, where it is, and what shape it&rsquo;s in. Anything you add
+          lands on this board unless you mark it shared.
           {items.length > 0 && ` ${items.length} entries, ${total} items counted.`}
         </p>
       </div>
@@ -140,7 +168,7 @@ export default async function InventoryPage() {
       <section className="card p-5">
         <h2 className="font-bold text-gray-700 mb-4">Add gear</h2>
         <form action={upsertInventoryItem} className="space-y-4">
-          <ItemFields jvOnly={jvOnly} />
+          <ItemFields team={team} />
           <button type="submit" className="btn btn-primary">Add to inventory</button>
         </form>
       </section>
@@ -171,8 +199,10 @@ export default async function InventoryPage() {
                       <span className={`badge ${CONDITION_STYLE[r.condition]}`}>
                         {INVENTORY_CONDITION_LABELS[r.condition]}
                       </span>
-                      {!jvOnly && (
-                        <span className="text-xs text-gray-400">{INVENTORY_TEAM_LABELS[r.team]}</span>
+                      {r.team === 'program' && (
+                        <span className="text-xs font-bold text-gray-400">
+                          {INVENTORY_TEAM_LABELS.program} — shared
+                        </span>
                       )}
                       {r.location && <span className="text-xs text-gray-400">· {r.location}</span>}
                       {(outCount[r.id] ?? 0) > 0 && (
@@ -247,7 +277,7 @@ export default async function InventoryPage() {
 
                   <form action={upsertInventoryItem} className="mt-4 pt-4 border-t border-gray-100 space-y-4">
                     <input type="hidden" name="id" value={r.id} />
-                    <ItemFields item={r} jvOnly={jvOnly} />
+                    <ItemFields item={r} team={team} />
                     <button type="submit" className="btn btn-primary">Save changes</button>
                   </form>
                 </details>
