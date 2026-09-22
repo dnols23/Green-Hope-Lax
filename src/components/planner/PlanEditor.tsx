@@ -7,6 +7,8 @@ import {
   EMPTY_BOARD,
   clockAt,
   DEFAULT_START,
+  fitBlocks,
+  minutesBetween,
   emptyBlock,
   formatMinutes,
   minutesByTag,
@@ -77,6 +79,10 @@ export function PlanEditor({
   /* Open on a plan that has something to read, folded on one that does not —
      an empty box does not need three lines of the header. */
   const [summaryOpen, setSummaryOpen] = useState(Boolean(plan.summary?.trim()))
+  /* The hour you have the field until. Typing one does not move anything by
+     itself — it offers to, because rewriting every block's minutes on a stray
+     keystroke is not a thing anyone wants. */
+  const [endWanted, setEndWanted] = useState('')
   const [rosterId, setRosterId] = useState(plan.roster_id ?? '')
   const [blocks, setBlocks] = useState<PlanBlock[]>(plan.blocks)
   const [content, setContent] = useState<NoteBlock[]>(() => readNoteBlocks(plan.content))
@@ -148,6 +154,20 @@ export function PlanEditor({
 
   const clock = runningClock(blocks)
   const total = totalMinutes(blocks)
+  /** Where the plan lands as it stands, in 24-hour form for the time box. */
+  const endsAt = (() => {
+    const [h, m] = (start.match(/^(\d{1,2}):(\d{2})/) ?? []).slice(1).map(Number)
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return ''
+    const at = (h * 60 + m + total) % (24 * 60)
+    return `${String(Math.floor(at / 60)).padStart(2, '0')}:${String(at % 60).padStart(2, '0')}`
+  })()
+  /* Only offer to scale when the hour asked for is a different one, and when
+     there is something to scale. */
+  const wantedMinutes = endWanted ? minutesBetween(start, endWanted) : null
+  const fitTo =
+    wantedMinutes && wantedMinutes > 0 && wantedMinutes !== total && blocks.length > 0
+      ? wantedMinutes
+      : null
   const byTag = minutesByTag(blocks)
   const squad = playersByRoster[rosterId] ?? []
 
@@ -290,7 +310,19 @@ export function PlanEditor({
               className="field !py-1.5"
             />
           </div>
-          <div className="col-span-2">
+          {/* Where the 1h50m comes from: the blocks, added up. Say when you
+              have to be off the field and the whole plan scales to it. */}
+          <div>
+            <label className="field-label">Ends</label>
+            <input
+              type="time"
+              value={endWanted || endsAt || ''}
+              onChange={(e) => setEndWanted(e.target.value)}
+              className="field !py-1.5"
+              title="What time you have to be off the field"
+            />
+          </div>
+          <div className="col-span-2 sm:col-span-1">
             <label className="field-label">Roster</label>
             <select name="roster_id" value={rosterId} onChange={(e) => setRosterId(e.target.value)} className="field !py-1.5">
               <option value="">No roster</option>
@@ -356,6 +388,32 @@ export function PlanEditor({
             )}
           </div>
         </div>
+
+        {fitTo !== null && (
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                setBlocks((bs) => fitBlocks(bs, fitTo))
+                setEndWanted('')
+              }}
+              className="btn btn-primary !py-1.5 text-sm"
+            >
+              Fit the plan to {clockAt(start, fitTo)}
+            </button>
+            <span className="text-xs text-gray-500">
+              {blocks.length} {blocks.length === 1 ? 'block' : 'blocks'} scaled to{' '}
+              {formatMinutes(fitTo)} — everything shrinks or grows by the same share.
+            </span>
+            <button
+              type="button"
+              onClick={() => setEndWanted('')}
+              className="text-xs font-semibold text-gray-400 hover:text-gray-700"
+            >
+              Never mind
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100 flex-wrap">
           <div className="text-xl font-black" style={{ color: 'var(--gh-green)' }}>{formatMinutes(total)}</div>
