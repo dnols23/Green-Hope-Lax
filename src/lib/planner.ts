@@ -335,6 +335,53 @@ export function totalMinutes(blocks: PlanBlock[]): number {
   return end
 }
 
+/**
+ * The same practice, made to fit the time you actually have.
+ *
+ * Everything scales by the same factor, so the shape of the session survives —
+ * a plan that was half team work is still half team work at seventy minutes.
+ * Rounding leaves a minute or two either way; that lands on the longest blocks,
+ * because a minute off a twenty is invisible and a minute off a five is the
+ * water break.
+ *
+ * Nothing falls below a minute. A plan with more blocks than there are minutes
+ * cannot be made to fit, and comes back as close as it goes rather than as a
+ * row of zeroes.
+ */
+export function fitBlocks(blocks: PlanBlock[], target: number): PlanBlock[] {
+  const current = totalMinutes(blocks)
+  if (!Number.isFinite(target) || target <= 0 || current <= 0) return blocks
+
+  const factor = target / current
+  const out = blocks.map((b) => ({
+    ...b,
+    minutes: Math.max(1, Math.round((Number(b.minutes) || 0) * factor)),
+  }))
+
+  // A block inside a split only moves the clock when it is the longer half, so
+  // every adjustment is checked against the total rather than assumed.
+  for (let guard = 0; guard < 600; guard++) {
+    const now = totalMinutes(out)
+    if (now === target) break
+    const step = now > target ? -1 : 1
+    const longestFirst = out.map((_, i) => i).sort((a, b) => out[b].minutes - out[a].minutes)
+
+    let moved = false
+    for (const i of longestFirst) {
+      if (step < 0 && out[i].minutes <= 1) continue
+      out[i].minutes += step
+      if (totalMinutes(out) !== now) {
+        moved = true
+        break
+      }
+      out[i].minutes -= step
+    }
+    if (!moved) break
+  }
+
+  return out
+}
+
 /** The blocks sharing a slot with this one, this one included. */
 export function splitGroup(blocks: PlanBlock[], index: number): number[] {
   let first = index
@@ -377,6 +424,18 @@ export function readStart(raw: unknown): string | null {
   const min = Number(m[2])
   if (h > 23 || min > 59) return null
   return `${String(h).padStart(2, '0')}:${m[2]}`
+}
+
+/** Minutes between two times of day, the second being the later one. */
+export function minutesBetween(start: string, end: string): number | null {
+  const a = readStart(start)
+  const b = readStart(end)
+  if (!a || !b) return null
+  const [ah, am] = a.split(':').map(Number)
+  const [bh, bm] = b.split(':').map(Number)
+  const mins = bh * 60 + bm - (ah * 60 + am)
+  // A session that ends before it starts ran past midnight.
+  return mins > 0 ? mins : mins + 24 * 60
 }
 
 /** Clock time for a block, given a start like "16:00". */
