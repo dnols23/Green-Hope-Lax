@@ -94,7 +94,7 @@ export function DeckGrid({
 
           {/* A card is the page itself, shrunk — so the deck screen is a
               contact sheet rather than a list of names. */}
-          <div className="rounded-lg border border-gray-100 bg-white p-2 overflow-hidden" style={{ aspectRatio: '4 / 3' }}>
+          <div className="rounded-lg border border-gray-100 bg-white p-2 overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
             <SlideView page={page} plays={plays} scale="thumb" />
           </div>
 

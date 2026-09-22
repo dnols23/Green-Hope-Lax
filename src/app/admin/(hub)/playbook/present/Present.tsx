@@ -59,7 +59,7 @@ export function Present({
         </span>
       </div>
 
-      <div className="card p-5 sm:p-8 bg-white overflow-hidden" style={{ aspectRatio: '16 / 10' }}>
+      <div className="card p-5 sm:p-8 bg-white overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
         <SlideView page={page} plays={plays} />
       </div>
 

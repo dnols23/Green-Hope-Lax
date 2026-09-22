@@ -1,6 +1,8 @@
 'use client'
 import dynamic from 'next/dynamic'
-import type { PlaybookPage, SlideBlock } from '@/lib/playbook'
+import { inZOrder, isFree, type PlaybookPage, type SlideBlock } from '@/lib/playbook'
+import { BlockArt, type SlidePlay } from './BlockArt'
+import { Stage } from './Stage'
 import type { Board } from '@/lib/planner'
 
 /* The board is a heavy, browser-only component — it measures itself against the
@@ -11,11 +13,8 @@ const FieldBoard = dynamic(
   { ssr: false, loading: () => <div className="aspect-[3/2] rounded-xl bg-gray-50" /> }
 )
 
-export interface SlidePlay {
-  id: string
-  name: string
-  board: Board
-}
+export type { SlidePlay }
+export type { Board }
 
 /**
  * One page of the playbook, as it is read.
@@ -35,9 +34,32 @@ export function SlideView({
   /** 'thumb' shrinks the type for a card in the deck screen. */
   scale?: 'full' | 'thumb'
 }) {
-  const boards = page.blocks.filter((b) => b.kind === 'play' || b.kind === 'shot')
-  const words = page.blocks.filter((b) => b.kind === 'text' || b.kind === 'list')
   const thumb = scale === 'thumb'
+
+  /* A page placed by hand is drawn on the stage, where every box keeps the
+     spot it was put in. Everything else is laid out here, as it always was. */
+  if (isFree(page)) {
+    return (
+      <Stage className="rounded-lg">
+        {page.title && (
+          <div style={{ position: 'absolute', left: 48, top: 28, right: 48, fontSize: 44, fontWeight: 900, lineHeight: 1.1 }}>
+            {page.title}
+          </div>
+        )}
+        {inZOrder(page.blocks).map((b) => (
+          <div
+            key={b.id}
+            style={{ position: 'absolute', left: b.frame!.x, top: b.frame!.y, width: b.frame!.w, height: b.frame!.h }}
+          >
+            <BlockArt block={b} plays={plays} />
+          </div>
+        ))}
+      </Stage>
+    )
+  }
+
+  const boards = page.blocks.filter((b) => b.kind === 'play' || b.kind === 'shot')
+  const words = page.blocks.filter((b) => b.kind !== 'play' && b.kind !== 'shot')
 
   // A page with nothing on it is a section divider — its title, big, centred.
   if (page.blocks.length === 0) {
@@ -131,6 +153,15 @@ function BlockView({
       // Line breaks a coach typed are line breaks he meant.
       return <p className={`${cls} whitespace-pre-wrap`}>{block.body}</p>
     }
+    // Shapes belong on a hand-placed page; on a laid-out one they get a box of
+    // their own rather than disappearing.
+    case 'shape':
+      return (
+        <div style={{ height: thumb ? 48 : 120 }}>
+          <BlockArt block={block} plays={plays} />
+        </div>
+      )
+
     case 'list': {
       const items = block.items.filter((i) => i.trim())
       if (items.length === 0 && !block.heading) return null
