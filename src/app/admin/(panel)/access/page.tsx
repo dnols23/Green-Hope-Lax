@@ -139,6 +139,10 @@ export default async function CoachAccessPage() {
                         <option value="assistant">Assistant</option>
                         <option value="head">Head</option>
                       </select>
+                      <p className="text-xs text-gray-400 mt-1 max-w-[16rem]">
+                        Every coach reads every player evaluation. Head only adds the power to
+                        delete somebody else&rsquo;s.
+                      </p>
                     </div>
                     <button type="submit" className="btn btn-primary text-sm">
                       Save access

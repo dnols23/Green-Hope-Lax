@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { requireHeadCoach } from '@/lib/coach'
+import { requireSection } from '@/lib/permissions'
 import { createServiceClient } from '@/lib/supabase-server'
 import { EVAL_CATEGORIES, ratingsAverage, readRating, type Evaluation } from '@/lib/evaluations'
 import { TEAM_LABELS, type Player, type TeamGroup } from '@/lib/types'
@@ -11,7 +11,7 @@ const SEASON = '2026'
 const round1 = (n: number) => Math.round(n * 10) / 10
 
 export default async function EvaluationBoard() {
-  await requireHeadCoach() // assistants → 404
+  await requireSection('hub') // every coach on staff reads the board
 
   const svc = createServiceClient()
   const { data: evalRows } = await svc.from('evaluations').select('*').eq('season', SEASON)
@@ -66,9 +66,8 @@ export default async function EvaluationBoard() {
       <Link href="/admin/hub" className="text-sm font-bold text-[var(--gh-green)]">← Coaches Hub</Link>
       <div className="flex items-center gap-2 mt-2 mb-1">
         <h1 className="text-xl font-black">Team Evaluation Board</h1>
-        <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#fde8ea', color: 'var(--gh-maroon)' }}>Head coach only</span>
       </div>
-      <p className="text-gray-500 text-sm mb-6">Compiled scores across every coach. Tap a player to see each coach’s ratings and notes.</p>
+      <p className="text-gray-500 text-sm mb-6">Compiled scores across every coach, open to the whole staff. Tap a player to see each coach’s ratings and notes.</p>
 
       {rows.length === 0 ? (
         <div className="card p-6 text-sm text-gray-500">
