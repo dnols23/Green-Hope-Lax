@@ -1,4 +1,4 @@
-import { requireOwner, GRANTABLE } from '@/lib/permissions'
+import { requireOwner, GRANTABLE, STAFF_TEAMS } from '@/lib/permissions'
 import { listStaff, staffStatuses } from '@/lib/staff'
 import { setCoachAccess, removeCoachAccount, claimOwnership, setCoachPassword } from '@/lib/actions'
 import { PasswordField } from '@/components/PasswordField'
@@ -101,6 +101,11 @@ export default async function CoachAccessPage() {
                         ? 'Coaches Hub and Film Room only'
                         : `Plus ${granted.join(', ')}`}
                   </div>
+                  {!c.isOwner && c.team !== 'all' && (
+                    <div className="text-xs font-bold ml-5 mt-0.5" style={{ color: 'var(--gh-green)' }}>
+                      {c.team === 'jv' ? 'JV only' : 'Varsity only'}
+                    </div>
+                  )}
                 </div>
               </summary>
 
@@ -133,6 +138,18 @@ export default async function CoachAccessPage() {
                     ))}
                   </div>
                   <div className="flex items-end gap-3 flex-wrap">
+                    <div>
+                      <label className="field-label">Which team</label>
+                      <select name="staff_team" defaultValue={c.team} className="field">
+                        {STAFF_TEAMS.map((t) => (
+                          <option key={t.key} value={t.key}>{t.label}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-400 mt-1 max-w-[16rem]">
+                        One side of the program, or both. Kept to JV means no varsity War Room,
+                        planner, priorities, shed or schedule &mdash; whatever is ticked above.
+                      </p>
+                    </div>
                     <div>
                       <label className="field-label">Evaluation role</label>
                       <select name="role" defaultValue={c.role} className="field">

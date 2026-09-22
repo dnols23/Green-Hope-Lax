@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { requireSection } from '@/lib/permissions'
+import { requireSection, canTeam } from '@/lib/permissions'
 import { getPlan } from '@/lib/plans'
 import { listRosters, rosterMembers } from '@/lib/rosters'
 import { listStaff } from '@/lib/staff'
@@ -14,10 +14,13 @@ import { teamLabel, withTeam } from '@/lib/teams'
 export const dynamic = 'force-dynamic'
 
 export default async function PlanPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireSection('planner')
+  const viewer = await requireSection('planner')
   const { id } = await params
   const plan = await getPlan(id)
   if (!plan) notFound()
+  // A JV coach opening a varsity plan by its link gets the same 404 as a
+  // stranger — the sidebar hiding it is presentation, this is the part that holds.
+  if (!canTeam(viewer, plan.team)) notFound()
 
   const [live, staff, drills] = await Promise.all([listRosters(), listStaff(), listDrills()])
   /* A plan written last season still points at last season's roster. Offering

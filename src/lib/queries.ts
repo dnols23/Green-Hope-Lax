@@ -16,8 +16,17 @@ import type { Game, Player, Coach, NewsPost, PageSetting, ProgramGender, Program
  */
 export async function getGames(
   gender?: ProgramGender,
-  surface: 'public' | 'team' | 'admin' = 'admin'
+  surface: 'public' | 'team' | 'admin' = 'admin',
+  /**
+   * Varsity or JV. Filtered after the read rather than in the query, so a site
+   * whose owner has not run 0035 yet still returns its schedule instead of
+   * failing on a column that isn't there — and a game with no level reads as
+   * varsity, which is what it was.
+   */
+  level?: 'varsity' | 'jv'
 ): Promise<Game[]> {
+  const onlyLevel = (rows: Game[]) =>
+    level ? rows.filter((g) => (g.level ?? 'varsity') === level) : rows
   const supabase = surface === 'admin' ? await createClient() : await createPublicClient()
   const base = () => {
     let q = supabase.from('games').select('*').order('game_date', { ascending: true })
@@ -27,15 +36,15 @@ export async function getGames(
 
   if (surface === 'admin') {
     const { data } = await base()
-    return (data as Game[]) ?? []
+    return onlyLevel((data as Game[]) ?? [])
   }
 
   const { data, error } = await base().in('audience', VISIBLE_TO[surface])
   if (error) {
     const { data: all } = await base()
-    return (all as Game[]) ?? []
+    return onlyLevel((all as Game[]) ?? [])
   }
-  return (data as Game[]) ?? []
+  return onlyLevel((data as Game[]) ?? [])
 }
 
 // The next not-yet-final game, optionally for one program.

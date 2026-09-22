@@ -39,6 +39,8 @@ export interface Player {
 export interface Game {
   id: string
   gender: ProgramGender
+  /** Varsity or JV. Added in 0035; absent on a database a step behind. */
+  level?: 'varsity' | 'jv'
   game_date: string
   opponent: string
   /** Who may see it: everyone, the Team Hub, or coaches only. Added in 0016. */

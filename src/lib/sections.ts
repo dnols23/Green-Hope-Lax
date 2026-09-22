@@ -4,7 +4,30 @@
 // component and needs this list to render its checkboxes. Anything that reads
 // cookies or the database lives in permissions.ts instead.
 
+import { DEFAULT_TEAM, TEAMS, isTeam, type Team } from './teams'
+
 export type StaffRole = 'head' | 'assistant'
+
+/**
+ * Which side of the program a coach works on.
+ *
+ * Separate from the tick-boxes, and deliberately so. The tick-boxes answer
+ * "which pages", and the answer for a JV head coach is most of them — he runs
+ * a team. This answers "whose", and for him the answer is JV: the JV shed, the
+ * JV schedule, the JV week, and no way into the varsity ones. One switch, set
+ * once, rather than a JV twin of every page.
+ */
+export type StaffTeam = 'all' | 'varsity' | 'jv'
+
+export const STAFF_TEAMS: { key: StaffTeam; label: string; hint: string }[] = [
+  { key: 'all', label: 'Both teams', hint: 'Works across varsity and JV.' },
+  { key: 'varsity', label: 'Varsity only', hint: 'Cannot open or change anything JV.' },
+  { key: 'jv', label: 'JV only', hint: 'Cannot open or change anything varsity.' },
+]
+
+export function isStaffTeam(value: unknown): value is StaffTeam {
+  return value === 'all' || value === 'varsity' || value === 'jv'
+}
 
 /** Which heading a section sits under in the admin menu. */
 export type SectionGroup = 'Coaches Hub' | 'Team' | 'Content' | 'Admin'
@@ -107,8 +130,34 @@ export interface Viewer {
   role: StaffRole
   isOwner: boolean
   permissions: string[]
+  /** Varsity, JV, or both. The owner runs the program, so always both. */
+  team: StaffTeam
   /** True when no owner row exists yet, so this user is standing in as one. */
   bootstrap: boolean
+}
+
+/** The teams this viewer may work in, in sidebar order. */
+export function teamsFor(viewer: Viewer | null): Team[] {
+  if (!viewer) return []
+  if (viewer.isOwner || viewer.team === 'all') return TEAMS.map((t) => t.key)
+  return TEAMS.map((t) => t.key).filter((t) => t === viewer.team)
+}
+
+export function canTeam(viewer: Viewer | null, team: Team): boolean {
+  return teamsFor(viewer).includes(team)
+}
+
+/**
+ * The team a page should open on, given what the URL asked for.
+ *
+ * A coach kept to one side gets that side whatever the address bar says —
+ * hiding the link is presentation, this is the part that holds.
+ */
+export function teamFor(viewer: Viewer | null, asked: unknown): Team {
+  const want = isTeam(asked) ? asked : DEFAULT_TEAM
+  const allowed = teamsFor(viewer)
+  if (allowed.includes(want)) return want
+  return allowed[0] ?? DEFAULT_TEAM
 }
 
 export function canSee(viewer: Viewer | null, key: string): boolean {
@@ -149,7 +198,9 @@ export function teamScope(
   fullKey: string,
   jvKey: string
 ): 'none' | 'jv' | 'all' {
-  if (canSee(viewer, fullKey)) return 'all'
+  // A coach kept to JV is kept to JV whichever of the two grants he holds.
+  const jvOnly = !!viewer && !viewer.isOwner && viewer.team === 'jv'
+  if (canSee(viewer, fullKey)) return jvOnly ? 'jv' : 'all'
   if (canSee(viewer, jvKey)) return 'jv'
   return 'none'
 }

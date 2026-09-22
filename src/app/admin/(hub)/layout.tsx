@@ -1,7 +1,7 @@
 import { AdminShell } from '@/components/admin/AdminShell'
 import { HubSidebar, type HubLink } from '@/components/admin/HubSidebar'
 import { HubTour } from '@/components/admin/HubTour'
-import { getViewer, canSee } from '@/lib/permissions'
+import { getViewer, canSee, teamsFor } from '@/lib/permissions'
 import { isPageOn } from '@/lib/pages'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
@@ -53,10 +53,15 @@ export default async function HubLayout({ children }: { children: React.ReactNod
         ? canSee(viewer, 'inventory') || canSee(viewer, 'inventory-jv')
         : canSee(viewer, 'inventory')
 
+  /* Only the sides of the program this coach works on. A JV head coach has no
+     varsity group at all rather than a group full of doors that 404. */
+  const mine = new Set(teamsFor(viewer))
+  const teams = TEAMS.filter((t) => mine.has(t.key))
+
   const links: HubLink[] = [
     // The War Room, the planner, the priorities and the shed — one of each per
     // team, in the team's own group.
-    ...TEAMS.flatMap((t) =>
+    ...teams.flatMap((t) =>
       modes
         .filter((m) => TEAM_MODES.has(m.key) && forTeam(m.key, t.key))
         .map((m) => ({

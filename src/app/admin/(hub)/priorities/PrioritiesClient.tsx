@@ -24,10 +24,13 @@ export function PrioritiesClient({
   lists,
   ready,
   team,
+  locked,
 }: {
   lists: PriorityList[]
   ready: boolean
   team: Team
+  /** This coach only works one side of the program — no switch to offer. */
+  locked: boolean
 }) {
   const [openList, setOpenList] = useState<string | null>(lists[0]?.id ?? null)
   const [body, setBody] = useState('')
@@ -64,18 +67,22 @@ export function PrioritiesClient({
           <h1 className="text-xl font-black">
             {team === 'varsity' ? 'Priorities' : `${teamLabel(team)} Priorities`}
           </h1>
-          {/* The other staff's list, one tap away — and never the same list. */}
-          <Link
-            href={withTeam('/admin/priorities', team === 'varsity' ? 'jv' : 'varsity')}
-            className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
-          >
-            {team === 'varsity' ? 'JV' : 'Varsity'} &rarr;
-          </Link>
+          {/* The other staff's list, one tap away — and never the same list.
+              Left out for a coach who only works one side of the program. */}
+          {!locked && (
+            <Link
+              href={withTeam('/admin/priorities', team === 'varsity' ? 'jv' : 'varsity')}
+              className="text-xs font-bold px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
+            >
+              {team === 'varsity' ? 'JV' : 'Varsity'} &rarr;
+            </Link>
+          )}
         </div>
         <p className="text-gray-500 text-sm">
           What you noticed on the sideline, kept where practice planning starts. This is the{' '}
-          <strong>{teamLabel(team)}</strong> list — {team === 'varsity' ? 'JV' : 'varsity'} keeps its
-          own, so nothing lands in the wrong place. Every practice plan and game plan has a Review
+          <strong>{teamLabel(team)}</strong> list
+          {!locked && ` — ${team === 'varsity' ? 'JV' : 'varsity'} keeps its own, so nothing lands in the wrong place`}
+          . Every practice plan and game plan has a Review
           priorities button that opens the list for that plan&rsquo;s team.
         </p>
       </div>

@@ -3,7 +3,7 @@ import { useActionState, useState } from 'react'
 import { createCoachAccount } from '@/lib/actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { PasswordField } from '@/components/PasswordField'
-import { GRANTABLE } from '@/lib/sections'
+import { STAFF_TEAMS, GRANTABLE } from '@/lib/sections'
 
 type State = {
   ok: boolean
@@ -99,6 +99,18 @@ Username: ${state.email}${state.password ? `\nPassword: ${state.password}` : ''}
             autoComplete="new-password"
             hint="At least 8 characters, or leave blank to generate one. Either way they choose their own the first time they sign in."
           />
+        </div>
+        <div>
+          <label className="field-label">Which team</label>
+          <select name="staff_team" defaultValue="all" className="field">
+            {STAFF_TEAMS.map((t) => (
+              <option key={t.key} value={t.key}>{t.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">
+            A coach kept to one side never reaches the other one&rsquo;s War Room, planner,
+            priorities, shed or schedule.
+          </p>
         </div>
         <div>
           <label className="field-label">Evaluation role</label>

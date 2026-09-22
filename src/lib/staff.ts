@@ -1,5 +1,5 @@
 import { createServiceClient } from './supabase-server'
-import type { StaffRole } from './sections'
+import { isStaffTeam, type StaffRole, type StaffTeam } from './sections'
 
 // Who the coaching staff are, and what each of them may open.
 //
@@ -18,6 +18,8 @@ export interface StaffRecord {
   role: StaffRole
   isOwner: boolean
   permissions: string[]
+  /** Varsity, JV, or both. Older records have none, which reads as both. */
+  team: StaffTeam
 }
 
 const keyFor = (email: string) => `${PREFIX}${email.toLowerCase().trim()}`
@@ -31,6 +33,7 @@ function parse(key: string, value: string): StaffRecord | null {
       role: raw.role === 'head' ? 'head' : 'assistant',
       isOwner: raw.isOwner === true,
       permissions: Array.isArray(raw.permissions) ? raw.permissions.map(String) : [],
+      team: isStaffTeam(raw.team) ? raw.team : 'all',
     }
   } catch {
     return null
