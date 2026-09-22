@@ -138,7 +138,7 @@ export default async function CoachReviewForm({
           {/* Two buttons rather than a status box: saving and signing off are
               different decisions, and one of them is the end of the season. */}
           <div className="sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white border-t rounded-b-xl flex gap-2 flex-wrap items-center">
-            <button type="submit" name="status" value="draft" className="btn btn-outline">
+            <button type="submit" name="status" value="draft" className="btn btn-ghost">
               Save draft
             </button>
             <button type="submit" name="status" value="final" className="btn btn-primary">
