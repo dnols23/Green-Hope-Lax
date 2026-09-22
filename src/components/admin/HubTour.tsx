@@ -29,9 +29,13 @@ function subscribeSeen(onChange: () => void) {
 
 function findEl(target?: string): HTMLElement | null {
   if (!target) return null
-  const sel = target.startsWith('mode:')
-    ? `[data-tour-mode="${CSS.escape(target.slice(5))}"]`
-    : `[data-tour="${CSS.escape(target)}"]`
+  /* `team:` means that row on whichever side of the program this coach works
+     on. The sidebar lists his teams in order, so the first match is his. */
+  const sel = target.startsWith('team:')
+    ? `[data-tour-mode$=":${CSS.escape(target.slice(5))}"]`
+    : target.startsWith('mode:')
+      ? `[data-tour-mode="${CSS.escape(target.slice(5))}"]`
+      : `[data-tour="${CSS.escape(target)}"]`
   return document.querySelector<HTMLElement>(sel)
 }
 
@@ -196,11 +200,7 @@ export function HubTour({ name }: { name: string }) {
   function startTour() {
     // Only the stops this coach actually has. Someone without the playboard
     // shouldn't be shown a hole where it would be.
-    const here = pathname === '/admin/hub'
-    const usable = TOUR_STEPS.filter((s) => {
-      if (s.warRoomOnly && !here) return false
-      return !s.target || !!findEl(s.target)
-    })
+    const usable = TOUR_STEPS.filter((s) => !s.target || !!findEl(s.target))
     if (usable.length === 0) { finish(); return }
     setSteps(usable)
     setAt(0)

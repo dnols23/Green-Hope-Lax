@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { getCurrentCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
-import { getViewer, canSee, teamFor, teamsFor } from '@/lib/permissions'
+import { getViewer, teamFor, teamsFor } from '@/lib/permissions'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
-import { saveHubModes } from '@/lib/actions'
+import { saveHubModes, createPlan } from '@/lib/actions'
 import { listPlans, plannerReady } from '@/lib/plans'
 import { getGames } from '@/lib/queries'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
@@ -53,6 +53,12 @@ export default async function WarRoom({
     .filter((g) => g.game_date >= today && g.status !== 'final')
     .slice(0, 4)
   const gamesToday = games.filter((g) => g.game_date.slice(0, 10) === today)
+  /* Who we play next, and the scout for them if somebody has started one — a
+     scout is a plan of its own kind, dated to the game. */
+  const nextGame = upcoming[0] ?? null
+  const scout = nextGame
+    ? plans.find((p) => p.kind === 'scout' && p.plan_date === nextGame.game_date.slice(0, 10)) ?? null
+    : null
 
   const quote = quoteOfTheDay(today)
 
@@ -152,18 +158,43 @@ export default async function WarRoom({
         ),
     },
     {
-      key: 'coaching',
-      title: 'Coaching',
-      body: (
-        <ul className="space-y-1.5 text-sm">
-          <li><Link href="/admin/hub/evaluate" className="font-semibold hover:underline">📝 Evaluate a player</Link></li>
-          <li><Link href="/admin/hub/mine" className="font-semibold hover:underline">📋 My evaluations</Link></li>
-          <li><Link href="/admin/hub/board" className="font-semibold hover:underline">📊 Team evaluation board</Link></li>
-          {canSee(viewer, 'drills') && <li><Link href="/admin/drills" className="font-semibold hover:underline">📓 Drill bank</Link></li>}
-          {canSee(viewer, 'rosters') && <li><Link href="/admin/rosters" className="font-semibold hover:underline">🥍 Rosters</Link></li>}
-          {isOwner && <li><Link href="/admin/coach-reviews" className="font-semibold hover:underline">🧢 Coach reviews</Link></li>}
-          {isOwner && <li><Link href="/admin/access" className="font-semibold hover:underline">👥 Coach access</Link></li>}
-        </ul>
+      key: 'scout',
+      title: nextGame ? 'Next opponent' : 'Scouting',
+      body: !nextGame ? (
+        <p className="text-sm text-gray-500">
+          Nothing on the schedule to scout yet.
+        </p>
+      ) : (
+        <div className="text-sm">
+          <div className="font-bold text-base leading-tight">
+            {nextGame.home_away === 'away' ? '@' : 'vs'} {nextGame.opponent}
+          </div>
+          <div className="text-gray-500">
+            {formatShortDate(nextGame.game_date)} · {formatTime(nextGame.game_date)}
+            {nextGame.location ? ` · ${nextGame.location}` : ''}
+            {nextGame.is_conference ? ' · conference' : ''}
+          </div>
+          <div className="mt-2">
+            {scout ? (
+              <Link href={withTeam(`/admin/planner/${scout.id}`, team)} className="font-semibold hover:underline">
+                🔭 {scout.title} →
+              </Link>
+            ) : (
+              /* No scout yet, so the button makes one already named and dated
+                 for this opponent — the scouting starts on the next screen,
+                 not after ten seconds of filling in a form. */
+              <form action={createPlan}>
+                <input type="hidden" name="kind" value="scout" />
+                <input type="hidden" name="team" value={team} />
+                <input type="hidden" name="title" value={`Scout — ${nextGame.opponent}`} />
+                <input type="hidden" name="plan_date" value={nextGame.game_date.slice(0, 10)} />
+                <button type="submit" className="font-semibold hover:underline" style={{ color: 'var(--gh-green)' }}>
+                  🔭 Scout them →
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
       ),
     },
     {

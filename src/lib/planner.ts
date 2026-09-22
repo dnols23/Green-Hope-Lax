@@ -5,11 +5,12 @@
 
 import { readComp, type BlockComp } from './compete'
 
-export type PlanKind = 'practice' | 'game' | 'note'
+export type PlanKind = 'practice' | 'game' | 'note' | 'scout'
 
 export const PLAN_KINDS: { key: PlanKind; label: string; plural: string; icon: string; blurb: string }[] = [
   { key: 'practice', label: 'Practice plan', plural: 'Practices', icon: '🥍', blurb: 'A session broken into timed blocks.' },
   { key: 'game', label: 'Game plan', plural: 'Games', icon: '🏟', blurb: 'Matchups, situations and what we run.' },
+  { key: 'scout', label: 'Scout', plural: 'Scouts', icon: '🔭', blurb: 'Who we play next, and how they play.' },
   { key: 'note', label: 'Note', plural: 'Notes', icon: '📝', blurb: 'Anything that isn’t a plan yet.' },
 ]
 
