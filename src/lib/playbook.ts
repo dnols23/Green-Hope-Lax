@@ -8,6 +8,7 @@
 // Pure — the editor and the viewer both import it.
 
 import { DEFAULT_TEAM, isTeam, type Team } from './teams'
+import { EMPTY_BOARD, readBoard, type Board } from './planner'
 
 export const PLAYBOOK_KEY = 'playbook'
 
@@ -88,9 +89,22 @@ interface Placed {
   z?: number
 }
 
+/**
+ * A field on the page.
+ *
+ * Two ways to get one, and the difference matters. `playId` points at a play in
+ * the Library — the same play the whole staff uses, so fixing the spacing on it
+ * fixes it everywhere it appears. `board` is this page's own: drawn here,
+ * changed here, and changing it changes nothing else.
+ *
+ * A block with both is a copy that has been taken off the shelf and made the
+ * page's own, so the page's board wins.
+ */
 export interface PlayBlock extends Placed {
   kind: 'play'
   playId: string
+  /** This page's own field, when it isn't borrowing one from the Library. */
+  board?: Board
   caption?: string
 }
 export interface ShotBlock extends Placed {
@@ -135,8 +149,18 @@ export interface ShapeBlock extends Placed {
 
 export type SlideBlock = PlayBlock | ShotBlock | TextBlock | ListBlock | ShapeBlock
 
-export const BLOCK_KINDS: { kind: SlideBlock['kind']; label: string; icon: string }[] = [
-  { kind: 'play', label: 'Play', icon: '🖍' },
+/**
+ * What the Insert row offers.
+ *
+ * A blank board and a saved play are the same kind of block underneath — a
+ * field on the page — but they are two different decisions, so they are two
+ * buttons rather than a dropdown you have to find.
+ */
+export type InsertKind = SlideBlock['kind'] | 'blank'
+
+export const BLOCK_KINDS: { kind: InsertKind; label: string; icon: string }[] = [
+  { kind: 'blank', label: 'Blank board', icon: '⬚' },
+  { kind: 'play', label: 'Saved play', icon: '🖍' },
   { kind: 'shot', label: 'Picture', icon: '🖼' },
   { kind: 'text', label: 'Text box', icon: '✍️' },
   { kind: 'list', label: 'List', icon: '•' },
@@ -224,7 +248,14 @@ export function readBlock(raw: unknown): SlideBlock | null {
   switch (o.kind) {
     case 'play': {
       const playId = str(o.playId)
-      return playId ? { ...placed, kind: 'play', playId, caption: str(o.caption) || undefined } : null
+      /* Whether the page owns a board is the presence of the key, not whether
+         anything has been drawn on it yet — readBoard says null for an empty
+         one, and an empty one is exactly what a blank board starts as. */
+      const owns = !!o.board && typeof o.board === 'object'
+      const board = owns ? readBoard(o.board) ?? EMPTY_BOARD : undefined
+      // One or the other, or it is a block pointing at nothing.
+      if (!playId && !board) return null
+      return { ...placed, kind: 'play', playId, board, caption: str(o.caption) || undefined }
     }
     case 'shot': {
       const url = str(o.url)
@@ -346,12 +377,15 @@ export function blockId(): string {
   return `b${seq}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-export function emptyBlock(kind: SlideBlock['kind'], frame?: Frame): SlideBlock {
+export function emptyBlock(kind: InsertKind, frame?: Frame): SlideBlock {
   const id = blockId()
   // Something you can see and grab the moment it lands, near the middle.
   const at = (w: number, h: number): Frame =>
     frame ?? clampFrame({ x: Math.round((SLIDE_W - w) / 2), y: Math.round((SLIDE_H - h) / 2), w, h })
   switch (kind) {
+    case 'blank':
+      // An empty field, this page's own, ready to be drawn on.
+      return { kind: 'play', id, playId: '', board: EMPTY_BOARD, frame: at(600, 400) }
     case 'play':
       return { kind: 'play', id, playId: '', frame: at(540, 360) }
     case 'shot':
@@ -369,6 +403,11 @@ export function emptyBlock(kind: SlideBlock['kind'], frame?: Frame): SlideBlock 
 export function leadPlayId(page: PlaybookPage): string | null {
   const found = page.blocks.find((b) => b.kind === 'play') as PlayBlock | undefined
   return found?.playId || null
+}
+
+/** Is this field the page's own, rather than one borrowed from the Library? */
+export function ownsBoard(block: PlayBlock): boolean {
+  return !!block.board
 }
 
 /** A page with nothing on it reads as a section divider, not a mistake. */

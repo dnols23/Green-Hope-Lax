@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
-import { useState } from 'react'
+import dynamic from 'next/dynamic'
+import { useState, useTransition } from 'react'
 import { SlideCanvas } from '@/components/playbook/SlideCanvas'
 import type { SlidePlay } from '@/components/playbook/BlockArt'
 import { deletePlaybookPage, savePlaybookPage } from '@/lib/playbookActions'
@@ -15,12 +16,22 @@ import {
   clampFrame,
   emptyBlock,
   type Frame,
+  type InsertKind,
   type PageLayout,
   type PlaybookPage,
   type ShapeKind,
   type SlideBlock,
 } from '@/lib/playbook'
+import { EMPTY_BOARD, type Board } from '@/lib/planner'
+import { savePlayAction } from '@/lib/actions'
 import { withTeam } from '@/lib/teams'
+
+/* The real board, with every tool on it. Browser-only and heavy, so it is only
+   fetched once a field on the page is actually selected. */
+const FieldBoard = dynamic(
+  () => import('@/components/planner/FieldBoard').then((m) => m.FieldBoard),
+  { ssr: false, loading: () => <div className="aspect-[3/2] rounded-xl bg-gray-50" /> }
+)
 
 interface Shot {
   id: string
@@ -50,6 +61,26 @@ export function PageEditor({
   const [notes, setNotes] = useState(page.notes ?? '')
   const [blocks, setBlocks] = useState<SlideBlock[]>(() => autoFrames(page.blocks, page.layout))
   const [selected, setSelected] = useState<string | null>(null)
+  /* Putting a page's own board on the shelf as well, so the rest of the staff
+     can use it. The page keeps its copy either way. */
+  const [shelving, setShelving] = useState<string | null>(null)
+  const [shelfName, setShelfName] = useState('')
+  const [saving, startSaving] = useTransition()
+
+  function shelve(id: string, board: Board) {
+    const name = shelfName.trim()
+    if (!name) return
+    const data = new FormData()
+    data.set('name', name)
+    data.set('board', JSON.stringify(board))
+    startSaving(async () => {
+      await savePlayAction(data)
+      setShelving(null)
+      setShelfName('')
+      // The page keeps drawing its own copy; this only added one to the shelf.
+      void id
+    })
+  }
 
   const playMap = Object.fromEntries(plays.map((p) => [p.id, p]))
   const back = withTeam('/admin/playbook', page.team)
@@ -78,7 +109,7 @@ export function PageEditor({
       return [...bs, copy as SlideBlock]
     })
   }
-  function add(kind: SlideBlock['kind']) {
+  function add(kind: InsertKind) {
     takeOver()
     const b = emptyBlock(kind)
     setBlocks((bs) => [...bs, { ...b, z: bs.length }])
@@ -148,7 +179,9 @@ export function PageEditor({
         <div className="card p-4 mt-3 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-black uppercase tracking-wider text-gray-400">
-              {BLOCK_KINDS.find((k) => k.kind === active.kind)?.label}
+              {active.kind === 'play' && active.board
+                ? 'Board'
+                : BLOCK_KINDS.find((k) => k.kind === active.kind)?.label}
             </span>
             <span className="ml-auto flex items-center gap-2">
               <button type="button" onClick={() => lift(active.id, 'front')} className="text-xs font-bold text-gray-500 hover:text-gray-800">Bring to front</button>
@@ -159,13 +192,68 @@ export function PageEditor({
           </div>
 
           {active.kind === 'play' && (
-            <div className="grid sm:grid-cols-2 gap-2">
-              <select value={active.playId} onChange={(e) => patch(active.id, { playId: e.target.value })} className="field">
-                <option value="">— pick a play —</option>
-                {plays.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+            <div className="space-y-3">
+              {active.board ? (
+                /* This page's own field. Drawn here, and nowhere else changes. */
+                <>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="badge badge-conf">This page&rsquo;s own board</span>
+                    <span className="text-xs text-gray-400">
+                      Draw on it below. Nothing else on the site changes.
+                    </span>
+                    <span className="ml-auto flex items-center gap-2">
+                      <button type="button" onClick={() => setShelving(active.id)}
+                        className="text-xs font-bold text-[var(--gh-green)] hover:underline">
+                        Put it in the Library too →
+                      </button>
+                      {active.playId && (
+                        <button type="button" onClick={() => patch(active.id, { board: undefined })}
+                          className="text-xs font-bold text-gray-500 hover:text-gray-800">
+                          Go back to the saved play
+                        </button>
+                      )}
+                    </span>
+                  </div>
+
+                  {shelving === active.id && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex items-end gap-2 flex-wrap">
+                      <div className="flex-1 min-w-[10rem]">
+                        <label className="field-label">Save it to the Library as</label>
+                        <input value={shelfName} onChange={(e) => setShelfName(e.target.value)}
+                          placeholder="1-4-1 pop" className="field !py-1.5" />
+                      </div>
+                      <button type="button" disabled={!shelfName.trim() || shelving === null || saving}
+                        onClick={() => shelve(active.id, active.board ?? EMPTY_BOARD)}
+                        className="btn btn-primary !py-1.5 text-sm disabled:opacity-50">
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button type="button" onClick={() => setShelving(null)} className="btn btn-ghost !py-1.5 text-sm">
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+
+                  <FieldBoard
+                    board={active.board}
+                    onChange={(next: Board) => patch(active.id, { board: next })}
+                  />
+                </>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <select value={active.playId} onChange={(e) => patch(active.id, { playId: e.target.value })} className="field">
+                    <option value="">— pick a play —</option>
+                    {plays.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <button type="button" disabled={!active.playId}
+                    onClick={() => patch(active.id, { board: plays.find((p) => p.id === active.playId)?.board ?? EMPTY_BOARD })}
+                    className="btn btn-ghost disabled:opacity-40">
+                    Take a copy I can change here
+                  </button>
+                </div>
+              )}
+
               <input value={active.caption ?? ''} onChange={(e) => patch(active.id, { caption: e.target.value })}
-                placeholder="Caption (the play's name otherwise)" className="field" />
+                placeholder={active.board ? 'Caption' : "Caption (the play's name otherwise)"} className="field" />
             </div>
           )}
 

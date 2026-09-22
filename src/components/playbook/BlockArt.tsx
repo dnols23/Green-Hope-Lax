@@ -32,8 +32,10 @@ export function BlockArt({
 }) {
   switch (block.kind) {
     case 'play': {
-      const play = plays[block.playId]
-      if (!play) {
+      /* The page's own field wins over a borrowed one: a coach who took a copy
+         off the shelf to change it means the copy. */
+      const board = block.board ?? plays[block.playId]?.board
+      if (!board) {
         return (
           <div className="w-full h-full rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 flex items-center justify-center p-4 text-center"
             style={{ fontSize: 20, color: '#92400e' }}>
@@ -41,15 +43,15 @@ export function BlockArt({
           </div>
         )
       }
+      const name = block.board ? '' : (plays[block.playId]?.name ?? '')
+      const caption = block.caption ?? name
       return (
         <div className="w-full h-full flex flex-col">
           <div className="flex-1 min-h-0 [&_svg]:!h-full [&>*]:h-full">
-            <FieldBoard board={play.board} readOnly />
+            <FieldBoard board={board} readOnly />
           </div>
-          {block.caption !== '' && (
-            <div style={{ fontSize: 18, color: '#6b7280', marginTop: 4 }}>
-              {block.caption || play.name}
-            </div>
+          {caption && (
+            <div style={{ fontSize: 18, color: '#6b7280', marginTop: 4 }}>{caption}</div>
           )}
         </div>
       )

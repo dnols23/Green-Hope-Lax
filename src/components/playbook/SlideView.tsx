@@ -112,20 +112,25 @@ function BlockView({
 }) {
   switch (block.kind) {
     case 'play': {
+      // The page's own field first, then the one it borrowed from the Library.
       const play = plays[block.playId]
-      if (!play) {
+      const board = block.board ?? play?.board
+      if (!board) {
         return (
           <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-6 text-center text-sm text-amber-900">
             That play is no longer in the Library. Pick another, or take this block off.
           </div>
         )
       }
+      const caption = block.caption ?? (block.board ? '' : play?.name ?? '')
       return (
         <figure>
-          <FieldBoard board={play.board} readOnly />
-          <figcaption className={thumb ? 'text-[0.6rem] text-gray-400 mt-1' : 'text-xs text-gray-500 mt-1'}>
-            {block.caption || play.name}
-          </figcaption>
+          <FieldBoard board={board} readOnly />
+          {caption && (
+            <figcaption className={thumb ? 'text-[0.6rem] text-gray-400 mt-1' : 'text-xs text-gray-500 mt-1'}>
+              {caption}
+            </figcaption>
+          )}
         </figure>
       )
     }
