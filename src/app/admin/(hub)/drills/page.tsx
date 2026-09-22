@@ -72,16 +72,29 @@ export default async function DrillBankPage() {
             </p>
           </div>
           <div className="sm:col-span-4">
-            <label className="field-label">Link</label>
+            <label className="field-label">Video link</label>
             <input name="link" className="field" placeholder="https://… video, diagram, playbook page" />
           </div>
           <div className="sm:col-span-2">
             <label className="field-label">Link says</label>
             <input name="link_label" className="field" placeholder="Video" />
           </div>
+          {/* Three fields, because a coach who has never seen the drill needs
+              three different things: how to put it out, how to run it, and
+              what he is actually trying to teach. */}
+          <div className="sm:col-span-6">
+            <label className="field-label">Setup</label>
+            <textarea name="setup" rows={2} className="field"
+              placeholder="Two lines at the restraining line, 6 cones, one ball each, goalie in the cage" />
+          </div>
           <div className="sm:col-span-6">
             <label className="field-label">How it runs</label>
-            <textarea name="description" rows={2} className="field" placeholder="Setup, reps, coaching points" />
+            <textarea name="description" rows={2} className="field" placeholder="The reps, in order" />
+          </div>
+          <div className="sm:col-span-6">
+            <label className="field-label">Why we run it</label>
+            <textarea name="context" rows={2} className="field"
+              placeholder="What it teaches, and what good looks like" />
           </div>
           <div className="sm:col-span-4">
             <label className="field-label">Equipment</label>
@@ -160,7 +173,7 @@ export default async function DrillBankPage() {
                           <input type="number" name="minutes" defaultValue={d.minutes} className="field !py-1.5" />
                         </div>
                         <div className="sm:col-span-4">
-                          <label className="field-label">Link</label>
+                          <label className="field-label">Video link</label>
                           <input name="link" defaultValue={d.link ?? ''} className="field !py-1.5" />
                         </div>
                         <div className="sm:col-span-2">
@@ -168,8 +181,18 @@ export default async function DrillBankPage() {
                           <input name="link_label" defaultValue={d.link_label ?? ''} className="field !py-1.5" />
                         </div>
                         <div className="sm:col-span-6">
+                          <label className="field-label">Setup</label>
+                          <textarea name="setup" rows={2} defaultValue={d.setup ?? ''} className="field !py-1.5"
+                            placeholder="Cones, lines, balls, where the goalie stands" />
+                        </div>
+                        <div className="sm:col-span-6">
                           <label className="field-label">How it runs</label>
                           <textarea name="description" rows={2} defaultValue={d.description ?? ''} className="field !py-1.5" />
+                        </div>
+                        <div className="sm:col-span-6">
+                          <label className="field-label">Why we run it</label>
+                          <textarea name="context" rows={2} defaultValue={d.context ?? ''} className="field !py-1.5"
+                            placeholder="What it teaches, and what good looks like" />
                         </div>
                         <div className="sm:col-span-4">
                           <label className="field-label">Equipment</label>

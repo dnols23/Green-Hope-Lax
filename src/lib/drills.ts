@@ -69,6 +69,10 @@ export interface Drill {
   setting: DrillSetting
   minutes: number
   description: string | null
+  /** How you set it up: cones, lines, balls, where the goalie stands. */
+  setup: string | null
+  /** Why we run it and what good looks like — what a coach needs to coach it. */
+  context: string | null
   link: string | null
   link_label: string | null
   equipment: string | null

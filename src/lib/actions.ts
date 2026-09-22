@@ -17,6 +17,7 @@ import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection, canTeam } from './permissions'
 import { isStaffTeam, type StaffTeam, type Viewer } from './sections'
+import { readSides } from './compete'
 import { getPlan } from './plans'
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
@@ -1926,7 +1927,14 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   const svc = createServiceClient()
   const blocksOut = readBlocks(blocks)
   const contentOut = readNoteBlocks(content)
-  const common = {
+  // The squads practice splits into, for the scoreboard. Arrives with 0037.
+  let sides: string[] = []
+  try {
+    sides = readSides(JSON.parse(str(formData.get('sides')) || '[]'))
+  } catch {
+    sides = readSides(null)
+  }
+  let common: Record<string, unknown> = {
     title: str(formData.get('title')) || 'Untitled',
     plan_date: str(formData.get('plan_date')) || null,
     start_time: readStart(str(formData.get('start_time'))),
@@ -1934,6 +1942,7 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     summary: str(formData.get('summary')) || null,
     roster_id: str(formData.get('roster_id')) || null,
     blocks: blocksOut,
+    sides,
     publish_players: str(formData.get('publish_players')) === 'true',
     publish_coaches: str(formData.get('publish_coaches')) === 'true',
     updated_at: new Date().toISOString(),
@@ -1943,6 +1952,16 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     .from('plans')
     .update({ ...common, content: contentOut })
     .eq('id', id)
+
+  /* The squads column arrives with 0037. Drop it and carry on — a plan saves
+     either way, it just cannot keep who is winning practice. Done first, so
+     the retries below are working with a payload the database will accept. */
+  if (error && /sides/i.test(error.message) && /column|schema cache/i.test(error.message)) {
+    const { sides: _noSides, ...rest } = common
+    common = rest
+    const retry = await svc.from('plans').update({ ...common, content: contentOut }).eq('id', id)
+    error = retry.error
+  }
 
   /* A note is made of blocks that live in their own column, and that column
      arrives with its own SQL. Without it the whole save was failing — so a
@@ -2065,9 +2084,22 @@ export async function upsertDrill(formData: FormData) {
   }
   if (!payload.name) return
 
+  /* Setup and context arrive with 0037. Write them when the columns are there,
+     and fall back to saving the rest when they aren't, so a site a migration
+     behind can still edit its drill bank. */
+  const detail = {
+    setup: str(formData.get('setup')) || null,
+    context: str(formData.get('context')) || null,
+  }
+
   const svc = createServiceClient()
-  if (id) await svc.from('drills').update(payload).eq('id', id)
-  else await svc.from('drills').insert({ ...payload, created_by: viewer?.email ?? null })
+  const write = async (row: Record<string, unknown>) =>
+    id
+      ? await svc.from('drills').update(row).eq('id', id)
+      : await svc.from('drills').insert({ ...row, created_by: viewer?.email ?? null })
+
+  const { error } = await write({ ...payload, ...detail })
+  if (error) await write(payload)
   revalidatePath('/admin/drills')
   revalidatePath('/admin/planner')
 }

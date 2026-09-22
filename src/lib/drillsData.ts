@@ -27,6 +27,9 @@ export async function listDrills(): Promise<Drill[]> {
       : 'team') as DrillSetting,
     minutes: Number(row.minutes) || 10,
     description: (row.description as string) ?? null,
+    // Both arrive with 0037; a drill written before it simply has neither.
+    setup: (row.setup as string) ?? null,
+    context: (row.context as string) ?? null,
     link: (row.link as string) ?? null,
     link_label: (row.link_label as string) ?? null,
     equipment: (row.equipment as string) ?? null,
