@@ -3,6 +3,8 @@
 // Pure — the editor is a client component and shares every one of these with the
 // server. Nothing here reads cookies or the database.
 
+import { readComp, type BlockComp } from './compete'
+
 export type PlanKind = 'practice' | 'game' | 'note'
 
 export const PLAN_KINDS: { key: PlanKind; label: string; plural: string; icon: string; blurb: string }[] = [
@@ -258,6 +260,8 @@ export interface PlanBlock {
   coach?: string | null
   /** Players in this block. Empty means the whole squad. */
   players?: BlockAssignment[]
+  /** How this block is being won, and the score. See lib/compete. */
+  comp?: BlockComp | null
 }
 
 export interface Plan {
@@ -274,6 +278,8 @@ export interface Plan {
   is_template: boolean
   /** Varsity or JV — which staff's week this belongs to. */
   team: 'varsity' | 'jv'
+  /** The squads this practice is split into, for keeping the score. */
+  sides: string[]
   /** 24-hour "HH:MM". The whole plan's clock runs from here. */
   start_time: string | null
   /** On the players' page in the Team Hub. */
@@ -466,6 +472,8 @@ export function readBlocks(raw: unknown): PlanBlock[] {
       clip: readClip(b.clip),
       shotUrl: readShotUrl(b.shotUrl),
       drillId: typeof b.drillId === 'string' ? b.drillId : null,
+      // Four is the most sides a practice can be split into; extra scores go.
+      comp: readComp(b.comp, 4),
       link: typeof b.link === 'string' && b.link.trim() ? b.link.trim() : null,
       coach: typeof b.coach === 'string' && b.coach.trim() ? b.coach.trim() : null,
       players: Array.isArray(b.players)

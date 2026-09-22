@@ -1,5 +1,6 @@
 import { createServiceClient } from './supabase-server'
 import { readBlocks, readStart, type Plan, type PlanKind } from './planner'
+import { readSides } from './compete'
 import { isTeam, type Team } from './teams'
 
 // Reading plans. Coach-only data, so the service client throughout — the table
@@ -22,6 +23,9 @@ function shape(row: Record<string, unknown>): Plan {
     // they were.
     team: (isTeam(row.team) ? row.team : 'varsity') as Team,
     start_time: readStart(row.start_time),
+    // The squads practice splits into. Missing until 0037 is run, and then it
+    // reads as the two it has always been.
+    sides: readSides(row.sides),
     is_template: row.is_template === true,
     publish_players: row.publish_players === true,
     // Older rows predate the column; a plan without it behaves as it always did.

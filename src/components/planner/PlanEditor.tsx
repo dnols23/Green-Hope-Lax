@@ -21,6 +21,8 @@ import {
   type PlanBlock,
 } from '@/lib/planner'
 import { DRILL_CATEGORIES, categoryFor, type Drill } from '@/lib/drills'
+import { DrillDetail } from './DrillDetail'
+import { leaderOf, readSides, tally, type BlockComp } from '@/lib/compete'
 import { FieldBoard } from './FieldBoard'
 import { ClipPlayer } from './ClipPlayer'
 import { LibraryPicker } from './LibraryPicker'
@@ -85,6 +87,13 @@ export function PlanEditor({
   const [endWanted, setEndWanted] = useState('')
   const [rosterId, setRosterId] = useState(plan.roster_id ?? '')
   const [blocks, setBlocks] = useState<PlanBlock[]>(plan.blocks)
+  /* The squads practice is split into, and what each has won so far. Two by
+     default, because that is how a practice splits. */
+  const [sides, setSides] = useState<string[]>(() => readSides(plan.sides))
+  const [naming, setNaming] = useState(false)
+  const scored = blocks.filter((b) => b.comp).length
+  const totals = tally(blocks.map((b) => b.comp), sides.length)
+  const leader = leaderOf(totals)
   const [content, setContent] = useState<NoteBlock[]>(() => readNoteBlocks(plan.content))
   const [toPlayers, setToPlayers] = useState(plan.publish_players)
   const [toCoaches, setToCoaches] = useState(plan.publish_coaches)
@@ -285,6 +294,7 @@ export function PlanEditor({
     <form action={save}>
       <input type="hidden" name="id" value={plan.id} />
       <input type="hidden" name="blocks" value={JSON.stringify(blocks)} />
+      <input type="hidden" name="sides" value={JSON.stringify(sides)} />
       <input type="hidden" name="season" value={plan.season ?? ''} />
 
       <div className="card p-4 mb-3">
@@ -412,6 +422,80 @@ export function PlanEditor({
             >
               Never mind
             </button>
+          </div>
+        )}
+
+        {/* Who is winning practice. Only once something is being scored — an
+            empty scoreboard on every plan is just furniture. */}
+        {scored > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <div className="section-label">Winning practice</div>
+              <span className="text-xs text-gray-400">
+                {scored} {scored === 1 ? 'block' : 'blocks'} being scored
+              </span>
+              <button
+                type="button"
+                onClick={() => setNaming((n) => !n)}
+                className="ml-auto text-xs font-bold text-gray-400 hover:text-gray-700"
+              >
+                {naming ? 'Done' : 'Rename the sides'}
+              </button>
+            </div>
+
+            {naming ? (
+              <div className="flex gap-2 flex-wrap items-end">
+                {sides.map((side, i) => (
+                  <input
+                    key={i}
+                    value={side}
+                    onChange={(e) =>
+                      setSides((ss) => ss.map((x, k) => (k === i ? e.target.value : x)))
+                    }
+                    className="field !py-1.5 !w-32 text-sm"
+                    aria-label={`Name of side ${i + 1}`}
+                  />
+                ))}
+                {sides.length < 4 && (
+                  <button type="button" onClick={() => setSides((ss) => [...ss, `Side ${ss.length + 1}`])}
+                    className="btn btn-ghost !py-1.5 text-sm">
+                    Add a side
+                  </button>
+                )}
+                {sides.length > 2 && (
+                  <button type="button" onClick={() => setSides((ss) => ss.slice(0, -1))}
+                    className="text-xs font-bold text-gray-400 hover:text-gray-700">
+                    One fewer
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex gap-2 flex-wrap">
+                {sides.map((side, i) => {
+                  const winning = leader === i
+                  return (
+                    <div
+                      key={i}
+                      className="rounded-lg px-3 py-2 border"
+                      style={
+                        winning
+                          ? { background: 'var(--gh-green)', borderColor: 'var(--gh-green)', color: '#fff' }
+                          : { background: '#fff', borderColor: '#e5e7eb' }
+                      }
+                    >
+                      <div className="text-[0.6rem] font-black uppercase tracking-wider"
+                        style={{ color: winning ? 'rgba(255,255,255,0.75)' : '#9ca3af' }}>
+                        {side}
+                      </div>
+                      <div className="text-xl font-black tabular-nums">{totals[i] ?? 0}</div>
+                    </div>
+                  )
+                })}
+                <div className="self-center text-xs font-bold text-gray-500">
+                  {leader === null ? 'Level so far.' : `${sides[leader]} are winning practice.`}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -559,6 +643,22 @@ export function PlanEditor({
                           )
                         })}
                       </select>
+                      {/* What the drill is, folded away until somebody wants
+                          it — which for a coach running it the first time is
+                          every time. */}
+                      {(() => {
+                        const drill = drills.find((d) => d.id === b.drillId)
+                        if (!drill) return null
+                        return (
+                          <DrillDetail
+                            drill={drill}
+                            comp={b.comp}
+                            sides={sides}
+                            seed={`${b.id}:${drill.id}`}
+                            onComp={(next: BlockComp | null) => patch(b.id, { comp: next })}
+                          />
+                        )
+                      })()}
                     </div>
                     <div>
                       <label className="field-label">Minutes</label>
