@@ -81,6 +81,8 @@ body {
 .btn-primary:hover { background: var(--gh-green-dk); }
 .btn-maroon { background: var(--gh-maroon); color: #fff; }
 .btn-maroon:hover { background: var(--gh-maroon-dk); }
+/* For a dark background only — white text on transparent. On a white card use
+   .btn-ghost, which is the same shape with readable ink. */
 .btn-outline {
   background: transparent;
   border: 1.5px solid rgba(255,255,255,0.5);

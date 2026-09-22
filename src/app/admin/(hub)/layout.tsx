@@ -1,5 +1,6 @@
 import { AdminShell } from '@/components/admin/AdminShell'
 import { HubSidebar, type HubLink } from '@/components/admin/HubSidebar'
+import { HubTour } from '@/components/admin/HubTour'
 import { getViewer, canSee } from '@/lib/permissions'
 import { isPageOn } from '@/lib/pages'
 import { readModesOff } from '@/lib/hubSettings'
@@ -67,6 +68,8 @@ export default async function HubLayout({ children }: { children: React.ReactNod
         <HubSidebar links={links} />
         <div className="flex-1 min-w-0 w-full">{children}</div>
       </div>
+      {/* Shown once, the first time a coach lands in the hub. */}
+      <HubTour name={viewer?.name?.split(' ')[0] ?? ''} />
     </AdminShell>
   )
 }

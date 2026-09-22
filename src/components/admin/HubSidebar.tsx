@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Suspense, useState, useSyncExternalStore } from 'react'
+import { TOUR_EVENT, TOUR_KEY } from '@/lib/tour'
 
 export interface HubLink {
   key: string
@@ -151,7 +152,7 @@ function Rail({ links, team }: { links: HubLink[]; team: string }) {
   }
 
   return (
-    <nav className="w-full md:w-56 shrink-0">
+    <nav className="w-full md:w-56 shrink-0" data-tour="sidebar">
       <div className="card p-2 space-y-1">
         {groups.map((group) => {
           const isShut = folded.includes(group.name)
@@ -196,6 +197,7 @@ function Rail({ links, team }: { links: HubLink[]; team: string }) {
                     return (
                       <li
                         key={l.key}
+                        data-tour-mode={l.key}
                         draggable
                         onDragStart={() => setDragKey(l.key)}
                         onDragOver={(e) => e.preventDefault()}
@@ -252,7 +254,21 @@ function Rail({ links, team }: { links: HubLink[]; team: string }) {
           )
         })}
       </div>
-      <p className="text-[0.7rem] text-gray-400 mt-2 px-1">Drag ☰ to put these in your own order.</p>
+      <div className="mt-2 px-1 flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-[0.7rem] text-gray-400">Drag ☰ to put these in your own order.</p>
+        {/* The welcome runs itself once. This is how you get it back — to see
+            the home-screen directions again, or to walk a new coach round. */}
+        <button
+          type="button"
+          onClick={() => {
+            try { localStorage.setItem(`${TOUR_KEY}-replay`, '1') } catch {}
+            window.dispatchEvent(new Event(TOUR_EVENT))
+          }}
+          className="text-[0.7rem] font-bold text-[var(--gh-green)] hover:underline"
+        >
+          Show me around
+        </button>
+      </div>
     </nav>
   )
 }

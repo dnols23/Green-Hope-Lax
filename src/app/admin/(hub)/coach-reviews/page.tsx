@@ -79,7 +79,7 @@ export default async function CoachReviewsPage({
               ))}
             </select>
           </div>
-          <button type="submit" className="btn btn-outline text-sm">Show</button>
+          <button type="submit" className="btn btn-ghost text-sm">Show</button>
         </form>
         {ready && coaches.length > 0 && (
           <span className="text-xs font-bold text-gray-500">
