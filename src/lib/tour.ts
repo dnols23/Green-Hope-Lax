@@ -46,6 +46,15 @@ export const TOUR_STEPS: TourStep[] = [
       'know where the program is — then you go to work.',
   },
   {
+    key: 'rosters',
+    target: 'mode:rosters',
+    title: 'Your squad',
+    body:
+      'Build a roster, or paste one straight in off a spreadsheet. Keep as many as you need — ' +
+      'tryouts, JV, the travel squad — and put a season away when it is over instead of deleting it. ' +
+      'Point a practice plan at one and every block knows who is in it.',
+  },
+  {
     key: 'planner',
     target: 'team:planner',
     title: 'Build the practice',
