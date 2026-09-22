@@ -77,6 +77,16 @@ export async function savePlay(
   if (withoutClip(error)) await svc.from('plays').insert(row)
 }
 
+/** The play saved under this name, if there is one. */
+export async function findPlayByName(name: string): Promise<string | null> {
+  const { data } = await createServiceClient()
+    .from('plays')
+    .select('id')
+    .eq('name', name)
+    .maybeSingle()
+  return (data as { id?: string } | null)?.id ?? null
+}
+
 /** Throw away the recording but keep the play as it ended up. */
 export async function clearPlayClip(id: string): Promise<void> {
   await createServiceClient().from('plays').update({ clip: null }).eq('id', id)

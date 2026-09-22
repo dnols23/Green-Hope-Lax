@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { FieldBoard } from '@/components/planner/FieldBoard'
 import { ClipPlayer } from '@/components/planner/ClipPlayer'
 import { savePlayAction, deletePlayAction, saveShotAction } from '@/lib/actions'
+import { playToPlaybook } from '@/lib/playbookActions'
+import { teamLabel, type Team } from '@/lib/teams'
 import { clipLength } from '@/lib/planner'
 import { EMPTY_BOARD, readBoard, type Board, type BoardClip, type BoardFrame } from '@/lib/planner'
 
@@ -45,7 +47,16 @@ function loadScratch(): Board {
   }
 }
 
-export default function QuickBoard({ plays, ready }: { plays: SavedPlay[]; ready: boolean }) {
+export default function QuickBoard({
+  plays,
+  ready,
+  playbookTeams = [],
+}: {
+  plays: SavedPlay[]
+  ready: boolean
+  /** The decks this coach may add to — empty for everyone but the head coach. */
+  playbookTeams?: Team[]
+}) {
   const [board, setBoard] = useState<Board>(loadScratch)
   const [name, setName] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
@@ -147,6 +158,19 @@ export default function QuickBoard({ plays, ready }: { plays: SavedPlay[]; ready
     })
   }
 
+  /* The other button. The Library is a shelf; the playbook is what we run — so
+     sending a play there saves it and opens the page it now sits on, for the
+     reads and the coaching points to go round it. */
+  function toPlaybook(team: Team) {
+    if (!name.trim() || !ready) return
+    const data = new FormData()
+    data.set('team', team)
+    data.set('name', name.trim())
+    data.set('board', JSON.stringify(board))
+    if (clip) data.set('clip', JSON.stringify(clip))
+    startSaving(() => playToPlaybook(data))
+  }
+
   function open(play: SavedPlay) {
     setBoard(play.board)
     setOpenId(play.id)
@@ -175,6 +199,18 @@ export default function QuickBoard({ plays, ready }: { plays: SavedPlay[]; ready
         >
           {saving ? 'Saving…' : openId && plays.some((p) => p.id === openId && p.name === name.trim()) ? 'Update' : 'Save'}
         </button>
+        {playbookTeams.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => toPlaybook(t)}
+            disabled={!name.trim() || saving || !ready}
+            title={`Save it and start a ${teamLabel(t)} playbook page`}
+            className="btn btn-ghost !py-1.5 text-sm disabled:opacity-50"
+          >
+            📘 {playbookTeams.length > 1 ? `${teamLabel(t)} playbook` : 'Playbook'}
+          </button>
+        ))}
         <button
           type="button"
           onClick={() => {

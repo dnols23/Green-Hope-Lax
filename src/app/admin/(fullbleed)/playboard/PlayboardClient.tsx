@@ -1,6 +1,7 @@
 'use client'
 import dynamic from 'next/dynamic'
 import type { SavedPlay } from './QuickBoard'
+import type { Team } from '@/lib/teams'
 
 /**
  * The board is a browser-only thing.
@@ -18,6 +19,14 @@ const QuickBoard = dynamic(() => import('./QuickBoard'), {
   ),
 })
 
-export function PlayboardClient({ plays, ready }: { plays: SavedPlay[]; ready: boolean }) {
-  return <QuickBoard plays={plays} ready={ready} />
+export function PlayboardClient({
+  plays,
+  ready,
+  playbookTeams,
+}: {
+  plays: SavedPlay[]
+  ready: boolean
+  playbookTeams: Team[]
+}) {
+  return <QuickBoard plays={plays} ready={ready} playbookTeams={playbookTeams} />
 }
