@@ -1,5 +1,5 @@
 import { requireOwner, GRANTABLE } from '@/lib/permissions'
-import { listStaff } from '@/lib/staff'
+import { listStaff, staffStatuses } from '@/lib/staff'
 import { setCoachAccess, removeCoachAccount, claimOwnership, setCoachPassword } from '@/lib/actions'
 import { PasswordField } from '@/components/PasswordField'
 import { AddCoachForm } from './AddCoachForm'
@@ -7,9 +7,20 @@ import { AddCoachForm } from './AddCoachForm'
 export const metadata = { title: 'Coach Access' }
 export const dynamic = 'force-dynamic'
 
+// "Signed in 3 days ago" reads faster on a card than a timestamp does.
+function when(iso: string) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 30) return `${days} days ago`
+  const months = Math.round(days / 30)
+  return months === 1 ? 'a month ago' : `${months} months ago`
+}
+
 export default async function CoachAccessPage() {
   const me = await requireOwner()
   const coaches = await listStaff()
+  const statuses = await staffStatuses()
 
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://greenhopelacrosse.com'
   const loginUrl = `${site}/staff`
@@ -50,6 +61,14 @@ export default async function CoachAccessPage() {
             // Summarised on the closed card so the list stays scannable — you can
             // see who reaches what without opening fifteen tick-boxes.
             const granted = GRANTABLE.filter((s) => c.permissions.includes(s.key)).map((s) => s.label)
+            const st = statuses.get(c.email.toLowerCase())
+            const standing = !st?.hasLogin
+              ? { text: 'No login yet', bg: '#f3f4f6', fg: '#4b5563' }
+              : !st.lastSignIn
+                ? { text: 'Has not signed in yet', bg: '#fef3c7', fg: '#92400e' }
+                : st.mustReset
+                  ? { text: 'Signed in — still on your password', bg: '#fef3c7', fg: '#92400e' }
+                  : { text: `Signed in ${when(st.lastSignIn)}`, bg: '#dcfce7', fg: '#166534' }
             return (
             <details key={c.email} className="card p-4">
               <summary className="cursor-pointer list-none flex items-start justify-between gap-3 flex-wrap">
@@ -67,6 +86,14 @@ export default async function CoachAccessPage() {
                     )}
                   </div>
                   <div className="text-xs text-gray-500 ml-5">{c.email}</div>
+                  <div className="ml-5 mt-1">
+                    <span
+                      className="text-xs font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: standing.bg, color: standing.fg }}
+                    >
+                      {standing.text}
+                    </span>
+                  </div>
                   <div className="text-xs text-gray-500 ml-5 mt-0.5">
                     {c.isOwner
                       ? 'Every page'
