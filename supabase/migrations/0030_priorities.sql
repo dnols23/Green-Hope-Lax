@@ -22,8 +22,17 @@ create table if not exists public.priority_lists (
 
 -- One list per name: two coaches both starting a "Defense" list would split the
 -- program's attention across two places, which is the thing this is meant to fix.
-create unique index if not exists priority_lists_name_idx
-  on public.priority_lists (lower(name));
+--
+-- 0034 widened this to one list per name *per team*, so varsity and JV can each
+-- keep an Offense list. Once that has run, re-running this file must not put the
+-- program-wide index back — it would refuse to build over the two teams' lists.
+do $$
+begin
+  if to_regclass('public.priority_lists_team_name_idx') is null then
+    create unique index if not exists priority_lists_name_idx
+      on public.priority_lists (lower(name));
+  end if;
+end $$;
 
 create table if not exists public.priority_items (
   id         uuid primary key default gen_random_uuid(),

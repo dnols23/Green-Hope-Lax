@@ -6,6 +6,7 @@ import { latestDrillSet } from '@/lib/drillSets'
 import { listAssignments, equipmentReady } from '@/lib/equipment'
 import { listPlayerAccess } from '@/lib/playerAccess'
 import { categoriesFor, readRating, ratingsAverage, tierFor, type Evaluation } from '@/lib/evaluations'
+import { withTeam } from '@/lib/teams'
 import { POSITION_LABELS, positionGroup } from '@/lib/positions'
 import { TEAM_LABELS, type Player } from '@/lib/types'
 import { formatShortDate } from '@/lib/format'
@@ -244,7 +245,11 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
       <section className="card p-5">
         <div className="flex items-center justify-between gap-3 mb-3">
           <h2 className="font-bold text-gray-700">Equipment out</h2>
-          <Link href="/admin/inventory" className="text-sm font-semibold text-[var(--gh-green)]">
+          {/* His own team's shed, not whichever one you were last on. */}
+          <Link
+            href={withTeam('/admin/inventory', player.team === 'boys_jv' ? 'jv' : 'varsity')}
+            className="text-sm font-semibold text-[var(--gh-green)]"
+          >
             Sign something out →
           </Link>
         </div>

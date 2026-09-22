@@ -21,8 +21,15 @@ import { TEAMS, withTeam } from '@/lib/teams'
  * program's, shared by both, and sits under Program.
  */
 
-/** The modes that belong to one team rather than to the program. */
-const TEAM_MODES = new Set(['warroom', 'planner'])
+/**
+ * The modes that belong to one team rather than to the program.
+ *
+ * Four of them now. A War Room and a planner because the two staffs plan two
+ * different weeks; priorities and inventory because what JV noticed on Saturday
+ * and what is in the JV bag are not the varsity staff's business — and, more to
+ * the point, a shared board is one where things get written in the wrong place.
+ */
+const TEAM_MODES = new Set(['warroom', 'planner', 'priorities', 'inventory'])
 
 export default async function HubLayout({ children }: { children: React.ReactNode }) {
   const [viewer, filmOn, modesOff] = await Promise.all([getViewer(), isPageOn('film-coaches'), readModesOff()])
@@ -36,11 +43,22 @@ export default async function HubLayout({ children }: { children: React.ReactNod
     return canSee(viewer, m.section)
   })
 
+  /* Inventory is the one mode granted per team rather than per coach: the JV
+     grant opens the JV shed and nothing else, so a JV coach counting helmets
+     never sees the varsity board at all. */
+  const forTeam = (mode: string, team: string) =>
+    mode !== 'inventory'
+      ? true
+      : team === 'jv'
+        ? canSee(viewer, 'inventory') || canSee(viewer, 'inventory-jv')
+        : canSee(viewer, 'inventory')
+
   const links: HubLink[] = [
-    // A War Room and a planner per team, in the team's own group.
+    // The War Room, the planner, the priorities and the shed — one of each per
+    // team, in the team's own group.
     ...TEAMS.flatMap((t) =>
       modes
-        .filter((m) => TEAM_MODES.has(m.key))
+        .filter((m) => TEAM_MODES.has(m.key) && forTeam(m.key, t.key))
         .map((m) => ({
           // The key carries the team, or one coach's saved order would move
           // both War Rooms at once.
@@ -55,7 +73,7 @@ export default async function HubLayout({ children }: { children: React.ReactNod
       .filter((m) => !TEAM_MODES.has(m.key))
       .map((m) => ({
         key: m.key,
-        label: m.section === 'inventory' && !canSee(viewer, 'inventory') ? 'JV Inventory' : m.label,
+        label: m.label,
         href: m.href,
         icon: m.icon,
         group: 'Program',

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { PriorityChip } from '@/components/admin/PriorityBits'
 import type { PriorityList } from '@/lib/priorityLevels'
+import { teamLabel, withTeam, type Team } from '@/lib/teams'
 
 /**
  * The lists, over the plan you are writing.
@@ -12,7 +13,7 @@ import type { PriorityList } from '@/lib/priorityLevels'
  * rather than another page to remember to visit. What is already done stays
  * hidden — this is the list of what is left.
  */
-export function ReviewPriorities() {
+export function ReviewPriorities({ team }: { team: Team }) {
   const [open, setOpen] = useState(false)
   const [lists, setLists] = useState<PriorityList[] | null>(null)
   const [ready, setReady] = useState(true)
@@ -20,7 +21,7 @@ export function ReviewPriorities() {
   useEffect(() => {
     if (!open || lists) return
     let live = true
-    fetch('/api/priorities')
+    fetch(`/api/priorities?team=${team}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('no'))))
       .then((d: { ready?: boolean; lists?: PriorityList[] }) => {
         if (!live) return
@@ -31,7 +32,7 @@ export function ReviewPriorities() {
     return () => {
       live = false
     }
-  }, [open, lists])
+  }, [open, lists, team])
 
   useEffect(() => {
     if (!open) return
@@ -73,8 +74,16 @@ export function ReviewPriorities() {
           >
             <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 sticky top-0 bg-white">
               <h2 className="font-black">Priorities</h2>
+              {/* Said out loud, because the wrong team's list read as the right
+                  one is worse than no list. */}
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: '#fde8ea', color: 'var(--gh-maroon)' }}
+              >
+                {teamLabel(team)}
+              </span>
               <Link
-                href="/admin/priorities"
+                href={withTeam('/admin/priorities', team)}
                 className="text-xs font-bold text-[var(--gh-green)]"
                 onClick={() => setOpen(false)}
               >
