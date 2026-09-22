@@ -5,8 +5,9 @@ import {
   INSTALL_GUIDES,
   TOUR_EVENT,
   TOUR_KEY,
-  TOUR_STEPS,
+  TOURS,
   platformOf,
+  type Audience,
   type Platform,
   type TourStep,
 } from '@/lib/tour'
@@ -50,7 +51,7 @@ interface Box { top: number; left: number; width: number; height: number }
  * browser, which is right, since saving to a home screen is a thing you do on
  * each device — and the sidebar carries a button to run it again.
  */
-export function HubTour({ name }: { name: string }) {
+export function HubTour({ name, audience }: { name: string; audience: Audience }) {
   const pathname = usePathname()
   const seen = useSyncExternalStore(subscribeSeen, readSeen, () => 'seen')
 
@@ -200,7 +201,8 @@ export function HubTour({ name }: { name: string }) {
   function startTour() {
     // Only the stops this coach actually has. Someone without the playboard
     // shouldn't be shown a hole where it would be.
-    const usable = TOUR_STEPS.filter((s) => !s.target || !!findEl(s.target))
+    // The walk-round for this coach, minus any stop whose tool he hasn't got.
+    const usable = TOURS[audience].filter((s) => !s.target || !!findEl(s.target))
     if (usable.length === 0) { finish(); return }
     setSteps(usable)
     setAt(0)

@@ -8,7 +8,9 @@ export const dynamic = 'force-dynamic'
 export default async function PlayboardPage() {
   const viewer = await requireSection('playboard')
   const ready = await playsReady()
-  const plays = ready ? await listPlays() : []
+  // His own plays. The playbook still draws on every play, but that is the
+  // head coach's screen and his alone.
+  const plays = ready ? await listPlays(viewer.email) : []
   /* Only the head coach writes the playbook, so only he gets the button — and
      only for the sides of the program he works on, which for him is both. */
   const playbookTeams = viewer.isOwner ? teamsFor(viewer) : []

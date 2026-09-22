@@ -1236,7 +1236,7 @@ export async function savePlayAction(formData: FormData) {
   } catch {
     clip = null
   }
-  await savePlay(name, board, viewer.name || viewer.email, clip)
+  await savePlay(name, board, viewer.name || viewer.email, clip, viewer.email)
   revalidatePath('/admin/playboard')
   revalidatePath('/admin/library')
 }
@@ -1259,7 +1259,7 @@ export async function saveShotAction(formData: FormData) {
   const url = str(formData.get('url'))
   if (!url) return
   const title = str(formData.get('title')) || 'Board screenshot'
-  await saveShot(title, url, viewer.name || viewer.email)
+  await saveShot(title, url, viewer.name || viewer.email, viewer.email)
   revalidatePath('/admin/library')
 }
 
