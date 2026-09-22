@@ -73,3 +73,43 @@ export async function hasOwner(): Promise<boolean> {
   const all = await listStaff()
   return all.some((s) => s.isOwner)
 }
+
+/**
+ * Who has actually used their login, and who is still sitting on a password
+ * you handed them.
+ *
+ * The head coach makes these accounts himself, so the question he keeps asking
+ * is "has Rutledge ever signed in?" — worth answering on the card rather than
+ * guessing. `mustReset` is the flag set when a password was handed over: it
+ * clears the first time the coach picks their own.
+ */
+export interface StaffStatus {
+  hasLogin: boolean
+  lastSignIn: string | null
+  mustReset: boolean
+}
+
+export async function staffStatuses(): Promise<Map<string, StaffStatus>> {
+  const svc = createServiceClient()
+  const out = new Map<string, StaffStatus>()
+
+  const { data } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+  const users = data?.users ?? []
+  if (users.length === 0) return out
+
+  const { data: flags } = await svc.from('app_settings').select('key').like('key', 'must_reset:%')
+  const pending = new Set(
+    ((flags ?? []) as { key: string }[]).map((r) => r.key.slice('must_reset:'.length))
+  )
+
+  for (const u of users) {
+    const email = u.email?.toLowerCase()
+    if (!email) continue
+    out.set(email, {
+      hasLogin: true,
+      lastSignIn: u.last_sign_in_at ?? null,
+      mustReset: pending.has(u.id),
+    })
+  }
+  return out
+}

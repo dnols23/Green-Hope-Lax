@@ -37,7 +37,11 @@ export const JOIN_KINDS: {
     kind: 'coach',
     label: 'Coaches',
     blurb:
-      'Makes an admin account with assistant-coach access. Anyone holding this link becomes a coach, so it starts switched off.',
+      'A coach follows it, picks their own password, and can coach from then on — the War Room, ' +
+      'the planner, the playboard, the drill bank. Everything else stays shut until you tick it in ' +
+      'Coach Access. It is for staff who have no login yet: if you already made one for somebody ' +
+      'in Coach Access, send them that username instead. Anyone holding the link becomes a coach, ' +
+      'so it starts off; switch it back off once your staff are in.',
     path: '/staff/join',
     defaultOn: false,
   },

@@ -15,7 +15,7 @@ import {
   writeSigninSettings,
   type JoinKind,
 } from './joinLinks'
-import { writeStaff } from './staff'
+import { readStaff, writeStaff } from './staff'
 import { requireOwner } from './permissions'
 import { notifyCoaches } from './notify'
 import { emailShell, row } from './email'
@@ -74,6 +74,11 @@ export async function joinAsPlayer(_prev: FormState, formData: FormData): Promis
  * This makes a real admin account with assistant access — no sections ticked
  * until the head coach ticks them. The link is off until somebody deliberately
  * turns it on, because anybody holding it becomes a coach.
+ *
+ * The link is for staff who have no account yet. If the head coach already made
+ * one for them in Coach Access, this says so and stops, rather than quietly
+ * making a second account under a different address — or, worse, writing a
+ * blank set of permissions over the ones already ticked.
  */
 export async function joinAsCoach(_prev: FormState, formData: FormData): Promise<FormState> {
   const token = str(formData.get('join_token'))
@@ -89,18 +94,36 @@ export async function joinAsCoach(_prev: FormState, formData: FormData): Promise
   if (password.length < 8) return { ok: false, error: 'Pick a password of at least 8 characters.' }
 
   const svc = createServiceClient()
+  // What the head coach may already have ticked for this person. Keep it — the
+  // coach picking a password is not a reason to take their sections away.
+  const already = await readStaff(email)
+
   const { error } = await svc.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
     user_metadata: { name },
   })
-  if (error && !/already/i.test(error.message)) {
+  if (error) {
+    if (/already|exists|registered|duplicate/i.test(error.message)) {
+      return {
+        ok: false,
+        error:
+          'That email already has a coach account. Sign in with it instead — and if you have ' +
+          'forgotten the password, ask the head coach to set you a new one in Coach Access.',
+      }
+    }
     console.error('[joinAsCoach]', error)
     return { ok: false, error: 'Could not make that account. Tell the head coach.' }
   }
 
-  await writeStaff({ email, name, role: 'assistant', isOwner: false, permissions: [] })
+  await writeStaff({
+    email,
+    name,
+    role: already?.role ?? 'assistant',
+    isOwner: already?.isOwner ?? false,
+    permissions: already?.permissions ?? [],
+  })
 
   await notifyCoaches({
     event: 'parent-join',
@@ -108,7 +131,14 @@ export async function joinAsCoach(_prev: FormState, formData: FormData): Promise
     replyTo: email,
     html: emailShell(
       'New coach account',
-      row('Name', name) + row('Email', email) + row('Access', 'Assistant — no sections until you grant them')
+      row('Name', name) +
+        row('Email', email) +
+        row(
+          'Access',
+          already?.permissions.length
+            ? 'Kept the sections you had already ticked'
+            : 'Assistant — no sections until you grant them'
+        )
     ),
   })
 
