@@ -1,6 +1,6 @@
 'use client'
 import { usePathname } from 'next/navigation'
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
   INSTALL_GUIDES,
   TOUR_EVENT,
@@ -55,6 +55,14 @@ export function HubTour({ name }: { name: string }) {
   const [steps, setSteps] = useState<TourStep[]>([])
   const [at, setAt] = useState(0)
   const [box, setBox] = useState<Box | null>(null)
+  /* The card's own height, and the window's — both measured, because the card
+     has to be placed against the one and kept inside the other. */
+  const [cardH, setCardH] = useState(180)
+  const [view, setView] = useState({ w: 0, h: 0 })
+  const cardRef = useRef<HTMLDivElement>(null)
+  /* The same number as `cardH`, kept in a ref so the measuring function can
+     read it without being rebuilt every time the card changes size. */
+  const cardHRef = useRef(180)
   const [platform, setPlatform] = useState<Platform>('desktop')
   const [installed, setInstalled] = useState(false)
 
@@ -87,31 +95,93 @@ export function HubTour({ name }: { name: string }) {
   const open = asked || (seen === 'new' && pathname === '/admin/hub')
   const step = phase === 'tour' ? steps[at] : undefined
 
-  // Follow the highlighted element: it moves when the page scrolls, and the
-  // sidebar reflows when the window changes width.
+  /*
+   * Follow the highlighted element — and keep the ring on the screen.
+   *
+   * The sidebar on a phone is one full-width column taller than the window, so
+   * its box starts above the top of the screen and ends below the bottom. Ring
+   * that and you get a rectangle with no visible top or bottom edge and a card
+   * shoved off the page. So the box is clipped to what is actually on screen,
+   * and the card is placed against that.
+   */
   const measure = useCallback(() => {
     if (!step) { setBox(null); return }
     const el = findEl(step.target)
     if (!el) { setBox(null); return }
     const r = el.getBoundingClientRect()
-    setBox({ top: r.top, left: r.left, width: r.width, height: r.height })
+    const edge = 8
+    /* On a phone the card sits on the bottom, so the ring stops above it —
+       otherwise the thing being pointed at is underneath the words pointing
+       at it. */
+    const phone = window.innerWidth < 640
+    const floor = window.innerHeight - edge - (phone ? cardHRef.current + 20 : 0)
+    const top = Math.max(edge, r.top)
+    const left = Math.max(edge, r.left)
+    const right = Math.min(window.innerWidth - edge, r.right)
+    const bottom = Math.min(floor, r.bottom)
+    // Scrolled out of sight entirely: dim everything rather than ring nothing.
+    if (right - left < 8 || bottom - top < 8) { setBox(null); return }
+    setBox({ top, left, width: right - left, height: bottom - top })
   }, [step])
 
   useEffect(() => {
     if (!open || phase !== 'tour') return
     const el = findEl(step?.target)
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    if (el) {
+      /* A target taller than the window cannot be centred — centring it puts
+         its top off the screen. Bring its top into view instead, high enough
+         that the card has somewhere to sit. */
+      const r = el.getBoundingClientRect()
+      const tall = r.height > window.innerHeight * 0.55
+      el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'smooth' })
+      if (tall) {
+        // Leave a strip above it, so the ring's top edge is not under the bar.
+        window.setTimeout(() => window.scrollBy({ top: -72, behavior: 'smooth' }), 260)
+      }
+    }
     const id = requestAnimationFrame(measure)
     const again = setTimeout(measure, 420) // after the smooth scroll settles
+    const settled = setTimeout(measure, 820) // and after the nudge above
     window.addEventListener('scroll', measure, true)
     window.addEventListener('resize', measure)
     return () => {
       cancelAnimationFrame(id)
       clearTimeout(again)
+      clearTimeout(settled)
       window.removeEventListener('scroll', measure, true)
       window.removeEventListener('resize', measure)
     }
   }, [open, phase, step, measure])
+
+  /* The card's height changes with the words on it and with the width of the
+     screen, so it is watched rather than measured once. */
+  useEffect(() => {
+    const el = cardRef.current
+    const read = () => {
+      setView({ w: window.innerWidth, h: window.innerHeight })
+      if (cardRef.current) {
+        cardHRef.current = cardRef.current.offsetHeight
+        setCardH(cardRef.current.offsetHeight)
+      }
+    }
+    const id = requestAnimationFrame(read)
+    const ro = el ? new ResizeObserver(read) : null
+    if (el && ro) ro.observe(el)
+    window.addEventListener('resize', read)
+    return () => {
+      cancelAnimationFrame(id)
+      ro?.disconnect()
+      window.removeEventListener('resize', read)
+    }
+  }, [open, phase, at])
+
+  // The ring stops above the card, so it has to be redrawn once the card's
+  // height is known — and again whenever a longer step makes it taller.
+  useEffect(() => {
+    if (!open || phase !== 'tour') return
+    const id = requestAnimationFrame(measure)
+    return () => cancelAnimationFrame(id)
+  }, [cardH, open, phase, measure])
 
   if (!open) return null
 
@@ -220,13 +290,32 @@ export function HubTour({ name }: { name: string }) {
   // ── The walk round ──
   const last = at === steps.length - 1
   const pad = 6
-  // Below the highlight when there's room for it, above when there isn't.
-  const below = !box || box.top + box.height + 210 < window.innerHeight
-  const cardStyle: React.CSSProperties = box
-    ? below
-      ? { top: box.top + box.height + pad + 8, left: 12, right: 12 }
-      : { bottom: window.innerHeight - box.top + pad + 8, left: 12, right: 12 }
-    : { top: '50%', left: 12, right: 12, transform: 'translateY(-50%)' }
+
+  /*
+   * Where the card goes.
+   *
+   * Under the ring if there is room, over it if there isn't, and pinned to the
+   * bottom of the screen when neither fits — which on a phone, against a
+   * full-height sidebar, is most of the time. Measured rather than guessed: the
+   * card's own height decides, so a long step doesn't hang off the bottom.
+   */
+  const gap = pad + 10
+  const vh = view.h || 1
+  const roomBelow = box ? vh - (box.top + box.height) - gap : vh
+  const roomAbove = box ? box.top - gap : vh
+  const fits = (room: number) => room >= cardH + 8
+
+  let cardStyle: React.CSSProperties
+  if (!box) {
+    cardStyle = { top: '50%', left: 12, right: 12, transform: 'translateY(-50%)' }
+  } else if (fits(roomBelow)) {
+    cardStyle = { top: box.top + box.height + gap, left: 12, right: 12 }
+  } else if (fits(roomAbove)) {
+    cardStyle = { top: Math.max(8, box.top - gap - cardH), left: 12, right: 12 }
+  } else {
+    // Nothing fits either side. Sit on the bottom like a sheet, always whole.
+    cardStyle = { bottom: 12, left: 12, right: 12 }
+  }
 
   return (
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label={step?.title ?? 'Tour'}>
@@ -249,7 +338,11 @@ export function HubTour({ name }: { name: string }) {
         <div className="absolute inset-0" style={{ background: 'rgba(17,24,39,0.62)' }} />
       )}
 
-      <div className="absolute mx-auto max-w-md card p-4 shadow-xl" style={cardStyle}>
+      <div
+        ref={cardRef}
+        className="absolute mx-auto max-w-md card p-4 shadow-xl overflow-y-auto"
+        style={{ ...cardStyle, maxHeight: 'min(60vh, 26rem)' }}
+      >
         <div className="flex items-start justify-between gap-3 mb-1">
           <h3 className="font-black">{step?.title}</h3>
           <span className="text-xs font-bold text-gray-400 tabular-nums shrink-0 mt-0.5">
