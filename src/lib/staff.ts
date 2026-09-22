@@ -1,5 +1,5 @@
 import { createServiceClient } from './supabase-server'
-import { isStaffTeam, type StaffRole, type StaffTeam } from './sections'
+import { isStaffRole, isStaffTeam, type StaffRole, type StaffTeam } from './sections'
 
 // Who the coaching staff are, and what each of them may open.
 //
@@ -30,7 +30,7 @@ function parse(key: string, value: string): StaffRecord | null {
     return {
       email: key.slice(PREFIX.length),
       name: typeof raw.name === 'string' ? raw.name : key.slice(PREFIX.length),
-      role: raw.role === 'head' ? 'head' : 'assistant',
+      role: isStaffRole(raw.role) ? raw.role : 'assistant',
       isOwner: raw.isOwner === true,
       permissions: Array.isArray(raw.permissions) ? raw.permissions.map(String) : [],
       team: isStaffTeam(raw.team) ? raw.team : 'all',

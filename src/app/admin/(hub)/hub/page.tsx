@@ -230,7 +230,12 @@ export default async function WarRoom({
             className="text-xs font-bold px-2 py-0.5 rounded-full"
             style={{ background: '#fde8ea', color: 'var(--gh-maroon)' }}
           >
-            {coach.role === 'head' ? '★ Head Coach' : 'Coach'} · {coach.name}
+            {coach.role === 'head'
+              ? '★ Head Coach'
+              : coach.role === 'jv-head'
+                ? '★ JV Head Coach'
+                : 'Coach'}{' '}
+            · {coach.name}
           </span>
         )}
       </div>

@@ -3,7 +3,7 @@ import { useActionState, useState } from 'react'
 import { createCoachAccount } from '@/lib/actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { PasswordField } from '@/components/PasswordField'
-import { STAFF_TEAMS, GRANTABLE } from '@/lib/sections'
+import { STAFF_TEAMS, STAFF_ROLES, GRANTABLE } from '@/lib/sections'
 
 type State = {
   ok: boolean
@@ -113,10 +113,11 @@ Username: ${state.email}${state.password ? `\nPassword: ${state.password}` : ''}
           </p>
         </div>
         <div>
-          <label className="field-label">Evaluation role</label>
+          <label className="field-label">Role</label>
           <select name="role" defaultValue="assistant" className="field">
-            <option value="assistant">Assistant — can delete only their own evaluations</option>
-            <option value="head">Head — can delete anybody’s</option>
+            {STAFF_ROLES.map((r) => (
+              <option key={r.key} value={r.key}>{r.label} — {r.hint.toLowerCase().replace(/\.$/, '')}</option>
+            ))}
           </select>
         </div>
       </div>

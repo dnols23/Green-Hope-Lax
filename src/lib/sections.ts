@@ -6,7 +6,29 @@
 
 import { DEFAULT_TEAM, TEAMS, isTeam, type Team } from './teams'
 
-export type StaffRole = 'head' | 'assistant'
+/**
+ * What the coach actually is.
+ *
+ * Not an evaluation setting — the job. It decides which walk-round he gets the
+ * first time he signs in, what the War Room calls him, and whether he may
+ * delete somebody else's evaluation.
+ */
+export type StaffRole = 'head' | 'jv-head' | 'assistant'
+
+export const STAFF_ROLES: { key: StaffRole; label: string; hint: string }[] = [
+  { key: 'head', label: 'Head coach', hint: 'Runs the program.' },
+  { key: 'jv-head', label: 'JV head coach', hint: 'Runs the JV team.' },
+  { key: 'assistant', label: 'Assistant', hint: 'Coaches a group.' },
+]
+
+export function isStaffRole(v: unknown): v is StaffRole {
+  return v === 'head' || v === 'jv-head' || v === 'assistant'
+}
+
+/** Runs a team, either of them. */
+export function runsATeam(role: StaffRole): boolean {
+  return role === 'head' || role === 'jv-head'
+}
 
 /**
  * Which side of the program a coach works on.
