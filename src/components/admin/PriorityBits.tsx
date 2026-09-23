@@ -14,7 +14,7 @@ export function PriorityChip({ level }: { level: number }) {
   return (
     <span
       className="inline-flex items-center gap-1.5 text-[0.65rem] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
-      style={{ background: `${l.color}1a`, color: '#3f3f46' }}
+      style={{ background: `${l.color}1a`, color: 'var(--color-gray-700)' }}
     >
       <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: l.color }} />
       {l.label}
@@ -50,7 +50,7 @@ export function LevelSlider({
         style={{ accentColor: l.color }}
       />
       {!compact && (
-        <span className="text-xs font-bold" style={{ color: '#3f3f46' }}>
+        <span className="text-xs font-bold" style={{ color: 'var(--color-gray-700)' }}>
           {l.label}
           <span className="font-normal text-gray-400"> — {l.blurb}</span>
         </span>

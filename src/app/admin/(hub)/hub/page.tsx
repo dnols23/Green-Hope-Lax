@@ -4,11 +4,15 @@ import { createServiceClient } from '@/lib/supabase-server'
 import { getViewer, teamFor } from '@/lib/permissions'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
-import { saveHubModes, createPlan } from '@/lib/actions'
+import { saveHubModes, createPlan, addPriorityAction, setPriorityAction } from '@/lib/actions'
 import { listPlans, plannerReady } from '@/lib/plans'
 import { getGames } from '@/lib/queries'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
-import { quoteOfTheDay } from '@/lib/warRoom'
+import { loadWall } from '@/lib/wallData'
+import { WallPanel } from '@/components/wall/WallPanel'
+import { listPriorities, prioritiesReady, PRIORITY_LEVELS, DEFAULT_LEVEL } from '@/lib/priorities'
+import { PriorityChip } from '@/components/admin/PriorityBits'
+import { canTeam } from '@/lib/sections'
 import { formatDate, formatShortDate, formatTime, TEAM_TIME_ZONE } from '@/lib/format'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
 import { listCalendarItems } from '@/lib/calendarData'
@@ -32,6 +36,8 @@ function todayIso(): string {
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const WEEK_LINES = 10
+/** Open priorities shown in the War Room, worst first; the rest are counted. */
+const PRIORITY_LINES = 6
 
 /** "Tue" for a calendar date, with no time zone to trip over. */
 function weekdayOf(ymd: string): string {
@@ -197,7 +203,19 @@ export default async function WarRoom({
     ? plans.find((p) => p.kind === 'scout' && p.plan_date === nextGame.game_date.slice(0, 10)) ?? null
     : null
 
-  const quote = quoteOfTheDay(today)
+  /* The wall and the priorities load alongside each other. Neither can take
+     the War Room down: a table that isn't there yet reads as empty. */
+  const [wall, hasPriorities] = await Promise.all([loadWall(viewer), prioritiesReady()])
+  const priorityLists = hasPriorities ? await listPriorities(team) : []
+  const mayWritePriorities = canTeam(viewer, team)
+  const openPriorities = priorityLists
+    .flatMap((l) => l.items.filter((i) => !i.done).map((i) => ({ ...i, listName: l.name })))
+    .sort((a, b) => b.level - a.level || a.createdAt.localeCompare(b.createdAt))
+  const shownPriorities = openPriorities.slice(0, PRIORITY_LINES)
+  const levelCounts = PRIORITY_LEVELS.slice()
+    .reverse()
+    .map((l) => ({ ...l, n: openPriorities.filter((i) => i.level === l.level).length }))
+    .filter((l) => l.n > 0)
 
   const calendar = await weekAhead
   const thisWeek = calendar.filter((i) => i.source !== 'availability' && onThisSide(i, team))
@@ -263,7 +281,7 @@ export default async function WarRoom({
                   <Link
                     href={`/admin/calendar?view=day&date=${d.ymd}`}
                     className="block text-xs font-black uppercase tracking-wide mb-1 hover:underline"
-                    style={{ color: d.ymd === today ? 'var(--gh-green)' : '#6b7280' }}
+                    style={{ color: d.ymd === today ? 'var(--gh-green)' : 'var(--color-gray-500, #6b7280)' }}
                   >
                     {d.ymd === today
                       ? `Today · ${weekdayOf(d.ymd)}`
@@ -449,14 +467,108 @@ export default async function WarRoom({
       ),
     },
     {
+      key: 'priorities',
+      title: 'Priorities',
+      body: !hasPriorities ? (
+        <p className="text-sm text-gray-500">
+          Run <code>supabase/migrations/0030_priorities.sql</code> to keep the staff&rsquo;s list of what needs work here.
+        </p>
+      ) : (
+        <div>
+          {levelCounts.length > 0 && (
+            <p className="text-xs text-gray-500 mb-2">
+              {levelCounts.map((l, i) => (
+                <span key={l.level}>
+                  {i > 0 && ' · '}
+                  <span className="font-bold" style={{ color: l.level >= 3 ? '#b42318' : undefined }}>
+                    {l.n} {l.label}
+                  </span>
+                </span>
+              ))}{' '}
+              open across {priorityLists.length} list{priorityLists.length === 1 ? '' : 's'}
+            </p>
+          )}
+          {shownPriorities.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              {priorityLists.length === 0
+                ? 'No lists yet. Start one — offense, defense, rides, clears — and what the staff notices lands here.'
+                : 'Nothing open. Everything the staff flagged has been dealt with.'}
+            </p>
+          ) : (
+            <ul className="space-y-1.5">
+              {shownPriorities.map((item) => (
+                <li key={item.id} className="flex items-start gap-2">
+                  <span className="shrink-0 pt-0.5">
+                    <PriorityChip level={item.level} />
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm leading-snug">
+                    {item.body}
+                    <span className="block text-[0.7rem] text-gray-400">{item.listName}</span>
+                  </span>
+                  {mayWritePriorities && (
+                    <form action={setPriorityAction} className="shrink-0">
+                      <input type="hidden" name="id" value={item.id} />
+                      <input type="hidden" name="done" value="true" />
+                      <button
+                        type="submit"
+                        aria-label={`Mark done: ${item.body}`}
+                        title="Mark done"
+                        className="w-7 h-7 inline-flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)] text-xs font-black"
+                      >
+                        ✓
+                      </button>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {openPriorities.length > shownPriorities.length && (
+            <p className="text-xs text-gray-400 mt-1">+{openPriorities.length - shownPriorities.length} more</p>
+          )}
+          {mayWritePriorities && priorityLists.length > 0 && (
+            /* The thirty-second capture: something went wrong at practice, it
+               goes on the list without leaving the War Room. */
+            <details className="mt-3 group">
+              <summary className="cursor-pointer text-sm font-semibold text-[var(--gh-green)] list-none">+ Add a priority</summary>
+              <form action={addPriorityAction} className="mt-2 space-y-2">
+                <input
+                  name="body"
+                  required
+                  maxLength={300}
+                  placeholder="e.g. Slides late off the ball carrier"
+                  aria-label="What needs work"
+                  className="field !py-1.5 text-sm"
+                />
+                <div className="flex gap-2">
+                  <select name="listId" aria-label="Which list" className="field !py-1.5 text-sm min-w-0 flex-1">
+                    {priorityLists.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                  <select name="level" defaultValue={DEFAULT_LEVEL} aria-label="How urgent" className="field !py-1.5 text-sm !w-auto">
+                    {PRIORITY_LEVELS.slice().reverse().map((l) => (
+                      <option key={l.level} value={l.level}>{l.label}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className="btn btn-primary !py-1.5 !px-3 text-sm">Add</button>
+                </div>
+              </form>
+            </details>
+          )}
+          <Link
+            href={withTeam('/admin/priorities', team)}
+            className="inline-block mt-2 text-sm font-semibold text-[var(--gh-green)]"
+          >
+            All priorities →
+          </Link>
+        </div>
+      ),
+    },
+    {
       key: 'wall',
       title: 'On the wall',
-      body: (
-        <blockquote>
-          <p className="text-base font-semibold leading-snug">&ldquo;{quote.line}&rdquo;</p>
-          {quote.who && <footer className="text-xs text-gray-500 mt-1">— {quote.who}</footer>}
-        </blockquote>
-      ),
+      body: <WallPanel lib={wall} today={today} />,
     },
   ]
 
@@ -529,7 +641,7 @@ export default async function WarRoom({
               into whatever order they like.
             </p>
             <form action={saveHubModes} className="space-y-2">
-              <div className="divide-y border rounded-lg" style={{ borderColor: '#e5e7eb' }}>
+              <div className="divide-y border rounded-lg" style={{ borderColor: 'var(--color-gray-200, #e5e7eb)' }}>
                 {HUB_MODES.map((m) => (
                   <label key={m.key} className="flex items-center gap-3 p-3 cursor-pointer">
                     <input

@@ -84,7 +84,7 @@ export function AgendaView({ from, items, now, canCreate, onOpen, onOpenOut, onN
             >
               <span
                 className="grid place-items-center w-9 h-9 rounded-full text-base font-black shrink-0"
-                style={today ? { background: 'var(--gh-green)', color: '#fff' } : { background: '#f3f4f6', color: '#111827' }}
+                style={today ? { background: 'var(--gh-green)', color: '#fff' } : { background: 'var(--color-gray-100, #f3f4f6)', color: 'var(--color-gray-900, #111827)' }}
               >
                 {day.getDate()}
               </span>
@@ -99,7 +99,7 @@ export function AgendaView({ from, items, now, canCreate, onOpen, onOpenOut, onN
                   {(today || tomorrow) && (
                     <span
                       className="badge shrink-0"
-                      style={{ background: today ? 'var(--gh-green)' : '#e5e7eb', color: today ? '#fff' : '#374151' }}
+                      style={{ background: today ? 'var(--gh-green)' : 'var(--color-gray-200, #e5e7eb)', color: today ? '#fff' : 'var(--color-gray-700, #374151)' }}
                     >
                       {today ? 'Today' : 'Tomorrow'}
                     </span>

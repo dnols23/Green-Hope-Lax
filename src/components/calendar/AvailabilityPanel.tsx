@@ -401,7 +401,7 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
                   style={
                     on
                       ? { background: c.bg, color: c.fg, borderColor: c.fg }
-                      : { background: '#fff', color: '#6b7280', borderColor: '#e5e7eb' }
+                      : { background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
                   }
                 >
                   <span aria-hidden>{s.icon}</span>
@@ -687,7 +687,7 @@ function Switch({
       <span
         aria-hidden
         className="relative shrink-0 w-11 h-6 rounded-full transition-colors"
-        style={{ background: on ? 'var(--gh-green)' : '#d1d5db' }}
+        style={{ background: on ? 'var(--gh-green)' : 'var(--color-gray-300, #d1d5db)' }}
       >
         <span
           className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"

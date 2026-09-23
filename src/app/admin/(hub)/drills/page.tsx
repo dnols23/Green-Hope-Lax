@@ -133,8 +133,8 @@ export default async function DrillBankPage() {
                       <span
                         className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
                         style={{
-                          background: isHomework(d.setting) ? '#DFEFE7' : '#f3f4f6',
-                          color: isHomework(d.setting) ? '#00512F' : '#6b7280',
+                          background: isHomework(d.setting) ? '#DFEFE7' : 'var(--color-gray-100, #f3f4f6)',
+                          color: isHomework(d.setting) ? '#00512F' : 'var(--color-gray-500, #6b7280)',
                         }}
                         title={isHomework(d.setting) ? 'Can be prescribed to a player' : 'Practice or film only — never sent home'}
                       >

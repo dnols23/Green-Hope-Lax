@@ -105,9 +105,11 @@ export const SECTIONS: AdminSection[] = [
   { key: 'drills',       label: 'Drill Bank',   href: '/admin/drills',       group: 'Coaches Hub', always: true },
   { key: 'playboard',    label: 'Playboard',    href: '/admin/playboard',    group: 'Coaches Hub', always: true },
   { key: 'library',      label: 'Library',      href: '/admin/library',      group: 'Coaches Hub', always: true },
-  // The calendar. Every coach reads it and sets his own availability on it;
+  // The calendar. Every coach reads it and sets their own availability on it;
   // who may put events on it is decided per team in calendarData.mayPostTo.
   { key: 'calendar',     label: 'Calendar',     href: '/admin/calendar',     group: 'Coaches Hub', always: true },
+  // The War Room's quote wall: a library of quotes and the playlists that play it.
+  { key: 'wall',         label: 'On the Wall',  href: '/admin/wall',         group: 'Coaches Hub', always: true },
   // The deck of what we actually run. Every coach may read it once the head
   // coach publishes it; only he ever writes it, which the pages enforce.
   { key: 'playbook',     label: 'Playbook',     href: '/admin/playbook',     group: 'Coaches Hub', always: true, hidden: true },

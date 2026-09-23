@@ -371,7 +371,7 @@ function Rail({
                           aria-hidden
                           title="Drag to reorder"
                           className="cursor-grab select-none px-1.5 text-sm leading-none"
-                          style={{ color: on ? 'rgba(255,255,255,0.6)' : '#c7cdd3' }}
+                          style={{ color: on ? 'rgba(255,255,255,0.6)' : 'var(--color-gray-300, #c7cdd3)' }}
                         >
                           ☰
                         </span>
@@ -381,7 +381,7 @@ function Rail({
                           // for is what fills the screen.
                           onClick={() => setDrawer(false)}
                           className="flex-1 min-w-0 flex items-center gap-2 py-2 pr-2 text-sm font-semibold rounded-lg"
-                          style={{ color: on ? '#fff' : '#374151' }}
+                          style={{ color: on ? '#fff' : 'var(--color-gray-700, #374151)' }}
                         >
                           <span aria-hidden>{l.icon}</span>
                           <span className="truncate">{l.label}</span>
@@ -392,7 +392,7 @@ function Rail({
                             aria-label={`Move ${l.label} up`}
                             onClick={() => nudge(l.key, -1)}
                             className="px-1 text-xs"
-                            style={{ color: on ? 'rgba(255,255,255,0.7)' : '#9ca3af' }}
+                            style={{ color: on ? 'rgba(255,255,255,0.7)' : 'var(--color-gray-400, #9ca3af)' }}
                           >
                             ↑
                           </button>
@@ -401,7 +401,7 @@ function Rail({
                             aria-label={`Move ${l.label} down`}
                             onClick={() => nudge(l.key, 1)}
                             className="px-1 text-xs"
-                            style={{ color: on ? 'rgba(255,255,255,0.7)' : '#9ca3af' }}
+                            style={{ color: on ? 'rgba(255,255,255,0.7)' : 'var(--color-gray-400, #9ca3af)' }}
                           >
                             ↓
                           </button>

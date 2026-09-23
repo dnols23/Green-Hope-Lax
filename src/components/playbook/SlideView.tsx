@@ -23,17 +23,25 @@ export type { Board }
  * thumbnails, on the projector and on a player's phone — so what the head coach
  * lines up is what everyone else gets, rather than three near-misses.
  */
-export function SlideView({
-  page,
-  plays,
-  scale = 'full',
-}: {
+type SlideProps = {
   page: PlaybookPage
   /** Every play the deck refers to, by id. */
   plays: Record<string, SlidePlay>
   /** 'thumb' shrinks the type for a card in the deck screen. */
   scale?: 'full' | 'thumb'
-}) {
+}
+
+export function SlideView(props: SlideProps) {
+  // A page is a page: white, like the slide it will be on the projector, even
+  // when the coach reading it has the app in dark mode.
+  return (
+    <div className="keep-light h-full">
+      <SlidePage {...props} />
+    </div>
+  )
+}
+
+function SlidePage({ page, plays, scale = 'full' }: SlideProps) {
   const thumb = scale === 'thumb'
 
   /* A page placed by hand is drawn on the stage, where every box keeps the

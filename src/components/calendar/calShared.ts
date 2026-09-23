@@ -113,7 +113,7 @@ export function audienceBadge(item: Pick<CalItem, 'source' | 'audience'>): strin
 
 /** The badge colours for each audience — quiet for staff-only, louder the wider it goes. */
 export const AUDIENCE_TONE: Record<CalAudience, { bg: string; fg: string }> = {
-  coaches: { bg: '#f3f4f6', fg: '#374151' },
+  coaches: { bg: 'var(--color-gray-100, #f3f4f6)', fg: 'var(--color-gray-700, #374151)' },
   team: { bg: '#e6f2ec', fg: '#00512F' },
   parents: { bg: '#f3eefe', fg: '#4a3aa7' },
   public: { bg: '#fdf2e0', fg: '#8a5a00' },

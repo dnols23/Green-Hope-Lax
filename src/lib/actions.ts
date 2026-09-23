@@ -1348,6 +1348,7 @@ export async function addPriorityAction(formData: FormData) {
   if (!listId || !body || !(await mayTouchList(viewer, listId))) return
   await addPriorityItem(listId, body, level, viewer.name || viewer.email)
   revalidatePath('/admin/priorities')
+  revalidatePath('/admin/hub')
 }
 
 export async function setPriorityAction(formData: FormData) {
@@ -1360,6 +1361,7 @@ export async function setPriorityAction(formData: FormData) {
   if (formData.has('done')) next.done = str(formData.get('done')) === 'true'
   await setPriorityItem(id, next)
   revalidatePath('/admin/priorities')
+  revalidatePath('/admin/hub')
 }
 
 export async function deletePriorityAction(formData: FormData) {
@@ -1368,6 +1370,7 @@ export async function deletePriorityAction(formData: FormData) {
   if (!id || !(await mayTouchItem(viewer, id))) return
   await deletePriorityItem(id)
   revalidatePath('/admin/priorities')
+  revalidatePath('/admin/hub')
 }
 
 // ── Equipment sign-out ───────────────────────────────────────────────────────
