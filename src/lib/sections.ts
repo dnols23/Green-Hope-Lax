@@ -175,14 +175,13 @@ export function canTeam(viewer: Viewer | null, team: Team): boolean {
 /**
  * The team a page should open on, given what the URL asked for.
  *
- * A coach kept to one side gets that side whatever the address bar says —
- * hiding the link is presentation, this is the part that holds.
+ * Every coach can look at either side of the program — a JV coach should be
+ * able to see what varsity is running, and often has to. What his team setting
+ * decides is what he can *change*, which is canTeam() and is checked on every
+ * write rather than by hiding the door.
  */
-export function teamFor(viewer: Viewer | null, asked: unknown): Team {
-  const want = isTeam(asked) ? asked : DEFAULT_TEAM
-  const allowed = teamsFor(viewer)
-  if (allowed.includes(want)) return want
-  return allowed[0] ?? DEFAULT_TEAM
+export function teamFor(_viewer: Viewer | null, asked: unknown): Team {
+  return isTeam(asked) ? asked : DEFAULT_TEAM
 }
 
 export function canSee(viewer: Viewer | null, key: string): boolean {

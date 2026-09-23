@@ -16,8 +16,25 @@ export interface HubLink {
 const ORDER_KEY = 'gh-hub-order-v1'
 const ORDER_EVENT = 'gh-hub-order-changed'
 const SHUT_KEY = 'gh-hub-shut-v1'
-
 const SHUT_EVENT = 'gh-hub-shut-changed'
+
+/* Which heading sits above which. Kept in this browser like the rest of the
+   coach's own arrangement: a JV coach wants JV at the top, the head coach
+   wants varsity, and neither is anybody else's business. */
+const GROUP_KEY = 'gh-hub-groups-v1'
+const GROUP_EVENT = 'gh-hub-groups-changed'
+
+function readGroups(): string {
+  try { return localStorage.getItem(GROUP_KEY) ?? '' } catch { return '' }
+}
+function subscribeToGroups(onChange: () => void) {
+  window.addEventListener(GROUP_EVENT, onChange)
+  window.addEventListener('storage', onChange)
+  return () => {
+    window.removeEventListener(GROUP_EVENT, onChange)
+    window.removeEventListener('storage', onChange)
+  }
+}
 
 function readShut(): string {
   try { return localStorage.getItem(SHUT_KEY) ?? '' } catch { return '' }
@@ -164,6 +181,32 @@ function Rail({
     else groups.push({ name: link.group, items: [link] })
   }
 
+  /* Then this coach's own order for the headings, with anything new falling in
+     where the server put it. */
+  const groupJson = useSyncExternalStore(subscribeToGroups, readGroups, () => '')
+  let groupOrder: string[] = []
+  try { groupOrder = groupJson ? (JSON.parse(groupJson) as string[]) : [] } catch { groupOrder = [] }
+  if (groupOrder.length) {
+    const byName = new Map(groups.map((g) => [g.name, g]))
+    const sorted: typeof groups = []
+    for (const name of groupOrder) {
+      const found = byName.get(name)
+      if (found) { sorted.push(found); byName.delete(name) }
+    }
+    groups.length = 0
+    groups.push(...sorted, ...byName.values())
+  }
+
+  function moveGroup(name: string, by: number) {
+    const names = groups.map((g) => g.name)
+    const from = names.indexOf(name)
+    const to = from + by
+    if (from < 0 || to < 0 || to >= names.length) return
+    names.splice(to, 0, names.splice(from, 1)[0])
+    try { localStorage.setItem(GROUP_KEY, JSON.stringify(names)) } catch {}
+    window.dispatchEvent(new Event(GROUP_EVENT))
+  }
+
   return (
     <nav className="w-full md:w-56 shrink-0" data-tour="sidebar">
       <div className="card p-2 space-y-1">
@@ -176,10 +219,36 @@ function Rail({
               {group.name}
             </span>
           )
+          const first = groups[0]?.name === group.name
+          const last = groups[groups.length - 1]?.name === group.name
+          /* Up and down on the heading itself: a whole section moves, rather
+             than dragging five rows one at a time. */
+          const nudgeGroup = (
+            <span className="ml-auto hidden group-hover/head:flex items-center">
+              <button
+                type="button"
+                aria-label={`Move ${group.name} up`}
+                disabled={first}
+                onClick={(e) => { e.stopPropagation(); moveGroup(group.name, -1) }}
+                className="px-1 text-xs text-gray-400 hover:text-gray-700 disabled:opacity-25"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                aria-label={`Move ${group.name} down`}
+                disabled={last}
+                onClick={(e) => { e.stopPropagation(); moveGroup(group.name, 1) }}
+                className="px-1 text-xs text-gray-400 hover:text-gray-700 disabled:opacity-25"
+              >
+                ↓
+              </button>
+            </span>
+          )
           return (
-            <div key={group.name}>
+            <div key={group.name} className="group/head">
               {fixed ? (
-                <div className="flex items-center gap-1.5 px-2 py-1.5">{heading}</div>
+                <div className="flex items-center gap-1.5 px-2 py-1.5">{heading}{nudgeGroup}</div>
               ) : (
                 <button
                   type="button"
@@ -208,6 +277,7 @@ function Rail({
                       aria-label="You are on a page in here"
                     />
                   )}
+                  {nudgeGroup}
                 </button>
               )}
 
@@ -276,7 +346,9 @@ function Rail({
         })}
       </div>
       <div className="mt-2 px-1 flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-[0.7rem] text-gray-400">Drag ☰ to put these in your own order.</p>
+        <p className="text-[0.7rem] text-gray-400">
+        Drag ☰ to reorder. ↑↓ on a heading moves the whole section.
+      </p>
         {/* The welcome runs itself once. This is how you get it back — to see
             the home-screen directions again, or to walk a new coach round. */}
         <button

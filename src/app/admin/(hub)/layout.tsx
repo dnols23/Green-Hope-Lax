@@ -2,7 +2,7 @@ import { AdminShell } from '@/components/admin/AdminShell'
 import { HubSidebar, type HubLink } from '@/components/admin/HubSidebar'
 import { HubTour } from '@/components/admin/HubTour'
 import { audienceOf } from '@/lib/tour'
-import { getViewer, canSee, teamsFor } from '@/lib/permissions'
+import { getViewer, canSee } from '@/lib/permissions'
 import { isPageOn } from '@/lib/pages'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
@@ -54,10 +54,10 @@ export default async function HubLayout({ children }: { children: React.ReactNod
         ? canSee(viewer, 'inventory') || canSee(viewer, 'inventory-jv')
         : canSee(viewer, 'inventory')
 
-  /* Only the sides of the program this coach works on. A JV head coach has no
-     varsity group at all rather than a group full of doors that 404. */
-  const mine = new Set(teamsFor(viewer))
-  const teams = TEAMS.filter((t) => mine.has(t.key))
+  /* Both sides, for everyone. A JV coach should be able to look at what
+     varsity is running — what his team setting decides is what he can change,
+     which every write checks for itself. */
+  const teams = TEAMS
 
   const links: HubLink[] = [
     // The War Room, the planner, the priorities and the shed — one of each per
@@ -89,7 +89,7 @@ export default async function HubLayout({ children }: { children: React.ReactNod
   return (
     <AdminShell>
       <div className="flex flex-col md:flex-row gap-6 items-start">
-        <HubSidebar links={links} noFold={teams.length < 2 ? teams.map((t) => t.label) : []} />
+        <HubSidebar links={links} />
         <div className="flex-1 min-w-0 w-full">{children}</div>
       </div>
       {/* Shown once, the first time a coach lands in the hub — and which
