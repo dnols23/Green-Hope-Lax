@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from './supabase-server'
 import { readStaff, hasOwner } from './staff'
-import { canSee, canTeam, teamFor, teamScope, teamsFor, type Viewer } from './sections'
+import { canSee, canTeam, teamFor, teamScope, type Viewer } from './sections'
 import type { Team } from './teams'
 
 // ── The three ways in ────────────────────────────────────────────────────────
@@ -90,9 +90,18 @@ export async function requireTeamScope(
 export async function requireTeam(
   key: string,
   asked: unknown
-): Promise<{ viewer: Viewer; team: Team; locked: boolean }> {
+): Promise<{ viewer: Viewer; team: Team; locked: boolean; canWrite: boolean }> {
   const viewer = await requireSection(key)
-  return { viewer, team: teamFor(viewer, asked), locked: teamsFor(viewer).length < 2 }
+  const team = teamFor(viewer, asked)
+  return {
+    viewer,
+    team,
+    /* Nothing is locked any more — both sides are open to look at. Kept so the
+       pages that read it carry on working; it is always false. */
+    locked: false,
+    /** Whether he may change what he is looking at. */
+    canWrite: canTeam(viewer, team),
+  }
 }
 
 /** Guard for an action that writes to one team's side of the program. */

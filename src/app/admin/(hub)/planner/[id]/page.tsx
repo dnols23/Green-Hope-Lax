@@ -18,9 +18,10 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const plan = await getPlan(id)
   if (!plan) notFound()
-  // A JV coach opening a varsity plan by its link gets the same 404 as a
-  // stranger — the sidebar hiding it is presentation, this is the part that holds.
-  if (!canTeam(viewer, plan.team)) notFound()
+  /* Anyone may read the other team's plan — seeing what varsity is running is
+     half the point of being on the same staff. Changing it is the part that is
+     checked, here and again in savePlan. */
+  const canWrite = canTeam(viewer, plan.team)
 
   const [live, staff, drills] = await Promise.all([listRosters(), listStaff(), listDrills()])
   /* A plan written last season still points at last season's roster. Offering
@@ -73,6 +74,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
         playersByRoster={playersByRoster}
         coaches={staff.map((c) => c.name).sort((a, b) => a.localeCompare(b))}
         drills={drills}
+        canWrite={canWrite}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase-server'
 import Link from 'next/link'
-import { requireTeamScope, teamFor, teamsFor } from '@/lib/permissions'
+import { requireTeamScope, teamFor } from '@/lib/permissions'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
 import { upsertInventoryItem, deleteInventoryItem, signOutEquipment, returnEquipment } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
@@ -91,7 +91,9 @@ export default async function InventoryPage({
      this page, and the side of the program this coach works on at all. */
   const asked: Team = teamFor(viewer, (await searchParams).team)
   const team: Team = scope === 'jv' ? 'jv' : asked
-  const locked = scope === 'jv' || teamsFor(viewer).length < 2
+  /* The one place still shut: a coach granted only the JV shed sees only the
+     JV shed, because that grant is about the gear, not about the team. */
+  const locked = scope === 'jv'
 
   const svc = createServiceClient()
   // This team's gear, plus what both teams share — balls and goals belong to

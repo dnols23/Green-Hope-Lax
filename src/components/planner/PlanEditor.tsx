@@ -62,6 +62,7 @@ export function PlanEditor({
   playersByRoster,
   coaches,
   drills,
+  canWrite = true,
 }: {
   plan: Plan
   rosters: RosterOption[]
@@ -69,6 +70,8 @@ export function PlanEditor({
   playersByRoster: Record<string, PlayerOption[]>
   coaches: string[]
   drills: Drill[]
+  /** False when this is the other team's plan: read it, don't change it. */
+  canWrite?: boolean
 }) {
   const [state, save, saving] = useActionState(savePlan, EMPTY)
   const [title, setTitle] = useState(plan.title)
@@ -295,6 +298,18 @@ export function PlanEditor({
 
   return (
     <form action={save}>
+      {/* The other team's plan. Read it, take what you want off it — but it is
+          theirs, and the save is refused on the server as well as here. */}
+      {!canWrite && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-4">
+          <p className="text-sm text-amber-900">
+            <span className="font-bold">
+              This is the {plan.team === 'varsity' ? 'varsity' : 'JV'} staff&rsquo;s plan.
+            </span>{' '}
+            You can read it and copy anything off it. Changes here won&rsquo;t save.
+          </p>
+        </div>
+      )}
       <input type="hidden" name="id" value={plan.id} />
       <input type="hidden" name="blocks" value={JSON.stringify(blocks)} />
       <input type="hidden" name="sides" value={JSON.stringify(sides)} />
@@ -518,7 +533,12 @@ export function PlanEditor({
           {/* The whole point of writing something down on a sideline is that it
               is in front of you when the plan is being made. */}
           <ReviewPriorities team={plan.team} />
-          <button type="submit" disabled={saving} className="btn btn-primary !py-1.5 disabled:opacity-60">
+          <button
+            type="submit"
+            disabled={saving || !canWrite}
+            title={canWrite ? undefined : 'This is the other team\u2019s plan.'}
+            className="btn btn-primary !py-1.5 disabled:opacity-60"
+          >
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getCurrentCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
-import { getViewer, teamFor, teamsFor } from '@/lib/permissions'
+import { getViewer, teamFor } from '@/lib/permissions'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
 import { saveHubModes, createPlan } from '@/lib/actions'
@@ -34,7 +34,8 @@ export default async function WarRoom({
   /* A coach kept to one side of the program gets that side, whatever the
      address bar says. */
   const team = teamFor(viewer, (await searchParams).team)
-  const locked = teamsFor(viewer).length < 2
+  // Both War Rooms are open to every coach, so the other one is always a tap away.
+  const locked = false
   const isOwner = viewer?.isOwner ?? false
   const modesOff = await readModesOff()
   const today = todayIso()
