@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Suspense, useState, useSyncExternalStore } from 'react'
+import { Suspense, useEffect, useState, useSyncExternalStore } from 'react'
 import { TOUR_EVENT, TOUR_KEY } from '@/lib/tour'
 
 export interface HubLink {
@@ -23,6 +23,10 @@ const SHUT_EVENT = 'gh-hub-shut-changed'
    wants varsity, and neither is anybody else's business. */
 const GROUP_KEY = 'gh-hub-groups-v1'
 const GROUP_EVENT = 'gh-hub-groups-changed'
+
+/* Opening and shutting the phone drawer from elsewhere — the walk-round needs
+   it open before it can point at anything in it. */
+export const DRAWER_EVENT = 'gh-hub-drawer'
 
 function readGroups(): string {
   try { return localStorage.getItem(GROUP_KEY) ?? '' } catch { return '' }
@@ -110,6 +114,20 @@ function Rail({
 }) {
   const pathname = usePathname()
   const [dragKey, setDragKey] = useState<string | null>(null)
+  const [drawer, setDrawer] = useState(false)
+
+  // Escape shuts it, and so does the walk-round when it asks.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawer(false) }
+    const onAsk = (e: Event) => setDrawer((e as CustomEvent<boolean>).detail === true)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener(DRAWER_EVENT, onAsk)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener(DRAWER_EVENT, onAsk)
+    }
+  }, [])
+
   /* Which headings are folded away, kept in this browser like the order is. A
      coach who never touches JV shuts it once and stops seeing it. Read the same
      way the order is: straight out of the browser, so the server's render and
@@ -207,8 +225,51 @@ function Rail({
     window.dispatchEvent(new Event(GROUP_EVENT))
   }
 
+  /* On a phone the rail is a drawer.
+   *
+   * Stacked above the page it was twenty rows of navigation between a coach
+   * and the thing he opened the app for, so he scrolled past his own tools to
+   * reach his War Room. Now the War Room is the first thing on the screen and
+   * the tools are one tap to the left. On anything wider it is the rail it
+   * always was. */
+  const here = shown.find((l) => isActive(l.href))
+
   return (
-    <nav className="w-full md:w-56 shrink-0" data-tour="sidebar">
+    <>
+      <div className="md:hidden w-full flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setDrawer(true)}
+          aria-expanded={drawer}
+          className="btn btn-ghost !py-1.5 text-sm shrink-0"
+        >
+          <span aria-hidden className="mr-1.5">☰</span> Tools
+        </button>
+        {here && (
+          <span className="text-sm font-bold text-gray-500 truncate">
+            <span aria-hidden className="mr-1">{here.icon}</span>
+            {here.group === 'Program' ? here.label : `${here.group} ${here.label}`}
+          </span>
+        )}
+      </div>
+
+      {drawer && (
+        <div
+          className="md:hidden fixed inset-0 z-[60]"
+          style={{ background: 'rgba(17,24,39,0.5)' }}
+          onClick={() => setDrawer(false)}
+          aria-hidden
+        />
+      )}
+
+      <nav
+        data-tour="sidebar"
+        aria-label="Coaching tools"
+        className={`shrink-0 md:w-56 md:static md:translate-x-0 md:z-auto md:overflow-visible md:p-0 md:bg-transparent
+          fixed inset-y-0 left-0 z-[61] w-72 max-w-[85vw] overflow-y-auto p-3 transition-transform duration-200
+          ${drawer ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ background: 'var(--surface, #fff)' }}
+      >
       <div className="card p-2 space-y-1">
         {groups.map((group) => {
           const fixed = noFold.includes(group.name)
@@ -310,6 +371,9 @@ function Rail({
                         </span>
                         <Link
                           href={l.href}
+                          // Going somewhere shuts the drawer, so what you asked
+                          // for is what fills the screen.
+                          onClick={() => setDrawer(false)}
                           className="flex-1 min-w-0 flex items-center gap-2 py-2 pr-2 text-sm font-semibold rounded-lg"
                           style={{ color: on ? '#fff' : '#374151' }}
                         >
@@ -362,6 +426,7 @@ function Rail({
           Show me around
         </button>
       </div>
-    </nav>
+      </nav>
+    </>
   )
 }
