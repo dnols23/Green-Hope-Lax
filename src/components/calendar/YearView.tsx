@@ -95,8 +95,8 @@ export function MiniMonth({
               onClick={() => onPickDay(day)}
               className="relative h-7 grid place-items-center rounded-md text-[0.7rem] font-semibold hover:ring-1 hover:ring-gray-300"
               style={{
-                background: picked ? '#111827' : shade,
-                color: picked ? '#fff' : today ? 'var(--gh-green)' : '#374151',
+                background: picked ? 'var(--color-gray-900, #111827)' : shade,
+                color: picked ? '#fff' : today ? 'var(--gh-green)' : 'var(--color-gray-700, #374151)',
                 boxShadow: today && !picked ? 'inset 0 0 0 2px var(--gh-green)' : undefined,
                 fontWeight: today || picked ? 900 : undefined,
               }}

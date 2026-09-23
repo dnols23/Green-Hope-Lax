@@ -44,7 +44,7 @@ export async function AdminShell({
   const tier = viewer?.isOwner ? 'Admin' : 'Coaches'
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="app-theme min-h-screen flex flex-col bg-gray-50">
       <AdminMenu links={links} tier={tier} />
 
       {/* A full-bleed page takes whatever height the bar leaves, measured rather

@@ -302,7 +302,7 @@ export function EventEditor({
                   style={
                     on
                       ? { background: c.bg, color: c.fg, borderColor: c.border }
-                      : { background: '#fff', color: '#4b5563', borderColor: '#e5e7eb' }
+                      : { background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
                   }
                 >
                   <span aria-hidden>{k.icon}</span>
@@ -328,8 +328,8 @@ export function EventEditor({
                   onClick={() => update({ audience: a.key })}
                   className="text-left rounded-xl border-2 px-3 py-2.5 transition-colors min-h-[4.25rem]"
                   style={{
-                    borderColor: on ? 'var(--gh-green)' : '#e5e7eb',
-                    background: on ? '#f0f7f3' : '#fff',
+                    borderColor: on ? 'var(--gh-green)' : 'var(--color-gray-200, #e5e7eb)',
+                    background: on ? 'var(--color-green-50, #f0f7f3)' : 'var(--surface, #fff)',
                   }}
                 >
                   <span className="flex items-center gap-2">
@@ -338,7 +338,7 @@ export function EventEditor({
                     <span
                       aria-hidden
                       className="w-5 h-5 rounded-full border-2 grid place-items-center shrink-0"
-                      style={{ borderColor: on ? 'var(--gh-green)' : '#d1d5db' }}
+                      style={{ borderColor: on ? 'var(--gh-green)' : 'var(--color-gray-300, #d1d5db)' }}
                     >
                       {on && <span className="w-2.5 h-2.5 rounded-full bg-[var(--gh-green)]" />}
                     </span>
@@ -350,8 +350,8 @@ export function EventEditor({
                         key={w}
                         className="rounded-full px-1.5 py-px text-[0.65rem] font-bold"
                         style={{
-                          background: on ? 'var(--gh-green)' : '#f3f4f6',
-                          color: on ? '#fff' : '#6b7280',
+                          background: on ? 'var(--gh-green)' : 'var(--color-gray-100, #f3f4f6)',
+                          color: on ? '#fff' : 'var(--color-gray-500, #6b7280)',
                         }}
                       >
                         {w}
@@ -379,7 +379,7 @@ export function EventEditor({
                     aria-checked={on}
                     onClick={() => update({ team: t })}
                     className="min-h-9 px-4 rounded-full text-sm font-bold transition-colors"
-                    style={on ? { background: 'var(--gh-green)', color: '#fff' } : { color: '#4b5563' }}
+                    style={on ? { background: 'var(--gh-green)', color: '#fff' } : { color: 'var(--color-gray-600, #4b5563)' }}
                   >
                     {teamLabel(t)}
                   </button>
@@ -408,7 +408,7 @@ export function EventEditor({
               <span
                 aria-hidden
                 className="relative w-10 h-6 rounded-full transition-colors"
-                style={{ background: form.allDay ? 'var(--gh-green)' : '#d1d5db' }}
+                style={{ background: form.allDay ? 'var(--gh-green)' : 'var(--color-gray-300, #d1d5db)' }}
               >
                 <span
                   className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"

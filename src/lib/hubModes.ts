@@ -33,6 +33,7 @@ export const HUB_MODES: HubMode[] = [
   { key: 'rosters',   label: 'Rosters',          section: 'rosters',  icon: '🥍', href: '/admin/rosters' },
   { key: 'coachreviews', label: 'Coach Reviews', section: 'coach-reviews', icon: '🧢', href: '/admin/coach-reviews' },
   { key: 'calendar',  label: 'Calendar',         section: 'calendar', icon: '📅', href: '/admin/calendar', fixed: true },
+  { key: 'wall',      label: 'On the Wall',      section: 'wall',     icon: '🔊', href: '/admin/wall' },
   { key: 'schedule',  label: 'Games',            section: 'schedule', icon: '🏟', href: '/admin/schedule' },
   { key: 'film',      label: 'Film Room',        section: 'film',     icon: '🎬', href: '/admin/film' },
   { key: 'inventory', label: 'Inventory',        section: 'inventory',icon: '📦', href: '/admin/inventory' },

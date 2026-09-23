@@ -306,7 +306,7 @@ export function LibraryClient({
               <figure
                 key={s.id}
                 className="rounded-xl border-2 bg-white overflow-hidden"
-                style={{ borderColor: isPicked(s.id) ? 'var(--gh-green)' : '#e5e7eb' }}
+                style={{ borderColor: isPicked(s.id) ? 'var(--gh-green)' : 'var(--color-gray-200, #e5e7eb)' }}
               >
                 <button
                   type="button"

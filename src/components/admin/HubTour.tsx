@@ -263,7 +263,7 @@ export function HubTour({ name, audience }: { name: string; audience: Audience }
                     style={
                       p === platform
                         ? { background: 'var(--gh-green)', color: '#fff', borderColor: 'var(--gh-green)' }
-                        : { background: '#fff', color: '#6b7280', borderColor: '#e5e7eb' }
+                        : { background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
                     }
                   >
                     {p === 'ios' ? 'iPhone / iPad' : p === 'android' ? 'Android' : 'Computer'}

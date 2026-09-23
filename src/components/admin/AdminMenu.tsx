@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { logout } from '@/lib/actions'
 import { FalconHead } from '@/components/Logo'
+import { ThemeChoices, ThemeToggle } from '@/components/ThemeToggle'
 import { AUDIENCE_LABELS, SECTION_GROUPS, type AdminSection } from '@/lib/sections'
 
 /**
@@ -88,7 +89,9 @@ export function AdminMenu({ links, tier }: { links: AdminSection[]; tier: string
   })).filter((g) => g.items.length > 0)
 
   return (
-    <div className="relative shrink-0 text-white" style={{ background: 'var(--gh-green-dk)' }}>
+    // The bar keeps the program's deep green in both themes; dark mode lightens
+    // --gh-green-dk for text, which the bar doesn't want.
+    <div className="relative shrink-0 text-white" style={{ background: '#004D2E' }}>
       <div className="px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <WorkflowNav onHub={() => setOpen(false)} showHub={pathname !== '/admin/hub'} />
@@ -132,6 +135,7 @@ export function AdminMenu({ links, tier }: { links: AdminSection[]; tier: string
               View site ↗
             </Link>
           )}
+          <ThemeToggle />
           <button
             type="button"
             onClick={() => setOpen(!open)}
@@ -224,6 +228,10 @@ export function AdminMenu({ links, tier }: { links: AdminSection[]; tier: string
                   >
                     View site ↗
                   </Link>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[0.65rem] font-black tracking-[0.18em] uppercase text-white/40">Appearance</span>
+                  <ThemeChoices />
                 </div>
                 <form action={logout}>
                   <button

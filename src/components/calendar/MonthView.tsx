@@ -98,7 +98,7 @@ export function MonthView({ anchor, items, now, narrow, canCreate, onOpen, onOpe
                   style={
                     today
                       ? { background: 'var(--gh-green)', color: '#fff' }
-                      : { color: inMonth ? '#111827' : '#9ca3af' }
+                      : { color: inMonth ? 'var(--color-gray-900, #111827)' : 'var(--color-gray-400, #9ca3af)' }
                   }
                   aria-label={`Open ${WEEKDAY_NAMES[day.getDay()]}, ${MONTH_NAMES[day.getMonth()]} ${day.getDate()}`}
                 >

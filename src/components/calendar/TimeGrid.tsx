@@ -365,13 +365,13 @@ export function TimeGrid({ days, items, now, canCreate, onOpen, onOpenOut, onCre
                   >
                     <span
                       className="text-[0.68rem] font-black uppercase tracking-wider"
-                      style={{ color: today ? 'var(--gh-green)' : '#6b7280' }}
+                      style={{ color: today ? 'var(--gh-green)' : 'var(--color-gray-500, #6b7280)' }}
                     >
                       {WEEKDAY_SHORT[day.getDay()]}
                     </span>
                     <span
                       className="grid place-items-center w-8 h-8 rounded-full text-lg font-black leading-none"
-                      style={today ? { background: 'var(--gh-green)', color: '#fff' } : { color: '#111827' }}
+                      style={today ? { background: 'var(--gh-green)', color: '#fff' } : { color: 'var(--color-gray-900, #111827)' }}
                     >
                       {day.getDate()}
                     </span>
@@ -491,7 +491,7 @@ export function TimeGrid({ days, items, now, canCreate, onOpen, onOpenOut, onCre
               gridTemplateColumns: inner,
               height: 24 * HOUR_PX,
               backgroundImage:
-                'linear-gradient(to bottom, #eceeec 1px, transparent 1px), linear-gradient(to bottom, #f6f7f6 1px, transparent 1px)',
+                'linear-gradient(to bottom, var(--color-gray-200, #eceeec) 1px, transparent 1px), linear-gradient(to bottom, var(--color-gray-100, #f6f7f6) 1px, transparent 1px)',
               backgroundSize: `100% ${HOUR_PX}px, 100% ${HOUR_PX}px`,
               backgroundPosition: `0 0, 0 ${HOUR_PX / 2}px`,
             }}
@@ -652,7 +652,7 @@ function Block({
         color: c.fg,
         borderLeft: `3px solid ${c.border}`,
         opacity: faded ? 0.35 : ghost ? 0.92 : 1,
-        boxShadow: p.lanes > 1 && !ghost ? '0 0 0 1px #fff' : undefined,
+        boxShadow: p.lanes > 1 && !ghost ? '0 0 0 1px var(--surface, #fff)' : undefined,
       }}
       title={`${title} · ${time}${it.location ? ` · ${it.location}` : ''}`}
     >

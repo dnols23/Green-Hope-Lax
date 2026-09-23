@@ -23,7 +23,7 @@ function Switch({ what, on, label }: { what: string; on: boolean; label: string 
         style={
           on
             ? { background: '#dcfce7', color: '#15803d', borderColor: '#86efac' }
-            : { background: '#f3f4f6', color: '#6b7280', borderColor: '#d1d5db' }
+            : { background: 'var(--color-gray-100, #f3f4f6)', color: 'var(--color-gray-500, #6b7280)', borderColor: 'var(--color-gray-300, #d1d5db)' }
         }
       >
         {on ? '● On' : '○ Off'}

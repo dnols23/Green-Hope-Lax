@@ -109,7 +109,7 @@ export default async function AdminParentsPage() {
                       style={
                         sheet.is_open
                           ? { background: '#dcfce7', color: '#15803d', borderColor: '#86efac' }
-                          : { background: '#f3f4f6', color: '#6b7280', borderColor: '#d1d5db' }
+                          : { background: 'var(--color-gray-100, #f3f4f6)', color: 'var(--color-gray-500, #6b7280)', borderColor: 'var(--color-gray-300, #d1d5db)' }
                       }
                     >
                       {sheet.is_open ? '● Open' : '○ Closed'}
@@ -204,7 +204,7 @@ export default async function AdminParentsPage() {
                           style={
                             p.is_team_parent
                               ? { background: '#dcfce7', color: '#15803d', borderColor: '#86efac' }
-                              : { background: '#f3f4f6', color: '#6b7280', borderColor: '#d1d5db' }
+                              : { background: 'var(--color-gray-100, #f3f4f6)', color: 'var(--color-gray-500, #6b7280)', borderColor: 'var(--color-gray-300, #d1d5db)' }
                           }
                         >
                           {p.is_team_parent ? '★ Team parent' : '☆ Make team parent'}

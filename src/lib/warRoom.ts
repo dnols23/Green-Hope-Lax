@@ -1,6 +1,6 @@
-// Lines worth putting in front of a team, kept with the code rather than in a
-// table: they don't change with the season and nobody needs to edit them from a
-// phone at 3:30.
+// The wall's first quotes. 0040_wall.sql seeds the quote library with these
+// (keep the two in step if one changes); until that SQL has been run, the War
+// Room plays them straight from here.
 
 export const WALL_QUOTES: { line: string; who?: string }[] = [
   { line: 'The ball finds energy.' },
@@ -27,13 +27,3 @@ export const WALL_QUOTES: { line: string; who?: string }[] = [
   { line: 'Everyone can work harder than they think they can. Everybody’s a little better than they think they are.', who: 'Mike Leach' },
   { line: 'One word for all situations.', who: 'Bill Belichick' },
 ]
-
-/**
- * The same line all day for everyone in the building, a different one tomorrow.
- * Keyed off the date so the whole staff sees the same quote without storing it.
- */
-export function quoteOfTheDay(isoDate: string) {
-  let hash = 0
-  for (const ch of isoDate) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
-  return WALL_QUOTES[hash % WALL_QUOTES.length]
-}

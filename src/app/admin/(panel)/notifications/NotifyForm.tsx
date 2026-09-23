@@ -55,7 +55,7 @@ export function NotifyForm({
 
         <div>
           <div className="field-label mb-2">Email me when…</div>
-          <div className="divide-y border rounded-lg" style={{ borderColor: '#e5e7eb' }}>
+          <div className="divide-y border rounded-lg" style={{ borderColor: 'var(--color-gray-200, #e5e7eb)' }}>
             {NOTIFY_EVENTS.map((e) => (
               <label key={e.key} className="flex items-start gap-3 p-3 cursor-pointer">
                 <input

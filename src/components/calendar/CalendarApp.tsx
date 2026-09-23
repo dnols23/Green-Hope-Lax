@@ -389,7 +389,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
                   aria-pressed={on}
                   title={`${v.label} (${v.short})`}
                   className="flex-1 sm:flex-none min-h-8 px-2.5 sm:px-3 rounded-full text-sm font-bold transition-colors"
-                  style={on ? { background: 'var(--gh-green)', color: '#fff' } : { color: '#4b5563' }}
+                  style={on ? { background: 'var(--gh-green)', color: '#fff' } : { color: 'var(--color-gray-600, #4b5563)' }}
                 >
                   <span className="sm:hidden">{v.short}</span>
                   <span className="hidden sm:inline">{v.label}</span>
@@ -435,8 +435,8 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
                   className="min-h-8 px-3 rounded-full border text-xs font-bold inline-flex items-center gap-1 transition-colors"
                   style={
                     on
-                      ? { background: '#111827', color: '#fff', borderColor: '#111827' }
-                      : { background: '#fff', color: '#9ca3af', borderColor: '#e5e7eb' }
+                      ? { background: 'var(--color-gray-900, #111827)', color: 'var(--surface, #fff)', borderColor: 'var(--color-gray-900, #111827)' }
+                      : { background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
                   }
                 >
                   {on && <span aria-hidden>✓</span>}
@@ -454,7 +454,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
                   onClick={() => toggleLayer(l.key)}
                   aria-pressed={on}
                   className="min-h-8 px-3 rounded-full border text-xs font-bold inline-flex items-center gap-1.5 bg-white transition-colors"
-                  style={{ color: on ? '#374151' : '#9ca3af', borderColor: on ? '#d1d5db' : '#eef0ee' }}
+                  style={{ color: on ? 'var(--color-gray-700, #374151)' : 'var(--color-gray-400, #9ca3af)', borderColor: on ? 'var(--color-gray-300, #d1d5db)' : '#eef0ee' }}
                 >
                   <span
                     aria-hidden
@@ -666,7 +666,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
           className="fixed left-1/2 -translate-x-1/2 z-[75] flex items-center gap-3 rounded-full px-4 py-2.5 text-sm font-semibold shadow-xl max-w-[calc(100vw-2rem)]"
           style={{
             bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
-            background: toast.tone === 'error' ? '#7f1d1d' : '#111827',
+            background: toast.tone === 'error' ? '#7f1d1d' : 'var(--color-gray-900, #111827)',
             color: '#fff',
           }}
         >

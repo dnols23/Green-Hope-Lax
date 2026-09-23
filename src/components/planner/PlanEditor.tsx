@@ -499,11 +499,11 @@ export function PlanEditor({
                       style={
                         winning
                           ? { background: 'var(--gh-green)', borderColor: 'var(--gh-green)', color: '#fff' }
-                          : { background: '#fff', borderColor: '#e5e7eb' }
+                          : { background: 'var(--surface)', borderColor: 'var(--border)' }
                       }
                     >
                       <div className="text-[0.6rem] font-black uppercase tracking-wider"
-                        style={{ color: winning ? 'rgba(255,255,255,0.75)' : '#9ca3af' }}>
+                        style={{ color: winning ? 'rgba(255,255,255,0.75)' : 'var(--color-gray-400, #9ca3af)' }}>
                         {side}
                       </div>
                       <div className="text-xl font-black tabular-nums">{totals[i] ?? 0}</div>

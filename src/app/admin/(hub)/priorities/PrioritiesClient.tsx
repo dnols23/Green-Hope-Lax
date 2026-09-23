@@ -109,9 +109,9 @@ export function PrioritiesClient({
               onClick={() => setOpenList(l.id)}
               className="px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors inline-flex items-center gap-1.5"
               style={{
-                background: active?.id === l.id ? 'var(--gh-green)' : '#fff',
-                color: active?.id === l.id ? '#fff' : '#4b5563',
-                borderColor: active?.id === l.id ? 'var(--gh-green)' : '#e5e7eb',
+                background: active?.id === l.id ? 'var(--gh-green)' : 'var(--surface, #fff)',
+                color: active?.id === l.id ? '#fff' : 'var(--color-gray-600, #4b5563)',
+                borderColor: active?.id === l.id ? 'var(--gh-green)' : 'var(--color-gray-200, #e5e7eb)',
               }}
             >
               {worst > 0 && (

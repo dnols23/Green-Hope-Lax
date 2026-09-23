@@ -318,3 +318,141 @@ summary::-webkit-details-marker { display: none; }
   min-height: 4.5rem;
   max-height: 18rem;
 }
+
+/* On the Wall: each new quote rises in. */
+@keyframes wallIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*='animate-[wallIn'] { animation: none !important; }
+}
+@keyframes wallBar {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+[class*='animate-[wallBar'] { transform-origin: bottom; }
+@media (prefers-reduced-motion: reduce) {
+  [class*='animate-[wallBar'] { animation: none !important; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Dark mode — the coaches' app only.
+
+   Every coach screen sits inside .app-theme (the admin shell), so the public
+   site, the Team Hub and the Parent Hub keep their own look whatever a coach
+   picks. The coach's choice rides on <html data-theme>, set before the first
+   paint by the script in the root layout so a dark screen never flashes white.
+
+   Rather than a dark: variant on every class, the palette itself is swapped
+   inside the shell: Tailwind's grays run the other way (gray-900 text becomes
+   near-white, gray-50 backgrounds become near-black), the tinted warning and
+   success boxes darken, and the few classes that mean "a white card" are
+   pointed at the dark surface. White text stays white.
+   ════════════════════════════════════════════════════════════════════════════ */
+html[data-theme='dark'] .app-theme {
+  color-scheme: dark;
+
+  --gh-green:       #1a9a5f;
+  --gh-green-dk:    #15804f;
+  --gh-maroon:      #e0566a;
+  --gh-maroon-dk:   #c7475a;
+  --surface:        #161b21;
+  --surface-2:      #0e1216;
+  --border:         #29313a;
+  --text-primary:   #e8ecef;
+  --text-muted:     #9aa3ad;
+
+  --color-gray-50:  #12171c;
+  --color-gray-100: #1b2128;
+  --color-gray-200: #29313a;
+  --color-gray-300: #3a434e;
+  --color-gray-400: #7d8793;
+  --color-gray-500: #9aa3ad;
+  --color-gray-600: #b3bac2;
+  --color-gray-700: #c9cfd6;
+  --color-gray-800: #dde1e6;
+  --color-gray-900: #eef1f4;
+  --color-gray-950: #f7f8fa;
+
+  --color-amber-50:  #2a2210;
+  --color-amber-100: #3a2f10;
+  --color-amber-200: #594613;
+  --color-amber-300: #7a5f18;
+  --color-amber-800: #f3cd72;
+  --color-amber-900: #fae2a4;
+
+  --color-red-50:  #2c1518;
+  --color-red-200: #5c2429;
+  --color-red-600: #f37b7b;
+  --color-red-700: #f59393;
+  --color-red-800: #f8b3b3;
+
+  --color-green-50:  #0f2419;
+  --color-green-200: #1d4a31;
+  --color-green-700: #7fd6a4;
+  --color-green-800: #a3e4bd;
+  --color-green-900: #c6efd6;
+  --color-emerald-50: #0f2419;
+
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+/* "A white card" and its see-through versions. */
+html[data-theme='dark'] .app-theme .bg-white { background-color: var(--surface); }
+html[data-theme='dark'] .app-theme .bg-white\/95 { background-color: rgb(22 27 33 / 0.95); }
+html[data-theme='dark'] .app-theme .hover\:bg-white:hover { background-color: var(--surface); }
+/* The overrides above sit outside Tailwind's layers, so they would also beat a
+   card's own hover tint; give that back. */
+html[data-theme='dark'] .app-theme .bg-white:is(.hover\:bg-gray-50, .hover\:bg-gray-100):hover { background-color: #1f262e; }
+/* Dark tiles meant to stay dark, and the selected-state rings meant to stand out. */
+html[data-theme='dark'] .app-theme .bg-gray-800 { background-color: #2a323c; }
+html[data-theme='dark'] .app-theme .bg-gray-900 { background-color: #0b0e12; }
+html[data-theme='dark'] .app-theme .border-gray-900 { border-color: #eef1f4; }
+html[data-theme='dark'] .app-theme .ring-gray-900 { --tw-ring-color: #eef1f4; }
+
+html[data-theme='dark'] .app-theme .field {
+  background: #0f1418;
+  border-color: #3a434e;
+  color: var(--text-primary);
+}
+html[data-theme='dark'] .app-theme .field::placeholder { color: #6b7480; }
+html[data-theme='dark'] .app-theme .field-label { color: #c9cfd6; }
+html[data-theme='dark'] .app-theme .field:focus { box-shadow: 0 0 0 3px rgba(26,154,95,0.3); }
+html[data-theme='dark'] .app-theme .prose-body { color: #c9cfd6; }
+html[data-theme='dark'] .app-theme .btn-ghost:hover { background: #1f262e; }
+
+html[data-theme='dark'] .app-theme .badge-win   { background: #12301f; color: #86efac; }
+html[data-theme='dark'] .app-theme .badge-loss  { background: #3a1517; color: #fca5a5; }
+html[data-theme='dark'] .app-theme .badge-tie   { background: #3a3110; color: #fde68a; }
+html[data-theme='dark'] .app-theme .badge-sched { background: #29313a; color: #d1d5db; }
+html[data-theme='dark'] .app-theme .badge-conf  { background: #0f2419; color: #7fd6a4; }
+
+html[data-theme='dark'] .app-theme .cat-announcement { background:#0f2419; color:#7fd6a4; }
+html[data-theme='dark'] .app-theme .cat-practice     { background:#14223a; color:#93b4f5; }
+html[data-theme='dark'] .app-theme .cat-game         { background:#2c1518; color:#f59393; }
+html[data-theme='dark'] .app-theme .cat-forms        { background:#2a2210; color:#f3cd72; }
+html[data-theme='dark'] .app-theme .cat-event        { background:#211a3a; color:#c4b5fd; }
+html[data-theme='dark'] .app-theme .cat-gear         { background:#0f2a28; color:#5eead4; }
+html[data-theme='dark'] .app-theme .cat-general      { background:#1b2128; color:#d1d5db; }
+
+html[data-theme='dark'] .app-theme .rating-range::-webkit-slider-thumb { background: #e8ecef; border-color: #0e1216; }
+html[data-theme='dark'] .app-theme .rating-range::-moz-range-thumb { background: #e8ecef; border-color: #0e1216; }
+
+/* Softer shadows read as dirt on a dark page; a hairline does the job instead. */
+html[data-theme='dark'] .app-theme .shadow-sm,
+html[data-theme='dark'] .app-theme .shadow-md { box-shadow: 0 0 0 1px rgba(255,255,255,0.04); }
+
+/* Inside dark mode, things that are documents rather than screens — a playbook
+   page, a slide on the projector — keep the light palette. */
+html[data-theme='dark'] .app-theme .keep-light {
+  color-scheme: light;
+  --gh-green: #00693E; --gh-green-dk: #004D2E; --gh-maroon: #7A1F2B; --gh-maroon-dk: #5C1721;
+  --surface: #ffffff; --surface-2: #f6f7f6; --border: #e3e6e3; --text-primary: #141414; --text-muted: #6b7280;
+  --color-gray-50: #f9fafb; --color-gray-100: #f3f4f6; --color-gray-200: #e5e7eb; --color-gray-300: #d1d5dc;
+  --color-gray-400: #99a1af; --color-gray-500: #6a7282; --color-gray-600: #4a5565; --color-gray-700: #364153;
+  --color-gray-800: #1e2939; --color-gray-900: #101828;
+  background: #ffffff;
+  color: #141414;
+}
