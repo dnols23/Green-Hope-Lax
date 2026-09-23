@@ -1,6 +1,7 @@
 'use client'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { DRAWER_EVENT } from './HubSidebar'
 import {
   INSTALL_GUIDES,
   TOUR_EVENT,
@@ -115,11 +116,14 @@ export function HubTour({ name, audience }: { name: string; audience: Audience }
     if (!el) { setBox(null); return }
     const r = el.getBoundingClientRect()
     const edge = 8
-    /* On a phone the card sits on the bottom, so the ring stops above it —
-       otherwise the thing being pointed at is underneath the words pointing
-       at it. */
+    /* A target taller than half the screen — the sidebar, the panel stack — has
+       its bottom cut so the card has somewhere to sit that isn't on top of it.
+       A short row is left alone and the card moves instead, because cutting a
+       row that had landed low used to leave nothing ringed at all. */
     const phone = window.innerWidth < 640
-    const floor = window.innerHeight - edge - (phone ? cardHRef.current + 20 : 0)
+    const tall = r.height > window.innerHeight * 0.5
+    const floor =
+      window.innerHeight - edge - (phone && tall ? cardHRef.current + 20 : 0)
     const top = Math.max(edge, r.top)
     const left = Math.max(edge, r.left)
     const right = Math.min(window.innerWidth - edge, r.right)
@@ -128,6 +132,17 @@ export function HubTour({ name, audience }: { name: string; audience: Audience }
     if (right - left < 8 || bottom - top < 8) { setBox(null); return }
     setBox({ top, left, width: right - left, height: bottom - top })
   }, [step])
+
+  /* On a phone the tools are behind a drawer, so a stop that points at one has
+     nothing to point at until it is open. The walk-round opens it for the
+     duration and shuts it at the end. */
+  useEffect(() => {
+    const walking = open && phase === 'tour'
+    window.dispatchEvent(new CustomEvent(DRAWER_EVENT, { detail: walking }))
+    return () => {
+      if (walking) window.dispatchEvent(new CustomEvent(DRAWER_EVENT, { detail: false }))
+    }
+  }, [open, phase])
 
   useEffect(() => {
     if (!open || phase !== 'tour') return
@@ -315,8 +330,13 @@ export function HubTour({ name, audience }: { name: string; audience: Audience }
   } else if (fits(roomAbove)) {
     cardStyle = { top: Math.max(8, box.top - gap - cardH), left: 12, right: 12 }
   } else {
-    // Nothing fits either side. Sit on the bottom like a sheet, always whole.
-    cardStyle = { bottom: 12, left: 12, right: 12 }
+    /* Nothing fits either side, so the card goes to whichever end is further
+       from the ring — top when the ring is low, bottom when it is high. That
+       is what keeps the two off each other without scrolling the page about. */
+    const ringMid = box.top + box.height / 2
+    cardStyle = ringMid > vh / 2
+      ? { top: 12, left: 12, right: 12 }
+      : { bottom: 12, left: 12, right: 12 }
   }
 
   return (
