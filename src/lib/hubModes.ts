@@ -32,7 +32,8 @@ export const HUB_MODES: HubMode[] = [
   { key: 'board',     label: 'Evaluation board', section: 'hub',      icon: '📊', href: '/admin/hub/board' },
   { key: 'rosters',   label: 'Rosters',          section: 'rosters',  icon: '🥍', href: '/admin/rosters' },
   { key: 'coachreviews', label: 'Coach Reviews', section: 'coach-reviews', icon: '🧢', href: '/admin/coach-reviews' },
-  { key: 'schedule',  label: 'Schedule',         section: 'schedule', icon: '📅', href: '/admin/schedule' },
+  { key: 'calendar',  label: 'Calendar',         section: 'calendar', icon: '📅', href: '/admin/calendar', fixed: true },
+  { key: 'schedule',  label: 'Games',            section: 'schedule', icon: '🏟', href: '/admin/schedule' },
   { key: 'film',      label: 'Film Room',        section: 'film',     icon: '🎬', href: '/admin/film' },
   { key: 'inventory', label: 'Inventory',        section: 'inventory',icon: '📦', href: '/admin/inventory' },
 ]
