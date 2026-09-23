@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import NumberField from '@/components/NumberField'
 import {
   CHART_KINDS,
   MAX_SERIES,
@@ -333,18 +334,15 @@ export function ChartBlock({
                         </td>
                       ) : (
                       <td key={si} className="px-1">
-                        <input
-                          type="number"
+                        <NumberField
                           value={row.values[si] ?? 0}
-                          onChange={(e) =>
+                          onValue={(n) =>
                             setRows(
                               block.rows.map((x, j) =>
                                 j === ri
                                   ? {
                                       ...x,
-                                      values: series.map((__, k) =>
-                                        k === si ? Number(e.target.value) || 0 : (x.values[k] ?? 0)
-                                      ),
+                                      values: series.map((__, k) => (k === si ? n : (x.values[k] ?? 0))),
                                     }
                                   : x
                               )

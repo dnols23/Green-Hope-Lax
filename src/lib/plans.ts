@@ -64,6 +64,18 @@ export async function listPlans(team?: Team): Promise<Plan[]> {
   return team ? all.filter((p) => p.team === team) : all
 }
 
+/** Practice plans dated inside a window (inclusive), for the calendar. */
+export async function listPracticePlansBetween(fromYmd: string, toYmd: string): Promise<Plan[]> {
+  const { data, error } = await createServiceClient()
+    .from('plans')
+    .select('*')
+    .eq('kind', 'practice')
+    .gte('plan_date', fromYmd)
+    .lte('plan_date', toYmd)
+  if (error) return []
+  return ((data ?? []) as Record<string, unknown>[]).map(shape)
+}
+
 export async function getPlan(id: string): Promise<Plan | null> {
   const svc = createServiceClient()
   const { data } = await svc.from('plans').select('*').eq('id', id).maybeSingle()

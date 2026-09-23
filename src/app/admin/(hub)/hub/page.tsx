@@ -10,7 +10,10 @@ import { getGames } from '@/lib/queries'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { quoteOfTheDay } from '@/lib/warRoom'
 import { formatDate, formatShortDate, formatTime, TEAM_TIME_ZONE } from '@/lib/format'
-import { teamLabel, withTeam } from '@/lib/teams'
+import { teamLabel, withTeam, type Team } from '@/lib/teams'
+import { listCalendarItems } from '@/lib/calendarData'
+import { audienceLabel, colorFor, type CalItem } from '@/lib/calendarModel'
+import { addDaysYmd, hmOf, ymdOf, zoneParts, zonedToUtc } from '@/lib/zoned'
 import { WarRoomPanels, type Panel } from './WarRoomPanels'
 
 export const metadata = { title: 'War Room' }
@@ -19,6 +22,126 @@ export const dynamic = 'force-dynamic'
 /** Today where the team is, not where the server is. */
 function todayIso(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TEAM_TIME_ZONE }).format(new Date())
+}
+
+// ── The week ahead ───────────────────────────────────────────────────────────
+//
+// Two panels read the calendar: what is on it this week, and which coaches
+// have said they can't be there. One read covers both, split here, so the War
+// Room costs one trip to the calendar however much is on it.
+
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const WEEK_LINES = 10
+
+/** "Tue" for a calendar date, with no time zone to trip over. */
+function weekdayOf(ymd: string): string {
+  return WEEKDAY[new Date(`${ymd}T12:00:00Z`).getUTCDay()]
+}
+
+/** "4", "4:30" — the clock without the AM/PM, which the caller decides on. */
+function clockOf(iso: string): { text: string; ap: 'AM' | 'PM' } {
+  const z = zoneParts(iso)
+  return {
+    text: `${z.h % 12 || 12}${z.mi ? `:${String(z.mi).padStart(2, '0')}` : ''}`,
+    ap: z.h < 12 ? 'AM' : 'PM',
+  }
+}
+
+/** "4–6 PM", or "11 AM–1 PM" when it crosses noon. */
+function clockRange(startIso: string, endIso: string): string {
+  const a = clockOf(startIso)
+  const b = clockOf(endIso)
+  return a.ap === b.ap ? `${a.text}–${b.text} ${b.ap}` : `${a.text} ${a.ap}–${b.text} ${b.ap}`
+}
+
+/**
+ * The last calendar day something covers. Ends are exclusive, so an all-day
+ * block ending at midnight — or a late one that runs to exactly midnight —
+ * belongs to the day before.
+ */
+function lastDayOf(item: CalItem): string {
+  const endYmd = ymdOf(item.endsAt)
+  return item.allDay || hmOf(item.endsAt) === '00:00' ? addDaysYmd(endYmd, -1) : endYmd
+}
+
+/**
+ * The week's games, practices and events, a day at a time. Something that
+ * started before today — a tournament weekend already under way — files under
+ * today, since today is when it matters.
+ */
+function byDay(items: CalItem[], today: string): { ymd: string; items: CalItem[] }[] {
+  const days = new Map<string, CalItem[]>()
+  for (const item of items) {
+    const start = ymdOf(item.startsAt)
+    const ymd = start < today ? today : start
+    days.set(ymd, [...(days.get(ymd) ?? []), item])
+  }
+  return [...days.keys()].sort().map((ymd) => ({ ymd, items: days.get(ymd) ?? [] }))
+}
+
+/**
+ * The first `limit` lines of the week, and a count of the rest. Ten lines is a
+ * phone screen; whatever is left over is counted rather than dropped silently.
+ */
+function capLines(
+  days: { ymd: string; items: CalItem[] }[],
+  limit: number,
+): { days: { ymd: string; items: CalItem[] }[]; more: number } {
+  const kept: { ymd: string; items: CalItem[] }[] = []
+  let left = limit
+  let more = 0
+  for (const d of days) {
+    const items = d.items.slice(0, Math.max(0, left))
+    left -= items.length
+    more += d.items.length - items.length
+    if (items.length) kept.push({ ymd: d.ymd, items })
+  }
+  return { days: kept, more }
+}
+
+/**
+ * One stretch of a coach being out, as short as it can be said: "Tue 4–6 PM",
+ * "Thu all day", "Fri–Sun all day". Clipped to the week, so a coach out for a
+ * fortnight reads as out from here on rather than listing a date nobody asked
+ * about.
+ */
+function outLabel(item: CalItem, today: string, lastDay: string): string {
+  const startYmd = ymdOf(item.startsAt)
+  const from = startYmd < today ? today : startYmd
+  const through = lastDayOf(item)
+  const day = (ymd: string) => (ymd === today ? 'Today' : weekdayOf(ymd))
+
+  if (item.allDay) {
+    if (from === through) return `${day(from)} all day`
+    if (through > lastDay) return from === today ? 'all week' : `${day(from)} on`
+    return `${day(from)}–${weekdayOf(through)} all day`
+  }
+  if (startYmd === through) return `${day(startYmd)} ${clockRange(item.startsAt, item.endsAt)}`
+  // Timed and running over more than one day: say both ends.
+  if (through > lastDay) return from === today ? 'all week' : `${day(from)} on`
+  const b = clockOf(item.endsAt)
+  const back = `${through === today ? 'today' : weekdayOf(through)} ${b.text} ${b.ap}`
+  if (startYmd < today) return `until ${back}`
+  const a = clockOf(item.startsAt)
+  return `${day(startYmd)} ${a.text} ${a.ap} – ${back}`
+}
+
+/** The out-blocks, one line per coach, in the order they are first missing. */
+function whoIsOut(items: CalItem[]): { email: string; name: string; blocks: CalItem[] }[] {
+  const coaches = new Map<string, { email: string; name: string; blocks: CalItem[] }>()
+  for (const item of items) {
+    const email = (item.coachEmail ?? '').toLowerCase()
+    const name = item.coachName?.trim() || email.split('@')[0] || 'A coach'
+    const found = coaches.get(email)
+    if (found) found.blocks.push(item)
+    else coaches.set(email, { email, name, blocks: [item] })
+  }
+  return [...coaches.values()]
+}
+
+/** Which War Room an item belongs on: its own team's, or both for the program. */
+function onThisSide(item: CalItem, team: Team): boolean {
+  return item.team === 'program' || item.team === team
 }
 
 export default async function WarRoom({
@@ -39,6 +162,19 @@ export default async function WarRoom({
   const isOwner = viewer?.isOwner ?? false
   const modesOff = await readModesOff()
   const today = todayIso()
+
+  /* The next seven days off the calendar, availability included, started now
+     so it reads alongside everything below rather than after it. A calendar
+     that can't be read leaves the two panels empty; it never takes the War
+     Room down with it. */
+  const lastDay = addDaysYmd(today, 6)
+  const weekAhead = listCalendarItems({
+    surface: 'coach',
+    viewer,
+    from: zonedToUtc(today, '00:00'),
+    to: zonedToUtc(addDaysYmd(today, 7), '00:00'),
+    withAvailability: true,
+  }).catch(() => [] as CalItem[])
 
   const svc = createServiceClient()
   const { error: evalError } = await svc.from('evaluations').select('id').limit(1)
@@ -62,6 +198,12 @@ export default async function WarRoom({
     : null
 
   const quote = quoteOfTheDay(today)
+
+  const calendar = await weekAhead
+  const thisWeek = calendar.filter((i) => i.source !== 'availability' && onThisSide(i, team))
+  const out = whoIsOut(calendar.filter((i) => i.source === 'availability' && i.kind === 'unavailable'))
+  const { days: shownDays, more: moreThisWeek } = capLines(byDay(thisWeek, today), WEEK_LINES)
+  const me = viewer?.email.toLowerCase() ?? ''
 
   const planPanel = (title: string, plan: typeof todaysPlan) => {
     if (!plan) {
@@ -103,6 +245,114 @@ export default async function WarRoom({
       key: 'today',
       title: gamesToday.length ? 'Today — game day' : 'Today’s plan',
       body: planPanel('Today’s plan', todaysPlan ?? undefined),
+    },
+    {
+      key: 'week',
+      title: 'This week',
+      body: (
+        <div>
+          {shownDays.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              A clear week — no games, practices or events in the next seven days. Put the next one
+              on the calendar and the whole staff sees it.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {shownDays.map((d) => (
+                <div key={d.ymd}>
+                  <Link
+                    href={`/admin/calendar?view=day&date=${d.ymd}`}
+                    className="block text-xs font-black uppercase tracking-wide mb-1 hover:underline"
+                    style={{ color: d.ymd === today ? 'var(--gh-green)' : '#6b7280' }}
+                  >
+                    {d.ymd === today
+                      ? `Today · ${weekdayOf(d.ymd)}`
+                      : formatDate(`${d.ymd}T12:00:00Z`, { weekday: 'long' })}
+                  </Link>
+                  <ul className="space-y-1">
+                    {d.items.map((item) => {
+                      const dot = colorFor(item)
+                      const title = item.title || 'Untitled'
+                      return (
+                        <li key={item.key} className="flex items-center gap-2 text-sm min-w-0">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ background: dot.bg, border: `1px solid ${dot.border}` }}
+                            aria-hidden
+                          />
+                          <span className="w-16 shrink-0 text-xs font-bold tabular-nums text-gray-500">
+                            {item.allDay ? 'All day' : formatTime(item.startsAt)}
+                          </span>
+                          {/* w-0, not just min-w-0: the War Room's grid sizes its
+                              column to the widest thing in it, and a long title
+                              pushed every card off the side of a phone. */}
+                          {item.href ? (
+                            <Link href={item.href} className="truncate flex-1 w-0 font-semibold hover:underline">
+                              {title}
+                            </Link>
+                          ) : (
+                            <span className="truncate flex-1 w-0 font-semibold">{title}</span>
+                          )}
+                          {/* Who else can see it — the head coach's check that the
+                              parents' meeting really did go to the parents. */}
+                          {item.source === 'event' && (
+                            <span className="text-[0.65rem] font-bold uppercase text-gray-400 shrink-0">
+                              {item.audience === 'coaches' ? 'staff' : audienceLabel(item.audience).replace('Coaches & ', '')}
+                            </span>
+                          )}
+                          {item.result && (
+                            <span className="text-xs text-gray-400 tabular-nums shrink-0">{item.result}</span>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ))}
+              {moreThisWeek > 0 && <p className="text-xs text-gray-400">+{moreThisWeek} more</p>}
+            </div>
+          )}
+          <Link href="/admin/calendar" className="inline-block mt-3 text-sm font-semibold text-[var(--gh-green)]">
+            Open the calendar →
+          </Link>
+        </div>
+      ),
+    },
+    {
+      key: 'out',
+      title: 'Who’s out',
+      body: (
+        <div>
+          {out.length === 0 ? (
+            <p className="text-sm text-gray-500">Everyone&rsquo;s available this week.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {out.map((c) => (
+                <li key={c.email || c.name} className="text-sm flex gap-2">
+                  <span
+                    className="mt-1.5 w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ background: '#fde8ea', border: '1px solid #f3b8bf' }}
+                    aria-hidden
+                  />
+                  <span className="min-w-0">
+                    <span className="font-semibold">{c.email === me ? 'You' : c.name}</span>
+                    <span className="text-gray-500">
+                      {' — '}
+                      {c.blocks.map((b) => outLabel(b, today, lastDay)).join(', ')}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link
+            href="/admin/calendar?view=week"
+            className="inline-block mt-3 text-sm font-semibold text-[var(--gh-green)]"
+          >
+            Set your availability →
+          </Link>
+        </div>
+      ),
     },
     {
       key: 'schedule',

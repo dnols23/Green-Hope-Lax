@@ -1,5 +1,6 @@
 'use client'
 import { useActionState, useState } from 'react'
+import NumberField from '@/components/NumberField'
 import { savePlan } from '@/lib/actions'
 import type { FormState } from '@/lib/actions'
 import {
@@ -685,12 +686,12 @@ export function PlanEditor({
                     </div>
                     <div>
                       <label className="field-label">Minutes</label>
-                      <input
-                        type="number"
+                      <NumberField
+                        integer
                         min={0}
                         max={240}
                         value={b.minutes}
-                        onChange={(e) => patch(b.id, { minutes: Number(e.target.value) })}
+                        onValue={(n) => patch(b.id, { minutes: n })}
                         className="field !py-1.5 tabular-nums"
                       />
                     </div>

@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import NumberField from '@/components/NumberField'
 import { COMP_FORMATS, formatOf, rollComp, type BlockComp } from '@/lib/compete'
 import type { Drill } from '@/lib/drills'
 
@@ -147,11 +148,11 @@ export function DrillDetail({
                   {sides.map((side, i) => (
                     <label key={side} className="flex items-center gap-1.5">
                       <span className="text-xs font-bold text-gray-600">{side}</span>
-                      <input
-                        type="number"
+                      <NumberField
+                        integer
                         min={0}
                         value={comp?.scores[i] ?? 0}
-                        onChange={(e) => setScore(i, Number(e.target.value) || 0)}
+                        onValue={(n) => setScore(i, n)}
                         className="field !py-1 !w-16 text-sm tabular-nums"
                         aria-label={`${side} score for ${drill.name}`}
                       />
