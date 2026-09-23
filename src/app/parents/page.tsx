@@ -1,7 +1,12 @@
+import Link from 'next/link'
 import { currentParent, parentHubReady } from '@/lib/parentAccess'
 import { getSheet, listSheets, spotsLeft } from '@/lib/signupSheets'
 import { SheetCard } from '@/components/parents/SheetCard'
 import { NewSheetForm } from '@/components/parents/NewSheetForm'
+import { calendarReady, listCalendarItems } from '@/lib/calendarData'
+import { mayReadParentCalendar } from '@/lib/calendarGate'
+import { addDaysYmd, ymdOf, zonedToUtc } from '@/lib/zoned'
+import { UpcomingList } from '@/components/calendar/UpcomingList'
 
 export const metadata = { title: 'Parent Hub' }
 export const dynamic = 'force-dynamic'
@@ -28,6 +33,24 @@ export default async function ParentHubPage() {
     })
   )
 
+  /* The next few things on the calendar that the coaches marked for parents or
+     for everyone, games included. Left off entirely until the calendar is
+     switched on and the cookie is known to be a real parent's (or a coach's). */
+  // Dynamic (force-dynamic) server render — today's date is the point here.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now()
+  const todayYmd = ymdOf(now)
+  const showCalendar = (await calendarReady()) && (await mayReadParentCalendar())
+  const comingUp = showCalendar
+    ? (
+        await listCalendarItems({
+          from: zonedToUtc(todayYmd, '00:00'),
+          to: zonedToUtc(addDaysYmd(todayYmd, 60), '00:00'),
+          surface: 'parents',
+        })
+      ).filter((i) => +new Date(i.endsAt) > now)
+    : []
+
   return (
     <div className="space-y-8">
       <div>
@@ -39,6 +62,26 @@ export default async function ParentHubPage() {
           an email with what you said you would bring.
         </p>
       </div>
+
+      {showCalendar && (
+        <section>
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <h2 className="font-bold text-gray-700">Coming up</h2>
+            <Link href="/parents/calendar" className="text-sm font-semibold text-[var(--gh-green)]">
+              Full calendar →
+            </Link>
+          </div>
+          <div className="card p-5">
+            <UpcomingList
+              items={comingUp}
+              today={todayYmd}
+              compact
+              limit={5}
+              empty="Nothing on the calendar right now."
+            />
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="font-bold text-gray-700 mb-3">Open sign-ups</h2>

@@ -1,12 +1,12 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { getViewer } from './permissions'
 import {
   getAvailability,
   getEvent,
   insertAvailability,
   insertEvent,
+  listMyAvailability,
   mayEditAvailability,
   mayPostTo,
   removeAvailability,
@@ -29,6 +29,7 @@ import { isCalAudience, isCalEventKind, isCalTeam } from './calendarModel'
 export type CalResult = { ok: true; id?: string } | { ok: false; error: string }
 
 const MAX_SPAN_MS = 1000 * 60 * 60 * 24 * 60 // sixty days
+const MAX_BLOCKS = 300 // availability rows per coach
 
 function cleanTimes(startsAt: unknown, endsAt: unknown): { s: string; e: string } | string {
   const s = new Date(String(startsAt))
@@ -39,9 +40,13 @@ function cleanTimes(startsAt: unknown, endsAt: unknown): { s: string; e: string 
   return { s: s.toISOString(), e: e.toISOString() }
 }
 
-function revalidateAll() {
-  for (const p of ['/admin/calendar', '/admin/hub', '/team', '/parents', '/schedule']) revalidatePath(p)
-}
+// No revalidatePath here, on purpose. Every page that shows the calendar — the
+// coaches' calendar, the War Room, the Team Hub, the Parent Hub, the public
+// schedule — is drawn fresh on every visit, so there is no cached copy to throw
+// away, and the calendar screen fetches its own window again after each change.
+// Calling it anyway made Next redraw the page the coach was on after every drag
+// and save, and because the calendar keeps its week in the address bar that
+// redraw jumped the page back to the top.
 
 // ── Events ───────────────────────────────────────────────────────────────────
 
@@ -89,13 +94,11 @@ export async function saveCalEvent(input: EventInput): Promise<CalResult> {
     if (!mayPostTo(viewer, existing.team)) return { ok: false, error: 'That event isn’t yours to change.' }
     const ok = await updateEvent(existing.id, write)
     if (!ok) return { ok: false, error: 'Couldn’t save — has the calendar SQL been run?' }
-    revalidateAll()
     return { ok: true, id: existing.id }
   }
 
   const id = await insertEvent(write, viewer.name || viewer.email)
   if (!id) return { ok: false, error: 'Couldn’t save — has supabase/migrations/0039_calendar.sql been run?' }
-  revalidateAll()
   return { ok: true, id }
 }
 
@@ -109,7 +112,6 @@ export async function moveCalEvent(id: string, startsAt: string, endsAt: string)
   if (typeof times === 'string') return { ok: false, error: times }
   const ok = await updateEvent(id, { ...existing, startsAt: times.s, endsAt: times.e })
   if (!ok) return { ok: false, error: 'Couldn’t move it.' }
-  revalidateAll()
   return { ok: true, id }
 }
 
@@ -119,7 +121,6 @@ export async function deleteCalEvent(id: string): Promise<CalResult> {
   if (!viewer || !existing) return { ok: false, error: 'That event is gone.' }
   if (!mayPostTo(viewer, existing.team)) return { ok: false, error: 'That event isn’t yours to delete.' }
   await removeEvent(id)
-  revalidateAll()
   return { ok: true }
 }
 
@@ -152,7 +153,7 @@ function cleanAvailability(input: AvailabilityInput): AvailabilityWrite | string
   }
 }
 
-/** Every coach sets his own; the head of the program can correct anyone's. */
+/** Every coach sets their own; the head of the program can correct anyone's. */
 export async function saveAvailability(input: AvailabilityInput): Promise<CalResult> {
   const viewer = await getViewer()
   if (!viewer) return { ok: false, error: 'Sign in again.' }
@@ -167,13 +168,14 @@ export async function saveAvailability(input: AvailabilityInput): Promise<CalRes
     }
     const ok = await updateAvailability(existing.id, write)
     if (!ok) return { ok: false, error: 'Couldn’t save it.' }
-    revalidateAll()
     return { ok: true, id: existing.id }
   }
 
+  if ((await listMyAvailability(viewer.email)).length >= MAX_BLOCKS) {
+    return { ok: false, error: 'That’s a lot of blocks — delete some old ones first.' }
+  }
   const id = await insertAvailability(write, { email: viewer.email, name: viewer.name })
   if (!id) return { ok: false, error: 'Couldn’t save — has supabase/migrations/0039_calendar.sql been run?' }
-  revalidateAll()
   return { ok: true, id }
 }
 
@@ -185,6 +187,5 @@ export async function deleteAvailability(id: string): Promise<CalResult> {
     return { ok: false, error: 'That isn’t your availability.' }
   }
   await removeAvailability(id)
-  revalidateAll()
   return { ok: true }
 }

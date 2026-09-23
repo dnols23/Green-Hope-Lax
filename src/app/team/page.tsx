@@ -10,6 +10,10 @@ import { getSettings } from '@/lib/playbookData'
 import { TEAMS } from '@/lib/teams'
 import { getPageSettings } from '@/lib/queries'
 import { currentPlayer } from '@/lib/playerAccess'
+import { calendarReady, listCalendarItems } from '@/lib/calendarData'
+import { mayReadTeamCalendar } from '@/lib/calendarGate'
+import { addDaysYmd, ymdOf, zonedToUtc } from '@/lib/zoned'
+import { UpcomingList } from '@/components/calendar/UpcomingList'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +52,20 @@ export default async function TeamHubPage() {
   const nextGames = games
     .filter((g) => +new Date(g.game_date) >= now && g.status !== 'final')
     .slice(0, 5)
+  /* What the coaches put on the calendar for players. Games are left out — they
+     have their own card just above — and nothing shows until the calendar is
+     switched on and we are sure who is looking. */
+  const todayYmd = ymdOf(now)
+  const showCalendar = (await calendarReady()) && (await mayReadTeamCalendar())
+  const comingUp = showCalendar
+    ? (
+        await listCalendarItems({
+          from: zonedToUtc(todayYmd, '00:00'),
+          to: zonedToUtc(addDaysYmd(todayYmd, 60), '00:00'),
+          surface: 'team',
+        })
+      ).filter((i) => i.source !== 'game' && +new Date(i.endsAt) > now)
+    : []
   const upcoming = posts
     .filter((p) => p.event_date && +new Date(p.event_date) >= now)
     .sort((a, b) => +new Date(a.event_date!) - +new Date(b.event_date!))
@@ -117,6 +135,22 @@ export default async function TeamHubPage() {
               </ul>
             )}
           </section>
+
+          {showCalendar && (
+            <section className="card p-5">
+              <h2 className="font-black mb-3">🗓 Coming up</h2>
+              <UpcomingList
+                items={comingUp}
+                today={todayYmd}
+                compact
+                limit={5}
+                empty="Nothing else on the calendar right now."
+              />
+              <Link href="/team/calendar" className="btn btn-ghost w-full mt-4">
+                Full calendar
+              </Link>
+            </section>
+          )}
 
           <section className="card p-5">
             <h2 className="font-black mb-3">📅 Upcoming</h2>

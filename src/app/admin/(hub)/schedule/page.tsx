@@ -8,7 +8,7 @@ import { requireTeam } from '@/lib/permissions'
 import Link from 'next/link'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
 
-export const metadata = { title: 'Manage Schedule' }
+export const metadata = { title: 'Games & Results' }
 
 // datetime-local needs "YYYY-MM-DDTHH:mm"
 function toLocalInput(iso: string) {
@@ -104,7 +104,7 @@ export default async function AdminSchedulePage({
     <div>
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <h1 className="text-xl font-black">
-          {team === 'varsity' ? 'Schedule & Results' : `${teamLabel(team)} Schedule & Results`}
+          {team === 'varsity' ? 'Games & Results' : `${teamLabel(team)} Games & Results`}
         </h1>
         {!locked && (
           <Link
@@ -114,6 +114,11 @@ export default async function AdminSchedulePage({
             {team === 'varsity' ? 'JV' : 'Varsity'} &rarr;
           </Link>
         )}
+        {/* The games are on the calendar too, beside practices and everything
+            else — this page is where they are entered and scored. */}
+        <Link href="/admin/calendar" className="ml-auto text-sm font-semibold text-[var(--gh-green)]">
+          See it on the calendar &rarr;
+        </Link>
       </div>
 
       <div className="card p-5 mb-6">

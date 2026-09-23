@@ -1,0 +1,222 @@
+// Availability, said the way a coach would say it.
+//
+// "Out Thu, Sep 24 – Sun, Sep 27" reads in one glance; a start and an end
+// timestamp does not. The availability panel lists a coach's own blocks in
+// these words, and the calendar's "who's out" strip groups the staff with
+// whoIsOut().
+//
+// Pure — no server imports — and written in the browser's own clock, the same
+// clock the coach typed the block in. The staff all live around Cary, so that
+// is the team's time zone in practice.
+
+import type { Availability } from './calendarModel'
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** YYYY-MM-DD of an instant on the browser's clock. */
+export function localYmd(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** Midnight at the start of a YYYY-MM-DD, on the browser's clock. */
+export function localMidnight(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(y, (m || 1) - 1, d || 1)
+}
+
+function sameDay(a: Date, b: Date): boolean {
+  return localYmd(a) === localYmd(b)
+}
+
+/**
+ * The last day an all-day block covers.
+ *
+ * All-day ends are exclusive — midnight after the last day — so the last day
+ * is the day before the end. A zero-length block still counts its own day.
+ */
+export function lastDayOf(startsAt: string, endsAt: string): Date {
+  const start = new Date(startsAt)
+  const end = new Date(endsAt)
+  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1)
+  // An end that isn't exactly midnight (edited by hand, or across a clock
+  // change) still covers the day it lands on.
+  const exact = end.getHours() === 0 && end.getMinutes() === 0
+  const day = exact ? last : new Date(end.getFullYear(), end.getMonth(), end.getDate())
+  return day < start ? new Date(start.getFullYear(), start.getMonth(), start.getDate()) : day
+}
+
+/** "Tue, Sep 22" — with the year only when it isn't this year. */
+function dateLabel(d: Date, now: Date): string {
+  return d.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+  })
+}
+
+/** "Dec 1" — with the year only when it isn't this year. */
+function shortDate(d: Date, now: Date): string {
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+  })
+}
+
+function weekdayName(d: Date): string {
+  return d.toLocaleDateString('en-US', { weekday: 'long' })
+}
+
+function clock(d: Date): { hm: string; ampm: 'AM' | 'PM' } {
+  const h = d.getHours()
+  return { hm: `${h % 12 || 12}:${pad(d.getMinutes())}`, ampm: h < 12 ? 'AM' : 'PM' }
+}
+
+/** "4:00 PM" */
+export function timeLabel(d: Date): string {
+  const c = clock(d)
+  return `${c.hm} ${c.ampm}`
+}
+
+/** "4:00 – 6:00 PM", or "10:00 AM – 2:00 PM" when it crosses noon. */
+export function timeRange(start: Date, end: Date): string {
+  const s = clock(start)
+  const e = clock(end)
+  return s.ampm === e.ampm ? `${s.hm} – ${e.hm} ${e.ampm}` : `${s.hm} ${s.ampm} – ${e.hm} ${e.ampm}`
+}
+
+/**
+ * One block in plain words.
+ *
+ *   Out all day Tue, Sep 22
+ *   Out Thu, Sep 24 – Sun, Sep 27
+ *   Out 4:00 – 6:00 PM Tue, Sep 22
+ *   Out every Tuesday, 4:00 – 6:00 PM, until Dec 1
+ *   Available every Saturday, all day — Offering a scrimmage day
+ *
+ * `now` only decides whether a year is worth writing and whether a weekly
+ * block has started yet; leave it out.
+ */
+export function describeAvailability(a: Availability, now: Date = new Date()): string {
+  const lead = a.status === 'available' ? 'Available' : 'Out'
+  const start = new Date(a.startsAt)
+  const end = new Date(a.endsAt)
+  let text: string
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    text = lead
+  } else if (a.repeatWeekly) {
+    const parts: string[] = []
+    if (a.allDay) {
+      const last = lastDayOf(a.startsAt, a.endsAt)
+      parts.push(
+        sameDay(start, last)
+          ? `${lead} every ${weekdayName(start)}, all day`
+          : `${lead} every ${weekdayName(start)} – ${weekdayName(last)}`,
+      )
+    } else if (sameDay(start, end)) {
+      parts.push(`${lead} every ${weekdayName(start)}, ${timeRange(start, end)}`)
+    } else {
+      parts.push(`${lead} every ${weekdayName(start)} ${timeLabel(start)} – ${weekdayName(end)} ${timeLabel(end)}`)
+    }
+    // A weekly block that hasn't begun yet says when it does, so "every
+    // Tuesday" isn't read as starting this Tuesday.
+    if (localYmd(start) > localYmd(now)) parts.push(`from ${shortDate(start, now)}`)
+    if (a.repeatUntil) parts.push(`until ${shortDate(localMidnight(a.repeatUntil), now)}`)
+    text = parts.join(', ')
+  } else if (a.allDay) {
+    const last = lastDayOf(a.startsAt, a.endsAt)
+    text = sameDay(start, last)
+      ? `${lead} all day ${dateLabel(start, now)}`
+      : `${lead} ${dateLabel(start, now)} – ${dateLabel(last, now)}`
+  } else if (sameDay(start, end)) {
+    text = `${lead} ${timeRange(start, end)} ${dateLabel(start, now)}`
+  } else {
+    text = `${lead} ${dateLabel(start, now)}, ${timeLabel(start)} – ${dateLabel(end, now)}, ${timeLabel(end)}`
+  }
+
+  const note = a.note?.trim()
+  return note ? `${text} — ${note}` : text
+}
+
+/**
+ * When a block next matters, for putting a coach's list in order.
+ *
+ * A one-off is its start. A weekly block is its next time round that hasn't
+ * finished yet, so "every Tuesday since August" sorts beside next Tuesday
+ * rather than at the top. Null when it is over for good.
+ */
+export function nextOccurrence(a: Availability, now: Date = new Date()): { startsAt: Date; endsAt: Date } | null {
+  const start = new Date(a.startsAt)
+  const end = new Date(a.endsAt)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null
+  if (!a.repeatWeekly) return end > now ? { startsAt: start, endsAt: end } : null
+
+  // Step whole calendar weeks on the local clock, so a Tuesday four o'clock
+  // stays four o'clock across the clock change.
+  const span = end.getTime() - start.getTime()
+  const weeksBehind = Math.max(0, Math.floor((now.getTime() - end.getTime()) / (7 * DAY_MS)))
+  for (let n = weeksBehind; n < weeksBehind + 3; n++) {
+    const s = new Date(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate() + n * 7,
+      start.getHours(),
+      start.getMinutes(),
+    )
+    if (a.repeatUntil && localYmd(s) > a.repeatUntil) return null
+    const e = new Date(s.getTime() + span)
+    if (e > now) return { startsAt: s, endsAt: e }
+  }
+  return null
+}
+
+/** Over and done with: a one-off that has ended, or a weekly block past its last week. */
+export function isPastAvailability(a: Availability, now: Date = new Date()): boolean {
+  return nextOccurrence(a, now) === null
+}
+
+/**
+ * Who's out, from a set of calendar items.
+ *
+ * Only the "can't make it" blocks count — a coach offering a Saturday isn't
+ * news for this. One group per coach, that coach's blocks in time order, the
+ * coaches in name order so the list reads the same every time it is opened.
+ */
+export function whoIsOut<
+  T extends {
+    source: string
+    kind: string
+    coachName?: string
+    coachEmail?: string
+    startsAt: string
+    endsAt: string
+    allDay: boolean
+  },
+>(items: T[]): { coachEmail: string; coachName: string; items: T[] }[] {
+  const groups = new Map<string, { coachEmail: string; coachName: string; items: T[] }>()
+  for (const item of items) {
+    if (item.source !== 'availability' || item.kind !== 'unavailable') continue
+    const email = (item.coachEmail ?? '').trim()
+    const name = (item.coachName ?? '').trim()
+    const key = (email || name).toLowerCase()
+    if (!key) continue
+    let group = groups.get(key)
+    if (!group) {
+      group = { coachEmail: email, coachName: name || email.split('@')[0], items: [] }
+      groups.set(key, group)
+    }
+    // The first row may have come without a name; take one when it turns up.
+    if (name && email && group.coachName === email.split('@')[0]) group.coachName = name
+    group.items.push(item)
+  }
+  const out = [...groups.values()]
+  for (const g of out) {
+    g.items.sort((a, b) => a.startsAt.localeCompare(b.startsAt) || Number(b.allDay) - Number(a.allDay))
+  }
+  out.sort((a, b) => a.coachName.localeCompare(b.coachName, 'en', { sensitivity: 'base' }))
+  return out
+}

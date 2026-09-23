@@ -103,7 +103,7 @@ export interface CalEvent {
 
 export type AvailabilityStatus = 'available' | 'unavailable'
 
-/** One coach saying when he can or can't be there. */
+/** One coach saying when they can or can't be there. */
 export interface Availability {
   id: string
   coachEmail: string

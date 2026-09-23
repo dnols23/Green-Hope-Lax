@@ -1,6 +1,6 @@
 import { createServiceClient } from './supabase-server'
 import { canTeam, runsATeam, type Viewer } from './sections'
-import { listPlans } from './plans'
+import { listPracticePlansBetween } from './plans'
 import { DEFAULT_START, totalMinutes } from './planner'
 import { normalizeAudience as gameAudience } from './schedule'
 import { withTeam } from './teams'
@@ -103,7 +103,7 @@ export async function listMyAvailability(email: string): Promise<Availability[]>
  *
  * The head of the program, anywhere. A team's head coach — varsity or JV — on
  * a side of the program he works on. Nobody else: an assistant's contribution
- * to the calendar is his availability, which is his own business to set.
+ * to the calendar is their availability, which is their own business to set.
  */
 export function mayPostTo(viewer: Viewer | null, team: CalTeam): boolean {
   if (!viewer) return false
@@ -266,15 +266,11 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
 
   // Practice plans — coaches see every one; players see the ones published to them.
   if (q.surface === 'coach' || q.surface === 'team') {
-    const plans = await listPlans()
-    const fromYmd = ymdOf(q.from)
-    const toYmd = ymdOf(q.to)
+    // Only the window's practices — game plans are already on the calendar as the game.
+    const plans = await listPracticePlansBetween(addDaysYmd(ymdOf(q.from), -1), ymdOf(q.to))
     for (const p of plans) {
-      if (p.kind !== 'practice' && p.kind !== 'game') continue
-      if (!p.plan_date || p.plan_date < addDaysYmd(fromYmd, -1) || p.plan_date > toYmd) continue
+      if (!p.plan_date) continue
       if (q.surface === 'team' && !p.publish_players) continue
-      // A game plan is already on the calendar as the game itself.
-      if (p.kind === 'game') continue
       const start = zonedToUtc(p.plan_date, p.start_time ?? DEFAULT_START)
       const minutes = totalMinutes(p.blocks) || 120
       const end = new Date(start.getTime() + minutes * 60000)
@@ -300,11 +296,14 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
 
   // Availability — the staff's own business, so the coach surface only.
   if (coach && q.withAvailability !== false) {
-    const { data, error } = await svc
-      .from('coach_availability')
-      .select('*')
-      .lt('starts_at', toIso)
+    const read = () => svc.from('coach_availability').select('*').lt('starts_at', toIso)
+    // Only rows that can reach the window: a one-off still running after it
+    // starts, or a weekly block that hasn't run out before it. Should that
+    // filter ever be refused, read the lot rather than show nobody out.
+    let { data, error } = await read()
+      .or(`ends_at.gt.${fromIso},and(repeat_weekly.eq.true,or(repeat_until.is.null,repeat_until.gte.${ymdOf(q.from)}))`)
       .order('starts_at', { ascending: true })
+    if (error) ({ data, error } = await read().order('starts_at', { ascending: true }))
     if (!error) {
       for (const row of (data ?? []) as Record<string, unknown>[]) {
         const a = readAvailability(row)

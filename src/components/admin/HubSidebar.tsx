@@ -311,11 +311,16 @@ function Rail({
               {fixed ? (
                 <div className="flex items-center gap-1.5 px-2 py-1.5">{heading}{nudgeGroup}</div>
               ) : (
+                /* The arrows sit beside the fold button, not inside it: a
+                   button inside a button isn't allowed in HTML, so the server's
+                   page came apart in the browser and React had to redraw the
+                   whole hub on every load. */
+                <div className="flex items-center rounded-lg hover:bg-gray-50">
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.name)}
                   aria-expanded={!isShut}
-                  className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left rounded-lg hover:bg-gray-50"
+                  className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1.5 text-left rounded-lg"
                 >
                   <svg
                     className="w-3 h-3 shrink-0 text-gray-400 transition-transform"
@@ -338,8 +343,9 @@ function Rail({
                       aria-label="You are on a page in here"
                     />
                   )}
-                  {nudgeGroup}
                 </button>
+                {nudgeGroup}
+                </div>
               )}
 
               {!isShut && (

@@ -96,6 +96,24 @@ const STOPS: Record<string, TourStep> = {
       'Today’s plan, the next one, and who we play next. Open it before you walk out and you already ' +
       'know what you’re running and what your group is doing.',
   },
+  calendar: {
+    key: 'calendar',
+    target: 'mode:calendar',
+    title: 'The whole season, one calendar',
+    body:
+      'Day, week, month, the whole year. Put anything on it — a practice, film, the team dinner, the ' +
+      'bus time — and pick who sees it: just the staff, the players, the parents, or everyone. And ' +
+      'before you plan a thing, see which coaches are out, so you find out now and not at practice.',
+  },
+  calendarAssistant: {
+    key: 'calendar',
+    target: 'mode:calendar',
+    title: 'Tell us when you can’t be there',
+    body:
+      'Set your availability — the Tuesday you work late, the weekend you’re away — and the head ' +
+      'coach plans around you instead of finding out at practice. Everything coming up is on the same ' +
+      'calendar: games, practices, meetings, by the day, the week or the month.',
+  },
   rosters: {
     key: 'rosters',
     target: 'mode:rosters',
@@ -223,20 +241,20 @@ const STOPS: Record<string, TourStep> = {
 /** The four walk-rounds. */
 export const TOURS: Record<Audience, TourStep[]> = {
   'varsity-head': [
-    STOPS.here, STOPS.warroom, STOPS.rosters, STOPS.planner, STOPS.drills,
+    STOPS.here, STOPS.warroom, STOPS.calendar, STOPS.rosters, STOPS.planner, STOPS.drills,
     STOPS.playboard, STOPS.playbook, STOPS.priorities, STOPS.evaluate, STOPS.libraryHead,
   ],
   'jv-head': [
-    STOPS.hereJv, STOPS.warroom, STOPS.rosters, STOPS.planner, STOPS.drills,
+    STOPS.hereJv, STOPS.warroom, STOPS.calendar, STOPS.rosters, STOPS.planner, STOPS.drills,
     STOPS.playboard, STOPS.playbookAssistant, STOPS.priorities, STOPS.evaluate, STOPS.library,
   ],
   'varsity-assistant': [
-    STOPS.here, STOPS.warroomAssistant, STOPS.plannerAssistant, STOPS.drills,
+    STOPS.here, STOPS.warroomAssistant, STOPS.calendarAssistant, STOPS.plannerAssistant, STOPS.drills,
     STOPS.playbookAssistant, STOPS.playboard, STOPS.rostersAssistant,
     STOPS.prioritiesAssistant, STOPS.evaluateAssistant, STOPS.library,
   ],
   'jv-assistant': [
-    STOPS.hereJv, STOPS.warroomAssistant, STOPS.plannerAssistant, STOPS.drills,
+    STOPS.hereJv, STOPS.warroomAssistant, STOPS.calendarAssistant, STOPS.plannerAssistant, STOPS.drills,
     STOPS.playbookAssistant, STOPS.playboard, STOPS.rostersAssistant,
     STOPS.prioritiesAssistant, STOPS.evaluateAssistant, STOPS.library,
   ],
