@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import NumberField from '@/components/NumberField'
 import {
   BOARD_COLORS,
   BOARD_FONTS,
@@ -274,15 +275,11 @@ export function BoardMenu({
               >
                 −
               </button>
-              <input
-                type="number"
+              <NumberField
                 min={1.5}
                 max={12}
-                step={0.5}
                 value={text.size}
-                onChange={(e) =>
-                  patchText({ size: Math.min(12, Math.max(1.5, Number(e.target.value) || 1.5)) })
-                }
+                onValue={(n) => patchText({ size: n })}
                 aria-label="Text size"
                 className="field !py-1 !w-16 text-sm tabular-nums"
               />
