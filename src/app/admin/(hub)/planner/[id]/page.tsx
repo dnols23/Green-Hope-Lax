@@ -10,6 +10,12 @@ import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PlanEditor } from '@/components/planner/PlanEditor'
 import { PLAN_KINDS } from '@/lib/planner'
 import { teamLabel, withTeam } from '@/lib/teams'
+import { listPlays } from '@/lib/plays'
+import { getGames } from '@/lib/queries'
+import { readGamePlan } from '@/lib/gamePlan'
+import { formatDate, formatTime } from '@/lib/format'
+import { hmOf, ymdOf } from '@/lib/zoned'
+import type { GameOption, PlayOption } from '@/components/planner/GamePlanEditor'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +48,29 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   )
   const kind = PLAN_KINDS.find((k) => k.key === plan.kind)
 
+  /* A game plan points at the Library's plays and at a game on the schedule.
+     The games are this team's from today on, plus the one it is already linked
+     to if that has been played. */
+  let plays: PlayOption[] = []
+  let games: GameOption[] = []
+  if (plan.kind === 'game') {
+    const linked = readGamePlan(plan.details).gameId
+    const today = ymdOf(new Date())
+    const [shelf, schedule] = await Promise.all([listPlays(), getGames(undefined, 'admin', plan.team)])
+    plays = shelf.map((p) => ({ id: p.id, name: p.name, board: p.board }))
+    games = schedule
+      .filter((g) => ymdOf(g.game_date) >= today || g.id === linked)
+      .map((g) => ({
+        id: g.id,
+        opponent: g.opponent,
+        homeAway: g.home_away,
+        location: g.location,
+        ymd: ymdOf(g.game_date),
+        hm: hmOf(g.game_date),
+        when: `${formatDate(g.game_date)} · ${formatTime(g.game_date)}`,
+      }))
+  }
+
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
@@ -60,11 +89,15 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
             </span>
           )}
           <span className="text-xs text-gray-400">{kind?.icon} {kind?.label}</span>
-          <form action={duplicatePlan}>
-            <input type="hidden" name="id" value={plan.id} />
-            <button type="submit" className="text-xs font-bold text-gray-500 hover:text-gray-800">Duplicate</button>
-          </form>
-          <DeleteButton id={plan.id} action={deletePlan} label="Delete" />
+          {canWrite && (
+            <>
+              <form action={duplicatePlan}>
+                <input type="hidden" name="id" value={plan.id} />
+                <button type="submit" className="text-xs font-bold text-gray-500 hover:text-gray-800">Duplicate</button>
+              </form>
+              <DeleteButton id={plan.id} action={deletePlan} label="Delete" />
+            </>
+          )}
         </div>
       </div>
 
@@ -74,6 +107,8 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
         playersByRoster={playersByRoster}
         coaches={staff.map((c) => c.name).sort((a, b) => a.localeCompare(b))}
         drills={drills}
+        plays={plays}
+        games={games}
         canWrite={canWrite}
       />
     </div>

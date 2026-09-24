@@ -7,6 +7,7 @@ import { HUB_MODES, isModeOn } from '@/lib/hubModes'
 import { saveHubModes, createPlan } from '@/lib/actions'
 import { listPlans, plannerReady } from '@/lib/plans'
 import { getGames } from '@/lib/queries'
+import { listRosters } from '@/lib/rosters'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { loadWall } from '@/lib/wallData'
 import { WallPanel } from '@/components/wall/WallPanel'
@@ -197,10 +198,11 @@ export default async function WarRoom({
   const gamePlans = plans.filter((p) => p.kind === 'game').slice(0, 3)
 
   const games = await getGames(undefined, 'admin', team)
+  const publicRosterId = (await listRosters().catch(() => [])).find((r) => r.is_public)?.id ?? ''
   const upcoming = games
-    .filter((g) => g.game_date >= today && g.status !== 'final')
+    .filter((g) => ymdOf(g.game_date) >= today && g.status !== 'final')
     .slice(0, 4)
-  const gamesToday = games.filter((g) => g.game_date.slice(0, 10) === today)
+  const gamesToday = games.filter((g) => ymdOf(g.game_date) === today)
   /* Who we play next, and the scout for them if somebody has started one — a
      scout is a plan of its own kind, dated to the game. */
   const nextGame = upcoming[0] ?? null
@@ -452,7 +454,7 @@ export default async function WarRoom({
               one, already pointed at that opponent and faceoff. */}
           {nextGame && !nextGamePlan && mayPlan && (
             <div className="mt-3">
-              <MakeGamePlanButton game={nextGame} team={team} />
+              <MakeGamePlanButton game={nextGame} team={team} rosterId={publicRosterId} />
             </div>
           )}
         </div>
@@ -497,10 +499,7 @@ export default async function WarRoom({
               </div>
             </>
           ) : (
-            <p className="text-gray-500">
-              Nothing on the schedule yet — a scout doesn&rsquo;t have to wait for one. Start it now and
-              date it once the game is set.
-            </p>
+            <p className="text-gray-500">Nothing on the schedule.</p>
           )}
 
           {recentScouts.length > 0 && (
@@ -547,6 +546,7 @@ export default async function WarRoom({
           today={today}
           nowHm={nowHm()}
           mayPlan={mayPlan}
+          rosterId={publicRosterId}
         />
       ),
     },

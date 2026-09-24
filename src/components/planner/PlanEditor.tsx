@@ -1,5 +1,5 @@
 'use client'
-import { useActionState, useState } from 'react'
+import { useActionState, useState, useTransition, type FormEvent } from 'react'
 import NumberField from '@/components/NumberField'
 import { savePlan } from '@/lib/actions'
 import type { FormState } from '@/lib/actions'
@@ -31,6 +31,7 @@ import { ReviewPriorities } from './ReviewPriorities'
 import { imageFromClipboard, uploadImage } from '@/lib/uploadImage'
 import { NoteEditor } from './NoteEditor'
 import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
+import { GamePlanEditor, type GameOption, type PlayOption } from './GamePlanEditor'
 
 const EMPTY: FormState = { ok: true }
 
@@ -63,6 +64,8 @@ export function PlanEditor({
   playersByRoster,
   coaches,
   drills,
+  plays = [],
+  games = [],
   canWrite = true,
 }: {
   plan: Plan
@@ -71,10 +74,23 @@ export function PlanEditor({
   playersByRoster: Record<string, PlayerOption[]>
   coaches: string[]
   drills: Drill[]
+  /** The Library's plays, for a game plan's systems to point at. */
+  plays?: PlayOption[]
+  /** Games off the schedule, for a game plan to be linked to. */
+  games?: GameOption[]
   /** False when this is the other team's plan: read it, don't change it. */
   canWrite?: boolean
 }) {
   const [state, save, saving] = useActionState(savePlan, EMPTY)
+  const [, startSave] = useTransition()
+  /* Saved by hand rather than as the form's action: React empties a form once
+     its action finishes, which put every dropdown back where the page started —
+     a block's type and the roster looked changed after a save. */
+  function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const data = new FormData(e.currentTarget)
+    startSave(() => save(data))
+  }
   const [title, setTitle] = useState(plan.title)
   const [date, setDate] = useState(plan.plan_date ?? '')
   /* The whole plan's clock runs off this. It is the plan's own now rather than
@@ -240,6 +256,24 @@ export function PlanEditor({
     return p ? `${p.number ? `#${p.number} ` : ''}${p.name}` : 'Player'
   }
 
+  /* A game plan is a set of decisions and a game day, not a clock of blocks.
+     It has its own editor. (Checked through a plain string so the practice
+     editor below still reads its own `kind === 'game'` wording without the
+     type checker calling it dead.) */
+  if ((plan.kind as string) === 'game') {
+    return (
+      <GamePlanEditor
+        plan={plan}
+        rosters={rosters}
+        playersByRoster={playersByRoster}
+        coaches={coaches}
+        plays={plays}
+        games={games}
+        canWrite={canWrite}
+      />
+    )
+  }
+
   /*
    * A note is a note.
    *
@@ -253,7 +287,7 @@ export function PlanEditor({
      not a running clock. */
   if (plan.kind === 'note' || plan.kind === 'scout') {
     return (
-      <form action={save}>
+      <form onSubmit={submit}>
         <input type="hidden" name="id" value={plan.id} />
         <input type="hidden" name="blocks" value="[]" />
         <input type="hidden" name="content" value={JSON.stringify(content)} />
@@ -298,7 +332,7 @@ export function PlanEditor({
   }
 
   return (
-    <form action={save}>
+    <form onSubmit={submit}>
       {/* The other team's plan. Read it, take what you want off it — but it is
           theirs, and the save is refused on the server as well as here. */}
       {!canWrite && (

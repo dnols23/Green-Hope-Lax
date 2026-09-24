@@ -40,7 +40,7 @@ export function planDateLabel(ymd: string | null): string {
  * the opponent — the coach lands on the plan with the game day laid out
  * against the real faceoff, not on a blank form.
  */
-export function MakeGamePlanButton({ game, team }: { game: Game; team: Team }) {
+export function MakeGamePlanButton({ game, team, rosterId = '' }: { game: Game; team: Team; rosterId?: string }) {
   return (
     <form action={createPlan}>
       <input type="hidden" name="kind" value="game" />
@@ -50,6 +50,7 @@ export function MakeGamePlanButton({ game, team }: { game: Game; team: Team }) {
       <input type="hidden" name="game_id" value={game.id} />
       <input type="hidden" name="plan_date" value={gameDay(game)} />
       <input type="hidden" name="start_time" value={hmOf(game.game_date)} />
+      <input type="hidden" name="roster_id" value={rosterId} />
       <button type="submit" className="btn btn-primary max-w-full">
         <span className="truncate">Make the game plan for {game.opponent}</span>
       </button>
@@ -97,7 +98,9 @@ export function GameDayPanel({
   today,
   nowHm,
   mayPlan,
+  rosterId,
 }: {
+  rosterId: string
   game: Game | null
   plan: Plan | null
   team: Team
@@ -117,7 +120,10 @@ export function GameDayPanel({
   }
 
   const isToday = gameDay(game) === today
-  const faceoff = plan?.start_time ?? hmOf(game.game_date)
+  /* A plan made from this game follows the game if it moves; one only matched
+     by date keeps the faceoff its coach typed. */
+  const linked = plan ? readGamePlan(plan.details).gameId === game.id : false
+  const faceoff = linked ? hmOf(game.game_date) : (plan?.start_time ?? hmOf(game.game_date))
   const steps = plan ? orderedSchedule(readGamePlan(plan.details).schedule) : []
   const marks = isToday ? whereWeAre(steps, faceoff, nowHm) : { now: null, next: null }
 
@@ -148,9 +154,7 @@ export function GameDayPanel({
       <div>
         {heading}
         <p className="text-sm text-gray-500 mb-3">
-          {plan
-            ? 'The game plan has no game-day schedule yet.'
-            : 'No game plan yet — making one lays out a standard game day against this faceoff.'}
+          {plan ? 'No game-day schedule on the game plan.' : 'No game plan yet.'}
         </p>
         {plan ? (
           <Link
@@ -160,7 +164,7 @@ export function GameDayPanel({
             Open the game plan →
           </Link>
         ) : mayPlan ? (
-          <MakeGamePlanButton game={game} team={team} />
+          <MakeGamePlanButton game={game} team={team} rosterId={rosterId} />
         ) : null}
       </div>
     )

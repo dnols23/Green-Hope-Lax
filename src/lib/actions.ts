@@ -2068,6 +2068,7 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     }
   }
 
+  let warning = ''
   // The start-time column arrives with its own SQL as well. Without it the
   // plan still saves; it just opens back at four o'clock.
   if (error && /start_time/i.test(error.message) && /column|schema cache/i.test(error.message)) {
@@ -2078,11 +2079,8 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
       .eq('id', id)
     error = retry.error
     if (!error) {
-      return {
-        ok: false,
-        error:
-          'Saved, but not the start time — run supabase/migrations/0032_plan_start_time.sql in the Supabase SQL editor.',
-      }
+      // Carry on: a game plan's own contents still go in below.
+      warning = 'Saved, but not the start time — run supabase/migrations/0032_plan_start_time.sql in the Supabase SQL editor.'
     }
   }
 
@@ -2116,15 +2114,22 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   revalidatePath(`/admin/planner/${id}`)
   revalidatePath('/admin/hub')
   revalidatePath('/team/me')
+  if (warning) return { ok: false, error: warning }
   return { ok: true, message: 'Saved.' }
 }
 
 export async function deletePlan(id: string) {
-  await requireSection('planner')
+  const viewer = await requireSection('planner')
   const svc = createServiceClient()
+  const { data: plan } = await svc.from('plans').select('team').eq('id', id).maybeSingle()
+  if (!plan) redirect('/admin/planner')
+  // Reading the other side's plans is fine; deleting them is not.
+  const team = readTeam((plan as { team?: unknown }).team)
+  if (!canTeam(viewer, team)) redirect(withTeam('/admin/planner', team))
   await svc.from('plans').delete().eq('id', id)
   revalidatePath('/admin/planner')
-  redirect('/admin/planner')
+  revalidatePath('/admin/hub')
+  redirect(withTeam('/admin/planner', team))
 }
 
 /** Copy a plan, blocks and all — last Tuesday's practice as today's starting point. */
@@ -2158,6 +2163,8 @@ export async function duplicatePlan(formData: FormData) {
   for (const col of ['content', 'details', 'start_time', 'sides'] as const) {
     if (col in o && o[col] !== null && o[col] !== undefined) row[col] = o[col]
   }
+  // A copied game plan is a starting point for another game, not a second plan for this one.
+  if (o.kind === 'game' && row.details) row.details = { ...readGamePlan(row.details), gameId: null }
   let { data: copy, error } = await svc.from('plans').insert(row).select('id').single()
   for (let tries = 0; error && tries < 5; tries++) {
     const missing = ['details', 'sides', 'start_time', 'content', 'team'].find(
