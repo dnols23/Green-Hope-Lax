@@ -18,6 +18,7 @@ export function Stage({
   stageRef,
   background = '#ffffff',
   className = '',
+  clip = true,
 }: {
   children: ReactNode
   /** Handed the current scale, so an editor can turn screen pixels into slide units. */
@@ -26,6 +27,8 @@ export function Stage({
   stageRef?: React.RefObject<HTMLDivElement | null>
   background?: string
   className?: string
+  /** Off in the editor, so the handles on a box at the slide's edge aren't cut in half. */
+  clip?: boolean
 }) {
   const wrap = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
@@ -53,7 +56,7 @@ export function Stage({
   return (
     <div
       ref={wrap}
-      className={`relative w-full overflow-hidden ${className}`}
+      className={`relative w-full ${clip ? 'overflow-hidden' : ''} ${className}`}
       style={{ aspectRatio: `${SLIDE_W} / ${SLIDE_H}`, background }}
       onPointerDown={onBackgroundPointerDown}
     >

@@ -22,6 +22,55 @@ const GRIPS: { key: Grip; cx: number; cy: number; cursor: string }[] = [
 const SNAP = 10
 const snap = (n: number, free: boolean) => (free ? Math.round(n) : Math.round(n / SNAP) * SNAP)
 
+/** The smallest a box can be pulled down to, in slide units. */
+const MIN = 24
+/** A handle's size on screen, whatever the slide is scaled to: what you see, and what a thumb can hit. */
+const GRIP_SEEN = 12
+const GRIP_HIT = 36
+
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
+
+/**
+ * Where a box ends up when one of its handles is pulled.
+ *
+ * Worked in edges, not in x and width: the edge being pulled moves, the one
+ * opposite stays exactly where it was — so nothing slides away when the box
+ * hits its smallest size or the side of the slide. A corner on a board or a
+ * picture keeps its shape, the way slides behave; Shift frees it.
+ */
+export function resizeFrame(f: Frame, grip: Grip, dx: number, dy: number, opts: { free: boolean; keepShape: boolean }): Frame {
+  const { free } = opts
+  let left = f.x
+  let top = f.y
+  let right = f.x + f.w
+  let bottom = f.y + f.h
+  if (grip.includes('e')) right = clamp(snap(right + dx, free), left + MIN, SLIDE_W)
+  if (grip.includes('w')) left = clamp(snap(left + dx, free), 0, right - MIN)
+  if (grip.includes('s')) bottom = clamp(snap(bottom + dy, free), top + MIN, SLIDE_H)
+  if (grip.includes('n')) top = clamp(snap(top + dy, free), 0, bottom - MIN)
+
+  const corner = grip.length === 2
+  if (corner && opts.keepShape && f.w > 0 && f.h > 0) {
+    const ratio = f.w / f.h
+    // Follow whichever way the finger moved further, and fit the other side to it.
+    let w = right - left
+    let h = bottom - top
+    if (Math.abs(w - f.w) / f.w >= Math.abs(h - f.h) / f.h) h = w / ratio
+    else w = h * ratio
+    // Keep it on the slide, shrinking both sides together if it would spill.
+    const maxW = grip.includes('w') ? right : SLIDE_W - left
+    const maxH = grip.includes('n') ? bottom : SLIDE_H - top
+    const k = Math.min(1, maxW / w, maxH / h)
+    w = Math.max(MIN, w * k)
+    h = Math.max(MIN, h * k)
+    if (grip.includes('w')) left = right - w
+    else right = left + w
+    if (grip.includes('n')) top = bottom - h
+    else bottom = top + h
+  }
+  return { x: Math.round(left), y: Math.round(top), w: Math.round(right - left), h: Math.round(bottom - top) }
+}
+
 /**
  * The slide, being arranged.
  *
@@ -49,11 +98,16 @@ export function SlideCanvas({
   onDuplicate: (id: string) => void
 }) {
   const scaleRef = useRef(1)
+  // Also kept as state, so the handles can be drawn at a size a thumb can hit.
+  const [scale, setScale] = useState(1)
   const stageRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<{ id: string; grip: Grip | null } | null>(null)
   const startRef = useRef<{ x: number; y: number; frame: Frame } | null>(null)
 
-  const onScale = useCallback((s: number) => { scaleRef.current = s }, [])
+  const onScale = useCallback((s: number) => {
+    scaleRef.current = s
+    setScale(s)
+  }, [])
 
   const begin = (e: React.PointerEvent, block: SlideBlock, grip: Grip | null) => {
     e.stopPropagation()
@@ -80,13 +134,9 @@ export function SlideCanvas({
         onChange(drag.id, clampFrame({ ...f, x: snap(f.x + dx, free), y: snap(f.y + dy, free) }))
         return
       }
-      const g = drag.grip
-      let { x, y, w, h } = f
-      if (g.includes('e')) w = f.w + dx
-      if (g.includes('s')) h = f.h + dy
-      if (g.includes('w')) { x = f.x + dx; w = f.w - dx }
-      if (g.includes('n')) { y = f.y + dy; h = f.h - dy }
-      onChange(drag.id, clampFrame({ x: snap(x, free), y: snap(y, free), w: snap(w, free), h: snap(h, free) }))
+      const kind = blocks.find((b) => b.id === drag.id)?.kind
+      const keepShape = (kind === 'play' || kind === 'shot') && !e.shiftKey
+      onChange(drag.id, resizeFrame(f, drag.grip, dx, dy, { free, keepShape }))
     }
     const up = () => { setDrag(null); startRef.current = null }
     window.addEventListener('pointermove', move)
@@ -97,7 +147,7 @@ export function SlideCanvas({
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
     }
-  }, [drag, onChange])
+  }, [drag, onChange, blocks])
 
   // Arrows nudge, Delete removes, Escape lets go — the usual bargain.
   useEffect(() => {
@@ -126,6 +176,7 @@ export function SlideCanvas({
       onScale={onScale}
       stageRef={stageRef}
       onBackgroundPointerDown={() => onSelect(null)}
+      clip={false}
       className="rounded-lg border border-gray-200 select-none touch-none"
     >
       {title && (
@@ -157,24 +208,46 @@ export function SlideCanvas({
             </div>
 
             {on &&
-              GRIPS.map((g) => (
-                <div
-                  key={g.key}
-                  onPointerDown={(e) => begin(e, b, g.key)}
-                  role="presentation"
-                  style={{
-                    position: 'absolute',
-                    left: g.cx * b.frame!.w - 7,
-                    top: g.cy * b.frame!.h - 7,
-                    width: 14,
-                    height: 14,
-                    borderRadius: 4,
-                    background: '#fff',
-                    border: '2px solid var(--gh-green)',
-                    cursor: g.cursor,
-                  }}
-                />
-              ))}
+              GRIPS.map((g) => {
+                // Sized in screen pixels, not slide units: on a phone the slide
+                // is a third of its size, and a 14-unit handle is too small to
+                // find with a thumb — the touch lands on the box and moves it.
+                const k = scale || 1
+                const hit = GRIP_HIT / k
+                const seen = GRIP_SEEN / k
+                return (
+                  <div
+                    key={g.key}
+                    onPointerDown={(e) => begin(e, b, g.key)}
+                    role="presentation"
+                    style={{
+                      position: 'absolute',
+                      left: g.cx * b.frame!.w - hit / 2,
+                      top: g.cy * b.frame!.h - hit / 2,
+                      width: hit,
+                      height: hit,
+                      cursor: g.cursor,
+                      touchAction: 'none',
+                      zIndex: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: seen,
+                        height: seen,
+                        borderRadius: 3 / k,
+                        background: '#fff',
+                        border: `${2 / k}px solid var(--gh-green)`,
+                        boxShadow: `0 0 0 ${1 / k}px rgba(0,0,0,0.15)`,
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  </div>
+                )
+              })}
           </div>
         )
       })}
