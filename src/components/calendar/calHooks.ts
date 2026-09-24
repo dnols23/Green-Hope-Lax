@@ -68,6 +68,8 @@ export interface CalPrefs {
   view: CalView | null
   teams: CalTeam[]
   layers: CalLayer[]
+  /** Field Availability — the open slots — drawn or not. */
+  fields: boolean
 }
 
 const PREFS_KEY = 'gh-calendar-prefs-v1'
@@ -113,6 +115,7 @@ function parsePrefs(raw: string): CalPrefs {
     // an empty calendar a coach can't explain is worse than a full one.
     teams: teams.length ? teams : ALL_TEAMS,
     layers: layers.length ? layers : ALL_LAYERS,
+    fields: o.fields !== false,
   }
 }
 

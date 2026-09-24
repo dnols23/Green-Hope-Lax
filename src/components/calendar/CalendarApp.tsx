@@ -32,7 +32,7 @@ import { Modal } from './Modal'
 import { MonthView } from './MonthView'
 import { TimeGrid } from './TimeGrid'
 import { MiniMonth, YearView, dayLoad } from './YearView'
-import { CAL_LAYERS, coachLabel, isAvailability, layerOf, type CalLayer, type CalPayload } from './calShared'
+import { CAL_LAYERS, coachLabel, isAvailability, isFieldTime, layerOf, type CalLayer, type CalPayload } from './calShared'
 import { savePrefs, useHydrated, useNarrow, useNowMinute, usePrefs } from './calHooks'
 
 /**
@@ -151,7 +151,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
       .map((it) => (moved[it.key] ? { ...it, ...moved[it.key] } : it))
       .filter(
         (it) =>
-          prefs.layers.includes(layerOf(it)) &&
+          (isFieldTime(it) ? prefs.fields : prefs.layers.includes(layerOf(it))) &&
           // Availability is the staff's, not a team's, so the team chips leave it be.
           (isAvailability(it) || prefs.teams.includes(it.team)),
       )
@@ -233,6 +233,24 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
       endsAt: e,
       allDay,
       location: '',
+      notes: '',
+    })
+  }
+
+  /** Book a workout into an open slot: same time and place, ready to name and save. */
+  function planInSlot(slot: CalItem) {
+    if (!canCreate) return
+    setDetail(null)
+    setEditor({
+      id: null,
+      title: 'Off-season workout',
+      kind: 'practice',
+      team: defaultTeam(),
+      audience: 'team',
+      startsAt: new Date(slot.startsAt),
+      endsAt: new Date(slot.endsAt),
+      allDay: false,
+      location: slot.location ?? '',
       notes: '',
     })
   }
@@ -424,6 +442,31 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
         {/* Filters: which team, and which kinds of thing. They double as the legend. */}
         <div className="w-full -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto [scrollbar-width:none]">
           <div className="flex items-center gap-1.5 w-max sm:w-auto sm:flex-wrap">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={prefs.fields}
+              onClick={() => savePrefs({ fields: !prefs.fields })}
+              className="min-h-8 pl-1.5 pr-3 rounded-full border text-xs font-bold inline-flex items-center gap-2 transition-colors"
+              style={
+                prefs.fields
+                  ? { background: 'var(--open-bg, #e9f6ee)', color: 'var(--open-fg, #00512F)', borderColor: '#6fbf8f' }
+                  : { background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
+              }
+            >
+              <span
+                aria-hidden
+                className="relative w-7 h-4 rounded-full transition-colors"
+                style={{ background: prefs.fields ? '#00693E' : 'var(--color-gray-300, #d1d5db)' }}
+              >
+                <span
+                  className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all"
+                  style={{ left: prefs.fields ? 14 : 2 }}
+                />
+              </span>
+              Field Availability
+            </button>
+            <span aria-hidden className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
             {CAL_TEAMS.map((t) => {
               const on = prefs.teams.includes(t.key)
               return (
@@ -472,6 +515,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
                 </button>
               )
             })}
+
           </div>
         </div>
       </div>
@@ -624,6 +668,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
             myEmail={data.me.email}
             onClose={() => setDetail(null)}
             onEdit={editEvent}
+            onPlanHere={canCreate ? planInSlot : undefined}
             onEditAvailability={() => {
               setDetail(null)
               setAvailOpen(true)

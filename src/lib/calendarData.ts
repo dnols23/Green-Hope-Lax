@@ -169,6 +169,11 @@ export interface CalendarQuery {
   viewer?: Viewer | null
   /** Leave out availability (the Team Hub never has it; the War Room may not want it). */
   withAvailability?: boolean
+  /**
+   * Include field availability — open slots nobody has booked. They aren't
+   * anything happening, so only the coaches' calendar itself asks for them.
+   */
+  withFieldTimes?: boolean
 }
 
 /**
@@ -199,6 +204,7 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
     if (!error) {
       for (const row of (data ?? []) as Record<string, unknown>[]) {
         const e = readEvent(row)
+        if (e.kind === 'open' && !q.withFieldTimes) continue
         items.push({
           key: `event:${e.id}`,
           source: 'event',

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { CalItem } from '@/lib/calendarModel'
 import { MONTH_NAMES, WEEKDAY_SHORT, addDays, monthGrid, sameDay, startOfDay, yearMonths } from '@/lib/calendarMath'
-import { dayKey, isAvailability } from './calShared'
+import { dayKey, isAvailability, isFieldTime } from './calShared'
 
 /**
  * The season at a glance: twelve little months.
@@ -30,7 +30,7 @@ export function dayLoad(items: CalItem[], from: Date, to: Date): DayLoad {
       const cur = load.get(k) ?? { count: 0, game: false, out: false }
       if (isAvailability(it)) {
         if (it.kind === 'unavailable') cur.out = true
-      } else {
+      } else if (!isFieldTime(it)) {
         cur.count += 1
         if (it.source === 'game') cur.game = true
       }

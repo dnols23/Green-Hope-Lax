@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { deleteAvailability, deleteCalEvent } from '@/lib/calendarActions'
 import { CAL_AUDIENCES, colorFor, type CalItem } from '@/lib/calendarModel'
 import { MONTH_NAMES, WEEKDAY_NAMES, formatRange, isAllDayish, sameDay } from '@/lib/calendarMath'
-import { AUDIENCE_TONE, itemTitle, kindMeta, teamLabel, whoSees } from './calShared'
+import { AUDIENCE_TONE, isFieldTime, itemTitle, kindMeta, teamLabel, whoSees } from './calShared'
 
 /**
  * What a block on the calendar is, when it is tapped.
@@ -28,6 +28,8 @@ type Props = {
   onEdit: (item: CalItem) => void
   /** Open the availability panel. */
   onEditAvailability: () => void
+  /** Start a workout in an open field slot (coaches who may post only). */
+  onPlanHere?: (slot: CalItem) => void
   /** Show one availability block from the "who's out" list. */
   onOpen: (item: CalItem) => void
   /** After a delete, so the calendar can fetch again. */
@@ -54,7 +56,7 @@ export function whenText(item: Pick<CalItem, 'startsAt' | 'endsAt' | 'allDay'>):
   return range
 }
 
-export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailability, onOpen, onChanged }: Props) {
+export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailability, onPlanHere, onOpen, onChanged }: Props) {
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -189,8 +191,17 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
                 {item.source === 'practice' ? 'Open the plan' : 'Open in Games'} &rarr;
               </Link>
             )}
+            {isFieldTime(item) && onPlanHere && (
+              <button type="button" onClick={() => onPlanHere(item)} className="btn btn-primary min-h-10">
+                Schedule a workout here
+              </button>
+            )}
             {item.source === 'event' && item.editable && (
-              <button type="button" onClick={() => onEdit(item)} className="btn btn-primary min-h-10">
+              <button
+                type="button"
+                onClick={() => onEdit(item)}
+                className={`btn min-h-10 ${isFieldTime(item) ? 'btn-ghost' : 'btn-primary'}`}
+              >
                 Edit
               </button>
             )}

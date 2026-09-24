@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { colorFor, type CalItem } from '@/lib/calendarModel'
 import { MONTH_NAMES, MONTH_SHORT, WEEKDAY_NAMES, WEEKDAY_SHORT, addDays, isAllDayish, itemsOnDay, monthGrid, sameDay, startOfDay } from '@/lib/calendarMath'
 import { whoIsOut } from '@/lib/availabilityText'
-import { dayKey, gridTitle, isAvailability, itemTitle, shortTime } from './calShared'
+import { dayKey, gridTitle, isAvailability, isFieldTime, itemTitle, shortTime } from './calShared'
 
 /**
  * The month: six weeks, always, so the grid doesn't jump as the season pages by.
@@ -35,7 +35,10 @@ export function MonthView({ anchor, items, now, narrow, canCreate, onOpen, onOpe
   const weeks = useMemo(() => monthGrid(anchor), [anchor])
 
   const byDay = useMemo(() => {
-    const events = items.filter((i) => !isAvailability(i))
+    // Real events first; open field slots after them, since they are only room to fill.
+    const events = items
+      .filter((i) => !isAvailability(i))
+      .sort((a, b) => Number(isFieldTime(a)) - Number(isFieldTime(b)))
     const avail = items.filter(isAvailability)
     const map = new Map<string, { events: CalItem[]; avail: CalItem[]; out: number }>()
     for (const week of weeks) {
@@ -130,8 +133,8 @@ export function MonthView({ anchor, items, now, narrow, canCreate, onOpen, onOpe
                   {info.events.slice(0, 6).map((it) => (
                     <span
                       key={it.key}
-                      className="w-[7px] h-[7px] rounded-full"
-                      style={{ background: colorFor(it).bg }}
+                      className={`w-[7px] h-[7px] rounded-full ${isFieldTime(it) ? 'cal-open-dot' : ''}`}
+                      style={isFieldTime(it) ? undefined : { background: colorFor(it).bg }}
                       aria-hidden
                     />
                   ))}
@@ -143,6 +146,20 @@ export function MonthView({ anchor, items, now, narrow, canCreate, onOpen, onOpe
                   {info.events.slice(0, hidden ? CHIPS - 1 : CHIPS).map((it) => {
                     const c = colorFor(it)
                     const allDay = isAllDayish(it)
+                    if (isFieldTime(it)) {
+                      return (
+                        <button
+                          key={it.key}
+                          type="button"
+                          onClick={() => onOpen(it)}
+                          className="w-full flex items-center gap-1 rounded px-1 text-left text-[0.7rem] leading-[1.1rem] truncate cal-open-slot"
+                          title={`${it.location ?? itemTitle(it)} open`}
+                        >
+                          <span className="shrink-0 opacity-80">{shortTime(new Date(it.startsAt))}</span>
+                          <span className="truncate">{it.location ?? itemTitle(it)} open</span>
+                        </button>
+                      )
+                    }
                     return (
                       <button
                         key={it.key}
