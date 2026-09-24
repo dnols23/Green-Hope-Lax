@@ -4,14 +4,13 @@ import { createServiceClient } from '@/lib/supabase-server'
 import { getViewer, teamFor } from '@/lib/permissions'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
-import { saveHubModes, createPlan, addPriorityAction, setPriorityAction } from '@/lib/actions'
+import { saveHubModes, createPlan, addPriorityAction } from '@/lib/actions'
 import { listPlans, plannerReady } from '@/lib/plans'
 import { getGames } from '@/lib/queries'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { loadWall } from '@/lib/wallData'
 import { WallPanel } from '@/components/wall/WallPanel'
 import { listPriorities, prioritiesReady, PRIORITY_LEVELS, DEFAULT_LEVEL } from '@/lib/priorities'
-import { PriorityChip } from '@/components/admin/PriorityBits'
 import { canTeam } from '@/lib/sections'
 import { formatDate, formatShortDate, formatTime, TEAM_TIME_ZONE } from '@/lib/format'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
@@ -19,6 +18,7 @@ import { listCalendarItems } from '@/lib/calendarData'
 import { audienceLabel, colorFor, type CalItem } from '@/lib/calendarModel'
 import { addDaysYmd, hmOf, ymdOf, zoneParts, zonedToUtc } from '@/lib/zoned'
 import { WarRoomPanels, type Panel } from './WarRoomPanels'
+import { PriorityRow } from './PriorityRow'
 
 export const metadata = { title: 'War Room' }
 export const dynamic = 'force-dynamic'
@@ -497,29 +497,12 @@ export default async function WarRoom({
           ) : (
             <ul className="space-y-1.5">
               {shownPriorities.map((item) => (
-                <li key={item.id} className="flex items-start gap-2">
-                  <span className="shrink-0 pt-0.5">
-                    <PriorityChip level={item.level} />
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm leading-snug">
-                    {item.body}
-                    <span className="block text-[0.7rem] text-gray-400">{item.listName}</span>
-                  </span>
-                  {mayWritePriorities && (
-                    <form action={setPriorityAction} className="shrink-0">
-                      <input type="hidden" name="id" value={item.id} />
-                      <input type="hidden" name="done" value="true" />
-                      <button
-                        type="submit"
-                        aria-label={`Mark done: ${item.body}`}
-                        title="Mark done"
-                        className="w-7 h-7 inline-flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)] text-xs font-black"
-                      >
-                        ✓
-                      </button>
-                    </form>
-                  )}
-                </li>
+                <PriorityRow
+                  key={item.id}
+                  item={{ id: item.id, body: item.body, level: item.level, listId: item.listId, listName: item.listName }}
+                  lists={priorityLists.map((l) => ({ id: l.id, name: l.name }))}
+                  canWrite={mayWritePriorities}
+                />
               ))}
             </ul>
           )}

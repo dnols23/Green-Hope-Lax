@@ -9,7 +9,7 @@ import {
   setPriorityAction,
 } from '@/lib/actions'
 import { DEFAULT_LEVEL, PRIORITY_LEVELS, levelOf, type PriorityList } from '@/lib/priorityLevels'
-import { LevelSlider, PriorityChip } from '@/components/admin/PriorityBits'
+import { LevelSlider, PriorityChip, PriorityEditForm } from '@/components/admin/PriorityBits'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
 import Link from 'next/link'
 
@@ -38,6 +38,8 @@ export function PrioritiesClient({
   const [saving, startSaving] = useTransition()
   const [newList, setNewList] = useState('')
   const [showDone, setShowDone] = useState(false)
+  // The item open for editing — its words, its level, its list.
+  const [editing, setEditing] = useState<string | null>(null)
 
   const active = lists.find((l) => l.id === openList) ?? lists[0] ?? null
 
@@ -215,7 +217,15 @@ export function PrioritiesClient({
             ) : (
               active.items
                 .filter((i) => showDone || !i.done)
-                .map((item) => (
+                .map((item) => editing === item.id ? (
+                  <div key={item.id} className="px-4 py-3">
+                    <PriorityEditForm
+                      item={item}
+                      lists={lists.map((l) => ({ id: l.id, name: l.name }))}
+                      onDone={() => setEditing(null)}
+                    />
+                  </div>
+                ) : (
                   <div key={item.id} className="px-4 py-3 flex items-start gap-3">
                     <input
                       type="checkbox"
@@ -242,16 +252,26 @@ export function PrioritiesClient({
                         )}
                       </div>
                     </div>
-                    <form action={deletePriorityAction}>
-                      <input type="hidden" name="id" value={item.id} />
+                    <div className="flex items-center gap-3 shrink-0">
                       <button
-                        type="submit"
-                        aria-label="Delete"
-                        className="text-xs font-semibold text-gray-300 hover:text-[var(--gh-maroon)]"
+                        type="button"
+                        onClick={() => setEditing(item.id)}
+                        aria-label={`Edit ${item.body}`}
+                        className="text-xs font-semibold text-gray-500 hover:text-[var(--gh-green)]"
                       >
-                        Delete
+                        Edit
                       </button>
-                    </form>
+                      <form action={deletePriorityAction}>
+                        <input type="hidden" name="id" value={item.id} />
+                        <button
+                          type="submit"
+                          aria-label="Delete"
+                          className="text-xs font-semibold text-gray-300 hover:text-[var(--gh-maroon)]"
+                        >
+                          Delete
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 ))
             )}
