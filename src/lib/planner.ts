@@ -279,6 +279,8 @@ export interface PlanBlock {
   players?: BlockAssignment[]
   /** How this block is being won, and the score. See lib/compete. */
   comp?: BlockComp | null
+  /** How it went — written after the session, kept for the next time it is run. */
+  review?: string
 }
 
 export interface Plan {
@@ -291,6 +293,8 @@ export interface Plan {
   blocks: PlanBlock[]
   /** A note's page: sections, checklists, charts and fields. Empty for plans. */
   content: unknown[]
+  /** A game plan's decisions and game-day schedule (lib/gamePlan). Empty for the rest. */
+  details: unknown
   roster_id: string | null
   is_template: boolean
   /** Varsity or JV — which staff's week this belongs to. */
@@ -493,6 +497,7 @@ export function readBlocks(raw: unknown): PlanBlock[] {
       comp: readComp(b.comp, 4),
       link: typeof b.link === 'string' && b.link.trim() ? b.link.trim() : null,
       coach: typeof b.coach === 'string' && b.coach.trim() ? b.coach.trim() : null,
+      review: typeof b.review === 'string' ? b.review.slice(0, 4000) : '',
       players: Array.isArray(b.players)
         ? b.players
             .map((a) => {
