@@ -1,5 +1,5 @@
 import { createServiceClient } from './supabase-server'
-import { clampLevel, type PriorityList } from './priorityLevels'
+import { byPlace, clampLevel, type PriorityList } from './priorityLevels'
 import { DEFAULT_TEAM, isTeam, type Team } from './teams'
 
 export * from './priorityLevels'
@@ -62,8 +62,9 @@ export async function listPriorities(team: Team = DEFAULT_TEAM): Promise<Priorit
           note: (r.note as string) ?? null,
           createdBy: (r.created_by as string) ?? null,
           createdAt: String(r.created_at ?? ''),
+          sortOrder: typeof r.sort_order === 'number' ? r.sort_order : null,
         }))
-        .sort((a, b) => Number(a.done) - Number(b.done) || b.level - a.level),
+        .sort(byPlace),
     }
   })
 }
@@ -128,15 +129,53 @@ export async function deleteList(id: string): Promise<void> {
   await createServiceClient().from('priority_lists').delete().eq('id', id)
 }
 
+/**
+ * Where a new (or newly moved) item goes on a list the staff has ordered: above
+ * the first item that matters less than it — so a "Now" still lands near the
+ * top, and the order the coach set for everything else is left exactly as it
+ * was. Null when the list has no places yet (0041 not run).
+ */
+async function placeFor(listId: string, level: number, except?: string): Promise<number | null> {
+  const { data, error } = await createServiceClient()
+    .from('priority_items')
+    .select('id, level, sort_order, done')
+    .eq('list_id', listId)
+    .order('sort_order', { ascending: true, nullsFirst: false })
+  if (error) return null
+  const open = ((data ?? []) as { id: string; level: number; sort_order: number | null; done: boolean }[])
+    .filter((r) => !r.done && r.id !== except && typeof r.sort_order === 'number')
+  if (open.length === 0) return 1
+  const at = open.findIndex((r) => r.level < level)
+  if (at === -1) return (open[open.length - 1].sort_order as number) + 1
+  const after = open[at].sort_order as number
+  const before = at > 0 ? (open[at - 1].sort_order as number) : after - 1
+  return (before + after) / 2
+}
+
 export async function addItem(
   listId: string,
   body: string,
   level: number,
   by: string | null
 ): Promise<void> {
-  await createServiceClient()
-    .from('priority_items')
-    .insert({ list_id: listId, body, level: clampLevel(level), created_by: by })
+  const svc = createServiceClient()
+  const row: Record<string, unknown> = { list_id: listId, body, level: clampLevel(level), created_by: by }
+  const place = await placeFor(listId, clampLevel(level))
+  const { error } = await svc.from('priority_items').insert(place === null ? row : { ...row, sort_order: place })
+  // Before 0041 there is no place to give it; the item still goes on the list.
+  if (error && place !== null) await svc.from('priority_items').insert(row)
+}
+
+/**
+ * The staff's order for one list: the ids, top to bottom. Only items that are
+ * on that list are touched, whatever else is sent.
+ */
+export async function reorderItems(listId: string, ids: string[]): Promise<boolean> {
+  const svc = createServiceClient()
+  const results = await Promise.all(
+    ids.map((id, i) => svc.from('priority_items').update({ sort_order: i + 1 }).eq('id', id).eq('list_id', listId)),
+  )
+  return results.every((r) => !r.error)
 }
 
 export async function setItem(
@@ -145,7 +184,14 @@ export async function setItem(
 ): Promise<void> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (next.body !== undefined) patch.body = next.body
-  if (next.listId !== undefined) patch.list_id = next.listId
+  if (next.listId !== undefined) {
+    patch.list_id = next.listId
+    // On its new list it takes a place by how much it matters.
+    const { data } = await createServiceClient().from('priority_items').select('level').eq('id', id).maybeSingle()
+    const level = next.level ?? Number((data as { level?: number } | null)?.level ?? 2)
+    const place = await placeFor(next.listId, clampLevel(level), id)
+    if (place !== null) patch.sort_order = place
+  }
   if (next.level !== undefined) patch.level = clampLevel(next.level)
   if (next.done !== undefined) patch.done = next.done
   if (next.note !== undefined) patch.note = next.note

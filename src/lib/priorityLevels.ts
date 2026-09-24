@@ -42,6 +42,8 @@ export interface PriorityItem {
   note: string | null
   createdBy: string | null
   createdAt: string
+  /** Its place on the list, as the staff ordered it. Null until 0041 is run. */
+  sortOrder: number | null
 }
 
 export interface PriorityList {
@@ -51,3 +53,23 @@ export interface PriorityList {
   items: PriorityItem[]
 }
 
+
+/**
+ * The positions, as the lists are named — so a dropdown can put the positions
+ * together and the groups (leadership, man up, culture…) after them.
+ */
+const POSITION_NAMES = ['attack', 'midfield', 'faceoff', 'defense', 'lsm', 'ssdm', 'goalie', 'offense']
+
+export function isPositionList(name: string): boolean {
+  return POSITION_NAMES.includes(name.toLowerCase().replace(/[^a-z]/g, ''))
+}
+
+/** Open items first in the order the staff put them, then what is done. */
+export function byPlace(a: PriorityItem, b: PriorityItem): number {
+  return (
+    Number(a.done) - Number(b.done) ||
+    (a.sortOrder ?? Number.POSITIVE_INFINITY) - (b.sortOrder ?? Number.POSITIVE_INFINITY) ||
+    b.level - a.level ||
+    a.createdAt.localeCompare(b.createdAt)
+  )
+}

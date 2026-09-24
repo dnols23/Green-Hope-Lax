@@ -6,10 +6,12 @@ import {
   deletePriorityAction,
   deletePriorityListAction,
   renamePriorityListAction,
+  reorderPrioritiesAction,
   setPriorityAction,
 } from '@/lib/actions'
 import { DEFAULT_LEVEL, PRIORITY_LEVELS, levelOf, type PriorityList } from '@/lib/priorityLevels'
 import { LevelSlider, PriorityChip, PriorityEditForm } from '@/components/admin/PriorityBits'
+import { GripDots, SortableList, type GripProps } from '@/components/admin/SortableList'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
 import Link from 'next/link'
 
@@ -40,6 +42,16 @@ export function PrioritiesClient({
   const [showDone, setShowDone] = useState(false)
   // The item open for editing — its words, its level, its list.
   const [editing, setEditing] = useState<string | null>(null)
+  const [orderError, setOrderError] = useState<string | null>(null)
+
+  function reorder(listId: string, ids: string[]) {
+    setOrderError(null)
+    reorderPrioritiesAction(listId, ids)
+      .then((r) => {
+        if (!r.ok) setOrderError(r.error ?? 'Couldn’t save the order.')
+      })
+      .catch(() => setOrderError('No connection — the order wasn’t saved.'))
+  }
 
   const active = lists.find((l) => l.id === openList) ?? lists[0] ?? null
 
@@ -209,15 +221,10 @@ export function PrioritiesClient({
             </form>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
-            {active.items.filter((i) => showDone || !i.done).length === 0 ? (
-              <p className="text-sm text-gray-400 px-4 py-6">
-                Nothing on this list. Which is either very good news or the season has not started.
-              </p>
-            ) : (
-              active.items
-                .filter((i) => showDone || !i.done)
-                .map((item) => editing === item.id ? (
+          {(() => {
+            const openItems = active.items.filter((i) => !i.done)
+            const doneItems = showDone ? active.items.filter((i) => i.done) : []
+            const renderRow = (item: (typeof active.items)[number], grip?: GripProps) => (editing === item.id ? (
                   <div key={item.id} className="px-4 py-3">
                     <PriorityEditForm
                       item={item}
@@ -227,6 +234,11 @@ export function PrioritiesClient({
                   </div>
                 ) : (
                   <div key={item.id} className="px-4 py-3 flex items-start gap-3">
+                    {grip && (
+                      <span {...grip} className="shrink-0 -ml-2 pt-0.5 text-gray-300 hover:text-gray-600 select-none">
+                        <GripDots />
+                      </span>
+                    )}
                     <input
                       type="checkbox"
                       checked={item.done}
@@ -273,9 +285,36 @@ export function PrioritiesClient({
                       </form>
                     </div>
                   </div>
-                ))
-            )}
-          </div>
+                )
+            )
+            if (openItems.length + doneItems.length === 0) {
+              return (
+                <div className="rounded-xl border border-gray-200 bg-white">
+                  <p className="text-sm text-gray-400 px-4 py-6">
+                    Nothing on this list. Which is either very good news or the season has not started.
+                  </p>
+                </div>
+              )
+            }
+            return (
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                {/* Open items in the staff's own order: slide one by its grip. */}
+                <SortableList
+                  items={openItems}
+                  onReorder={(ids) => reorder(active.id, ids)}
+                  className="divide-y divide-gray-100"
+                  label={(i) => i.body}
+                  renderItem={(item, grip) => renderRow(item, grip)}
+                />
+                {doneItems.length > 0 && (
+                  <div className="divide-y divide-gray-100 border-t border-gray-100">
+                    {doneItems.map((item) => renderRow(item))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+          {orderError && <p className="text-xs font-semibold text-[var(--gh-maroon)]" role="alert">{orderError}</p>}
 
           <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
             <span className="font-bold uppercase tracking-wider">Scale</span>
