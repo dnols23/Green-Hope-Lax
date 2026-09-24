@@ -61,7 +61,8 @@ export async function addPage(
   team: Team,
   title: string,
   by: string | null,
-  blocks: unknown[] = []
+  blocks: unknown[] = [],
+  layout = 'field'
 ): Promise<string | null> {
   const svc = createServiceClient()
   const { data: last } = await svc
@@ -74,7 +75,7 @@ export async function addPage(
   const sort_order = (Number((last as { sort_order?: number })?.sort_order) || 0) + 1
   const { data } = await svc
     .from('playbook_pages')
-    .insert({ team, title, sort_order, blocks, created_by: by })
+    .insert({ team, title, sort_order, blocks, layout, created_by: by })
     .select('id')
     .maybeSingle()
   return (data as { id?: string } | null)?.id ?? null

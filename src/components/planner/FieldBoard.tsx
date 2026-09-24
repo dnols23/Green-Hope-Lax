@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import {
   FIELD,
   POSITION_TOKENS,
@@ -11,6 +11,8 @@ import {
   fontStack,
   newId,
   type Board,
+  type BoardHalf,
+  type BoardTurn,
   type BoardToken,
   type PathKind,
   type TokenKind,
@@ -34,6 +36,13 @@ export interface BoardPlayer {
 }
 
 const PAD = 4 // yards of grass drawn outside the lines
+const GRASS = '#4a7f52'
+
+/** A whole field on a phone held upright is a ribbon; full screen turns it. */
+function wantsAutoTurn(half: BoardHalf, turn: BoardTurn): boolean {
+  if (typeof window === 'undefined') return false
+  return half === 'off' && (turn === 0 || turn === 180) && window.innerHeight > window.innerWidth
+}
 
 /** The id of one end shape, in one colour. Hex is not valid in an id, so drop the hash. */
 const capId = (shape: string, end: 'start' | 'end', color: string) =>
@@ -54,8 +63,11 @@ export function FieldBoard({
   onShot,
   extraTools,
   fit = false,
+  fill = false,
   zoomable = true,
   title,
+  startFull = false,
+  onLeaveFull,
 }: {
   board: Board
   onChange?: (next: Board) => void
@@ -72,13 +84,26 @@ export function FieldBoard({
   zoomable?: boolean
   /** Named in the full-screen view's header. */
   title?: string | null
+  /** The field is the whole page: grass edge to edge, the field centred in it. */
+  fill?: boolean
+  /** Open straight into full-screen editing — a playbook page's field. */
+  startFull?: boolean
+  /** Told when full screen is left, so whoever opened it can close it. */
+  onLeaveFull?: () => void
 }) {
   /* Every colour in use on the board, so each one gets its own set of end
      shapes below. */
   const capColors = Array.from(new Set(board.paths.map((p) => pathLook(p).color)))
   const [shooting, setShooting] = useState(false)
-  const [half, setHalf] = useState<'off' | 'right' | 'left'>('off')
-  const [turn, setTurn] = useState(0)
+  /* Which end and which way up are the board's own, saved with it (see
+     BoardView), so the editor and every page that shows the play agree. Full
+     screen on an upright phone adds a quarter turn of its own on top, which is
+     never saved. */
+  const half: BoardHalf = board.view?.half ?? 'off'
+  const savedTurn: BoardTurn = board.view?.turn ?? 0
+  const [autoTurn, setAutoTurn] = useState(() => startFull && wantsAutoTurn(half, savedTurn))
+  const turn = autoTurn ? ((savedTurn + 90) % 360) as BoardTurn : savedTurn
+  const clipId = `clip${useId().replace(/[^a-z0-9]/gi, '')}`
   const svgRef = useRef<SVGSVGElement>(null)
   /* The group everything is drawn in, in field yards. Every screen point is
      turned into yards through this one element's matrix. */
@@ -98,7 +123,7 @@ export function FieldBoard({
   /** The board before a group drag started — the one undo should come back to. */
   const groupBefore = useRef<Board | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const [full, setFull] = useState(false)
+  const [full, setFull] = useState(startFull)
   // The read-only board, blown up to the whole screen.
   const [viewing, setViewing] = useState(false)
   const [tool, setTool] = useState<'move' | 'select' | PathKind>('move')
@@ -179,13 +204,13 @@ export function FieldBoard({
     half === 'off'
       ? { x: 0, y: 0, w: FIELD.length + PAD * 2, h: FIELD.width + PAD * 2 }
       : half === 'right'
-        ? { x: FIELD.length / 2 + PAD, y: 0, w: FIELD.length / 2 + PAD, h: FIELD.width + PAD * 2 }
-        : { x: 0, y: 0, w: FIELD.length / 2 + PAD, h: FIELD.width + PAD * 2 }
+        ? { x: FIELD.length / 2, y: 0, w: FIELD.length / 2 + PAD * 2, h: FIELD.width + PAD * 2 }
+        : { x: 0, y: 0, w: FIELD.length / 2 + PAD * 2, h: FIELD.width + PAD * 2 }
 
   const turned = turn === 90 || turn === 270
-  const viewBox = turned
-    ? `0 0 ${win.h} ${win.w}`
-    : `${win.x} ${win.y} ${win.w} ${win.h}`
+  // The part of the drawing that is on the glass, in the svg's own units.
+  const vb = turned ? { x: 0, y: 0, w: win.h, h: win.w } : win
+  const viewBox = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`
   /* Turning the board is one transform on the group everything hangs off.
      Nothing else in here knows about it, because the pointer maths asks the
      browser where a point landed rather than working it out. */
@@ -242,8 +267,14 @@ export function FieldBoard({
     })
   }
 
+  /** The middle of the field that is on the glass, in field yards, end to end. */
+  function viewMiddleX() {
+    return win.x + win.w / 2 - PAD
+  }
+
   function addToken(kind: TokenKind, label: string, playerId?: string) {
-    // New discs land in the middle, out of the way of the goals.
+    // New discs land in the middle of what is on the screen — the end being
+    // looked at, when it is one end — out of the way of the goal.
     const spread = board.tokens.length * 1.5
     emit({
       ...board,
@@ -252,7 +283,7 @@ export function FieldBoard({
         {
           id: newId('t'),
           kind,
-          x: FIELD.length / 2 - 6 + (spread % 12),
+          x: viewMiddleX() - 6 + (spread % 12),
           y: 8 + ((board.tokens.length * 5) % (FIELD.width - 16)),
           label,
           playerId,
@@ -267,7 +298,7 @@ export function FieldBoard({
       ...board,
       texts: [
         ...(board.texts ?? []),
-        { id, x: FIELD.length / 2, y: FIELD.width / 2 - 6, text: 'Call it', size: 4, color: '#17222e' },
+        { id, x: viewMiddleX(), y: FIELD.width / 2 - 6, text: 'Call it', size: 4, color: '#17222e' },
       ],
     })
     setSelected({ type: 'text', id })
@@ -520,13 +551,21 @@ export function FieldBoard({
   /* Full screen on a phone held upright turns the field on its side, so it runs
      the long way down the glass; leaving full screen turns it back. Only the
      view turns — nothing about the play is saved differently. */
-  const autoTurned = useRef(false)
+  function setView(next: { half?: BoardHalf; turn?: BoardTurn }) {
+    const view = { half: next.half ?? half, turn: next.turn ?? savedTurn }
+    emit({
+      ...board,
+      view: view.half === 'off' && view.turn === 0 ? undefined : {
+        ...(view.half !== 'off' ? { half: view.half } : {}),
+        ...(view.turn ? { turn: view.turn } : {}),
+      },
+    })
+  }
+
   function leaveFull() {
     setFull(false)
-    if (autoTurned.current) {
-      autoTurned.current = false
-      setTurn(0)
-    }
+    setAutoTurn(false)
+    onLeaveFull?.()
   }
 
   function toggleFullscreen() {
@@ -537,10 +576,7 @@ export function FieldBoard({
       leaveFull()
       return
     }
-    if (turn === 0 && half === 'off' && window.innerHeight > window.innerWidth) {
-      autoTurned.current = true
-      setTurn(90)
-    }
+    if (wantsAutoTurn(half, savedTurn)) setAutoTurn(true)
     /* The board fills the screen on its own (fixed, over everything), which is
        all an iPhone allows — it won't put anything but a video full screen. Where
        the browser will, the real thing is asked for too. */
@@ -548,13 +584,28 @@ export function FieldBoard({
     el.requestFullscreen?.().catch(() => {})
   }
 
+  // Full screen holds the page still behind it, so a drag on the field never scrolls it.
+  useEffect(() => {
+    if (!full) return
+    const page = document.body
+    const was = page.style.overflow
+    page.style.overflow = 'hidden'
+    return () => {
+      page.style.overflow = was
+    }
+  }, [full])
+
   // Leaving the browser's full screen by its own means (Escape, a swipe) ends ours.
+  const leaveRef = useRef(leaveFull)
+  useEffect(() => {
+    leaveRef.current = leaveFull
+  })
   useEffect(() => {
     if (!full) return
     let was = !!document.fullscreenElement
     const onFs = () => {
       const now = !!document.fullscreenElement
-      if (was && !now) leaveFull()
+      if (was && !now) leaveRef.current()
       was = now
     }
     document.addEventListener('fullscreenchange', onFs)
@@ -589,6 +640,11 @@ export function FieldBoard({
 
   const groupBox = picked.length > 0 ? pickedBox() : null
 
+  // A toolbar row: wrapping normally, one sideways-scrolling strip in full screen.
+  const row = full
+    ? 'flex flex-nowrap items-center gap-1.5 mb-2 overflow-x-auto pb-1 shrink-0 [&>*]:shrink-0 [scrollbar-width:thin]'
+    : 'flex flex-wrap items-center gap-1.5 mb-2'
+
   const toolBtn = (active: boolean) =>
     `px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
       active ? 'text-white' : 'text-gray-600 bg-white hover:bg-gray-50'
@@ -599,16 +655,30 @@ export function FieldBoard({
       ref={wrapRef}
       className={
         full
-          ? 'fixed inset-0 z-[90] p-3 bg-white flex flex-col overflow-auto'
-          : readOnly && zoomable && !fit
+          ? 'fixed inset-0 z-[90] px-3 pb-3 bg-white flex flex-col overflow-hidden'
+          : readOnly && zoomable && !fit && !fill
             ? 'relative group/board'
-            : fit
+            : fit || fill
               ? 'h-full'
               : ''
       }
     >
+      {/* Full screen keeps the field as big as it can be: one bar across the
+          top with Done at the end of it, and every tool in a strip that
+          scrolls sideways rather than rows that eat the screen. */}
+      {full && !readOnly && (
+        <div className="flex items-center gap-2 py-2 shrink-0" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
+          <span className="text-xs font-black uppercase tracking-wider text-gray-400 truncate flex-1">
+            {title || 'Editing the field'}
+          </span>
+          <button type="button" onClick={toggleFullscreen} className="btn btn-primary !py-1.5 !px-4 text-sm shrink-0">
+            Done
+          </button>
+        </div>
+      )}
       {!readOnly && (
-        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        <>
+        <div className={row}>
           <button
             type="button"
             onClick={() => setTool('move')}
@@ -650,8 +720,8 @@ export function FieldBoard({
             </button>
           ))}
 
-          <span className="w-px h-5 bg-gray-200 mx-1" />
-
+        </div>
+        <div className={row}>
           {/* Positions first — a coach puts an attackman on the field, not an
               "offense". The rest are the things that aren't people. */}
           {POSITION_TOKENS.map((p) => (
@@ -710,12 +780,12 @@ export function FieldBoard({
           )}
 
           {extraTools}
-
-          <span className="w-px h-5 bg-gray-200 mx-1" />
+        </div>
+        <div className={row}>
 
           <button
             type="button"
-            onClick={() => setHalf(half === 'off' ? 'right' : half === 'right' ? 'left' : 'off')}
+            onClick={() => setView({ half: half === 'off' ? 'right' : half === 'right' ? 'left' : 'off' })}
             className={toolBtn(half !== 'off')}
             style={{
               background: half !== 'off' ? 'var(--gh-green)' : undefined,
@@ -728,9 +798,9 @@ export function FieldBoard({
           <button
             type="button"
             onClick={() => {
-              // Turned by hand, it stays the way the coach left it.
-              autoTurned.current = false
-              setTurn((t) => (t + 90) % 360)
+              // Turned by hand, it is saved the way the coach left it.
+              setAutoTurn(false)
+              setView({ turn: ((turn + 90) % 360) as BoardTurn })
             }}
             className={toolBtn(turn !== 0)}
             style={{
@@ -750,7 +820,7 @@ export function FieldBoard({
             className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 bg-white hover:bg-gray-50"
             title="Fill the screen — turn a phone sideways"
           >
-            {full ? '⤡ Exit full screen' : '⤢ Full screen'}
+            {full ? '⤡ Done' : '⤢ Full screen'}
           </button>
           <button
             type="button"
@@ -772,16 +842,17 @@ export function FieldBoard({
           </button>
           <button
             type="button"
-            onClick={() => emit({ tokens: [], paths: [] })}
+            onClick={() => emit({ ...board, tokens: [], paths: [], texts: [] })}
             className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-500 bg-white hover:bg-gray-50"
           >
             Clear
           </button>
         </div>
+        </>
       )}
 
       {!readOnly && (
-        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        <div className={row}>
           <span className="text-[0.65rem] font-black tracking-wider uppercase text-gray-400 mr-0.5">
             Sets
           </span>
@@ -874,13 +945,15 @@ export function FieldBoard({
       <svg
         ref={svgRef}
         viewBox={viewBox}
-        className={`w-full rounded-xl select-none ${readOnly ? 'touch-manipulation' : 'touch-none'} ${full ? 'flex-1 min-h-0' : ''} ${fit ? 'h-full' : ''}`}
+        className={`w-full select-none ${fill ? '' : 'rounded-xl'} ${readOnly ? 'touch-manipulation' : 'touch-none'} ${full ? 'flex-1 min-h-0' : ''} ${fit || fill ? 'h-full' : ''}`}
         style={{
           cursor: placing ? 'copy' : tool === 'move' ? 'default' : 'crosshair',
           /* A half field, or a turned one, is nearly square — left to fill the
              width it would be taller than the screen and the coach would be
              scrolling to see his own play. */
-          maxHeight: full || fit ? undefined : '72vh',
+          maxHeight: full || fit || fill ? undefined : '72vh',
+          // A page that is the field is grass to its edges, however the field sits in it.
+          background: fill ? GRASS : undefined,
         }}
         onPointerDown={onBoardPointerDown}
         onPointerMove={onPointerMove}
@@ -891,8 +964,15 @@ export function FieldBoard({
             that has to letterbox — a half field on a wide laptop — shows a field
             with the page either side of it, not a slab of green. It also means a
             screenshot has grass in it without anything being added. */}
-        <rect width="100%" height="100%" fill="#4a7f52" rx={1.5} />
+        <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill={GRASS} rx={fill ? 0 : 1.5} />
+        {/* Only what is in the window is drawn. A half field on a screen wider
+            than it letterboxes, and without this the other half of the field
+            would show in the margin beside it. */}
+        <clipPath id={clipId}>
+          <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} />
+        </clipPath>
 
+        <g clipPath={`url(#${clipId})`}>
         <g transform={spin}>
         <g ref={fieldRef} transform={`translate(${PAD} ${PAD})`}>
           <FieldLines />
@@ -1041,6 +1121,7 @@ export function FieldBoard({
           )}
         </g>
         </g>
+        </g>
 
         <defs>
           {/* An end shape has to be the colour of its own line, and a marker
@@ -1102,7 +1183,7 @@ export function FieldBoard({
         />
       )}
 
-      {!readOnly && (
+      {!readOnly && !full && (
         <p className="text-[0.7rem] text-gray-400 mt-1.5">
           Drag a disc to move it · right-click, or press and hold on a phone, for everything you can
           change about it · Select draws a box round a group to move it, delete it or keep it as a

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { SlideView, type SlidePlay } from '@/components/playbook/SlideView'
 import { orderPlaybook } from '@/lib/playbookActions'
-import { reorder, type PlaybookPage } from '@/lib/playbook'
+import { isPageKind, reorder, type PlaybookPage } from '@/lib/playbook'
 import { withTeam, type Team } from '@/lib/teams'
 
 /**
@@ -94,7 +94,10 @@ export function DeckGrid({
 
           {/* A card is the page itself, shrunk — so the deck screen is a
               contact sheet rather than a list of names. */}
-          <div className="rounded-lg border border-gray-100 bg-white p-2 overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
+          <div
+            className={`rounded-lg border border-gray-100 bg-white overflow-hidden ${isPageKind(page.layout) ? '' : 'p-2'}`}
+            style={{ aspectRatio: '16 / 9' }}
+          >
             <SlideView page={page} plays={plays} scale="thumb" />
           </div>
 

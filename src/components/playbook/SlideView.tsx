@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic'
 import { inZOrder, isFree, type PlaybookPage, type SlideBlock } from '@/lib/playbook'
 import { BlockArt, type SlidePlay } from './BlockArt'
 import { Stage } from './Stage'
+import { FieldPageView, PicturePageView, WordsPageView } from './KindPages'
 import type { Board } from '@/lib/planner'
 
 /* The board is a heavy, browser-only component — it measures itself against the
@@ -43,6 +44,11 @@ export function SlideView(props: SlideProps) {
 
 function SlidePage({ page, plays, scale = 'full' }: SlideProps) {
   const thumb = scale === 'thumb'
+
+  // The three kinds of page draw themselves, edge to edge.
+  if (page.layout === 'field') return <FieldPageView page={page} plays={plays} />
+  if (page.layout === 'words') return <WordsPageView page={page} />
+  if (page.layout === 'picture') return <PicturePageView page={page} />
 
   /* A page placed by hand is drawn on the stage, where every box keeps the
      spot it was put in. Everything else is laid out here, as it always was. */

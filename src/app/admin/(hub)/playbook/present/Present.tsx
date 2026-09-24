@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { SlideView, type SlidePlay } from '@/components/playbook/SlideView'
-import type { PlaybookPage } from '@/lib/playbook'
+import { isPageKind, type PlaybookPage } from '@/lib/playbook'
 
 /**
  * The playbook on a screen, one page at a time.
@@ -59,7 +59,10 @@ export function Present({
         </span>
       </div>
 
-      <div className="card p-5 sm:p-8 bg-white overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
+      <div
+        className={`card bg-white overflow-hidden ${isPageKind(page.layout) ? '' : 'p-5 sm:p-8'}`}
+        style={{ aspectRatio: '16 / 9' }}
+      >
         <SlideView page={page} plays={plays} />
       </div>
 

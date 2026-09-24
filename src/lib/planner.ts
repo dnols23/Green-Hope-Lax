@@ -207,10 +207,26 @@ export interface BoardText {
   align?: TextAlign
 }
 
+/**
+ * How a board is looked at: the whole field or one end, and which way up.
+ *
+ * Saved with the board, so the play reads the same on the page, in the Library,
+ * on a player's phone and in the editor it was drawn in — a play drawn on the
+ * right end, turned for a phone, is shown that way everywhere, not reset to the
+ * whole field the moment it leaves the editor.
+ */
+export type BoardHalf = 'off' | 'right' | 'left'
+export type BoardTurn = 0 | 90 | 180 | 270
+export interface BoardView {
+  half?: BoardHalf
+  turn?: BoardTurn
+}
+
 export interface Board {
   tokens: BoardToken[]
   paths: BoardPath[]
   texts?: BoardText[]
+  view?: BoardView
 }
 
 export const EMPTY_BOARD: Board = { tokens: [], paths: [], texts: [] }
@@ -574,8 +590,15 @@ export function readBoard(raw: unknown): Board | null {
         .filter((t) => t.text.trim().length > 0)
     : []
 
-  if (!tokens.length && !paths.length && !texts.length) return null
-  return { tokens, paths, texts }
+  const rawView = (b.view ?? {}) as Partial<BoardView>
+  const half: BoardHalf | undefined =
+    rawView.half === 'right' || rawView.half === 'left' ? rawView.half : undefined
+  const turn: BoardTurn | undefined =
+    rawView.turn === 90 || rawView.turn === 180 || rawView.turn === 270 ? rawView.turn : undefined
+  const view: BoardView | undefined = half || turn ? { ...(half ? { half } : {}), ...(turn ? { turn } : {}) } : undefined
+
+  if (!tokens.length && !paths.length && !texts.length && !view) return null
+  return view ? { tokens, paths, texts, view } : { tokens, paths, texts }
 }
 
 // ── Recording a play ────────────────────────────────────────────────────────
