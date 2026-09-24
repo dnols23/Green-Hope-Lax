@@ -16,7 +16,11 @@ export default async function PlannerPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const { team, locked } = await requireTeam('planner', (await searchParams).team)
+  const sp = await searchParams
+  const { team, locked } = await requireTeam('planner', sp.team)
+  // Set when a plan could not be made (see createPlan).
+  const failed = typeof sp.error === 'string' ? sp.error : null
+  const failedKind = typeof sp.kind === 'string' ? sp.kind : null
 
   if (!(await plannerReady())) {
     return (
@@ -56,6 +60,23 @@ export default async function PlannerPage({
           own field diagrams, so what you drew on Tuesday is still on the plan in March.
         </p>
       </div>
+
+      {failed && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3" role="alert">
+          {failed === 'kind' ? (
+            <>
+              <p className="text-sm text-amber-900 font-bold mb-1">
+                The database won&rsquo;t take a {failedKind === 'scout' ? 'scout' : 'plan of that kind'} yet.
+              </p>
+              <p className="text-sm text-amber-900">
+                Run <code>supabase/migrations/0042_game_plans.sql</code> in the Supabase SQL editor, then try again.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-amber-900 font-bold">That plan couldn&rsquo;t be made. Try again in a moment.</p>
+          )}
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-3 gap-3">
         {PLAN_KINDS.map((k) => (

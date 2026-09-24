@@ -636,6 +636,17 @@ export function PlanEditor({
                 )}
                 {assigned.length > 0 && <span className="text-[0.7rem] text-gray-400 shrink-0">{assigned.length}p</span>}
                 {b.board && <span className="text-[0.7rem] text-gray-400 shrink-0" title="Has a field diagram">▦</span>}
+                {/* Shows from the shut row so a coach flipping through an old
+                    plan can spot which blocks somebody wrote up afterwards. */}
+                {b.review?.trim() && (
+                  <span
+                    className="text-[0.65rem] font-bold rounded-full px-1.5 py-px shrink-0 border"
+                    style={{ color: 'var(--gh-green)', borderColor: 'var(--gh-green)' }}
+                    title="Has notes on how it went"
+                  >
+                    Notes
+                  </span>
+                )}
                 <span className="text-xs tabular-nums text-gray-500 shrink-0">{b.minutes}m</span>
                 <span className="text-gray-300 text-xs shrink-0">{open ? '▾' : '▸'}</span>
               </div>
@@ -774,6 +785,31 @@ export function PlanEditor({
                     placeholder="Coaching points, groups, what good looks like…"
                     className="field !py-1.5 text-sm"
                   />
+
+                  {/* After practice: what worked, what didn't, what to change
+                      next time. Folded away so it doesn't crowd the plan while
+                      building it, and it rides along when the plan is copied. */}
+                  <details className="group rounded-lg border border-gray-100">
+                    <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden px-2.5 py-2 min-h-9 flex items-center gap-2 text-xs font-bold text-gray-500">
+                      <span className="text-gray-300 transition-transform group-open:rotate-90">▸</span>
+                      <span className="shrink-0">How it went</span>
+                      {b.review?.trim() && (
+                        <span className="font-normal text-gray-400 truncate min-w-0">
+                          {b.review.trim().split('\n')[0]}
+                        </span>
+                      )}
+                    </summary>
+                    <div className="px-2.5 pb-2.5">
+                      <textarea
+                        value={b.review ?? ''}
+                        onChange={(e) => patch(b.id, { review: e.target.value })}
+                        rows={3}
+                        placeholder="Did it work? Too long, too short? What would you change next time?"
+                        className="field !py-1.5 text-sm"
+                        aria-label={`How ${b.title || 'this block'} went`}
+                      />
+                    </div>
+                  </details>
 
                   <div className="flex items-center gap-3 flex-wrap text-xs">
                     <button

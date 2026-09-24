@@ -307,12 +307,14 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
     if (!error) {
       for (const row of (data ?? []) as Record<string, unknown>[]) {
         const a = readAvailability(row)
+        // Available is the default; only the times a coach is out are drawn.
+        if (a.status === 'available') continue
         for (const occ of expandAvailability(a, q.from, q.to)) {
           items.push({
             key: `avail:${a.id}:${occ.n}`,
             source: 'availability',
             id: a.id,
-            title: `${a.coachName || a.coachEmail.split('@')[0]} — ${a.status === 'available' ? 'available' : 'out'}`,
+            title: `${a.coachName || a.coachEmail.split('@')[0]} — out`,
             startsAt: occ.startsAt,
             endsAt: occ.endsAt,
             allDay: a.allDay,
