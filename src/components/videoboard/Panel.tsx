@@ -278,6 +278,8 @@ export function Panel({
 
   // ── Clips ─────────────────────────────────────────────────────────────────
   function playClip(clip: Clip) {
+    // On a phone the list covers the film, so get it out of the way to watch.
+    if (window.matchMedia('(max-width: 760px)').matches) setDrawerOpen(false)
     const target = videos.find((v) => v.id === clip.videoId)
     if (!target) {
       notify("That clip's video is no longer in the library.")
@@ -554,7 +556,7 @@ export function Panel({
           </div>
 
           <div className={styles.tRow}>
-            <button type="button" className={styles.tBtn} title="Back 10s (J)" onClick={() => seekBy(-10)}>
+            <button type="button" className={`${styles.tBtn} ${styles.tWide}`} title="Back 10s (J)" onClick={() => seekBy(-10)}>
               <IconSkip n={10} dir={-1} />
             </button>
             <button type="button" className={styles.tBtn} title="Back 5s (←)" onClick={() => seekBy(-5)}>
@@ -566,7 +568,7 @@ export function Panel({
             <button type="button" className={styles.tBtn} title="Forward 5s (→)" onClick={() => seekBy(5)}>
               <IconSkip n={5} dir={1} size={17} />
             </button>
-            <button type="button" className={styles.tBtn} title="Forward 10s (L)" onClick={() => seekBy(10)}>
+            <button type="button" className={`${styles.tBtn} ${styles.tWide}`} title="Forward 10s (L)" onClick={() => seekBy(10)}>
               <IconSkip n={10} dir={1} />
             </button>
             <button type="button" className={styles.tBtn} title="Previous frame (,)" onClick={() => stepFrame(-1)}>

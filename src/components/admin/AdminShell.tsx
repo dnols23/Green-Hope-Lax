@@ -44,7 +44,12 @@ export async function AdminShell({
   const tier = viewer?.isOwner ? 'Admin' : 'Coaches'
 
   return (
-    <div className="app-theme min-h-screen flex flex-col bg-gray-50">
+    <div
+      // A full-bleed page is held to the screen (the visible part, on a phone
+      // whose browser bars come and go), so the Film Room's own controls stay
+      // on it instead of being pushed below by a tall video.
+      className={`app-theme flex flex-col bg-gray-50 ${fullBleed ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'}`}
+    >
       <AdminMenu links={links} tier={tier} />
 
       {/* A full-bleed page takes whatever height the bar leaves, measured rather
