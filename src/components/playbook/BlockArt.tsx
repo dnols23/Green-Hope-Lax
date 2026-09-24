@@ -48,7 +48,7 @@ export function BlockArt({
       return (
         <div className="w-full h-full flex flex-col">
           <div className="flex-1 min-h-0 [&_svg]:!h-full [&>*]:h-full">
-            <FieldBoard board={board} readOnly />
+            <FieldBoard board={board} readOnly zoomable={!editing} title={caption || null} />
           </div>
           {caption && (
             <div style={{ fontSize: 18, color: '#6b7280', marginTop: 4 }}>{caption}</div>

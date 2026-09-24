@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BlockArt, type SlidePlay } from './BlockArt'
 import { Stage } from './Stage'
+import { BoardViewer, useDoubleTap } from '@/components/planner/BoardViewer'
+import type { Board } from '@/lib/planner'
 import { SLIDE_H, SLIDE_W, clampFrame, inZOrder, type Frame, type SlideBlock } from '@/lib/playbook'
 
 /** Which corner or edge is being pulled. */
@@ -104,6 +106,18 @@ export function SlideCanvas({
   const [drag, setDrag] = useState<{ id: string; grip: Grip | null } | null>(null)
   const startRef = useRef<{ x: number; y: number; frame: Frame } | null>(null)
 
+  /* Double-tap a board on the page and it fills the screen, the same as
+     anywhere else a board is shown — the box itself is what gets the taps here,
+     since the board inside it is only a picture while it is being arranged. */
+  const [viewing, setViewing] = useState<{ board: Board; title: string } | null>(null)
+  const pressed = useRef<SlideBlock | null>(null)
+  const doubleTap = useDoubleTap(() => {
+    const b = pressed.current
+    if (b?.kind !== 'play') return
+    const board = b.board ?? plays[b.playId]?.board
+    if (board) setViewing({ board, title: b.caption ?? plays[b.playId]?.name ?? title })
+  })
+
   const onScale = useCallback((s: number) => {
     scaleRef.current = s
     setScale(s)
@@ -113,6 +127,10 @@ export function SlideCanvas({
     e.stopPropagation()
     e.preventDefault()
     onSelect(block.id)
+    if (!grip) {
+      pressed.current = block
+      if (doubleTap(e)) return
+    }
     if (!block.frame) return
     startRef.current = { x: e.clientX, y: e.clientY, frame: block.frame }
     setDrag({ id: block.id, grip })
@@ -251,6 +269,8 @@ export function SlideCanvas({
           </div>
         )
       })}
+
+      {viewing && <BoardViewer board={viewing.board} title={viewing.title} onClose={() => setViewing(null)} />}
 
       {/* Guides, while something is being moved, so edges can be lined up. */}
       {drag && (

@@ -50,7 +50,7 @@ export function ClipPlayer({ clip, autoPlay = false }: { clip: BoardClip; autoPl
 
   return (
     <div>
-      <FieldBoard board={frameAt(clip, at)} readOnly />
+      <FieldBoard board={frameAt(clip, at)} readOnly zoomable={false} />
 
       <div className="flex items-center gap-2 mt-2 flex-wrap">
         <button
