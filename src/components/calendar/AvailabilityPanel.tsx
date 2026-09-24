@@ -4,10 +4,12 @@ import { deleteAvailability, saveAvailability, type AvailabilityInput } from '@/
 import { KIND_COLORS, type Availability, type AvailabilityStatus } from '@/lib/calendarModel'
 import {
   describeAvailability,
+  findAvailabilityClash,
   lastDayOf,
   localMidnight,
   localYmd,
   nextOccurrence,
+  overlappingAvailabilityIds,
 } from '@/lib/availabilityText'
 
 /**
@@ -130,6 +132,22 @@ function toInput(f: Form): AvailabilityInput | string {
   }
 }
 
+/** The form's input as a block, to describe it or check it against the others. */
+function asBlock(input: AvailabilityInput): Availability {
+  return {
+    id: input.id ?? '',
+    coachEmail: '',
+    coachName: '',
+    status: input.status,
+    startsAt: input.startsAt,
+    endsAt: input.endsAt,
+    allDay: input.allDay,
+    repeatWeekly: input.repeatWeekly,
+    repeatUntil: input.repeatUntil ?? null,
+    note: input.note ?? null,
+  }
+}
+
 /** A saved block, back in the form, for editing. */
 function toForm(a: Availability, today: string): Form {
   const start = new Date(a.startsAt)
@@ -166,40 +184,28 @@ interface Preset {
  */
 function presetsFor(today: string): Preset[] {
   const dow = localMidnight(today).getDay() // 0 Sun … 6 Sat
-  // "This weekend" on a Sunday afternoon has mostly happened already; mean
-  // the next one.
-  const sat = addDays(today, dow === 6 ? 0 : 6 - dow)
-  const weekendLabel = dow === 0 ? 'Out next weekend' : 'Out this weekend'
-  // A weekly evening is named for today when it is a school day, else Monday.
-  const weeknight = dow >= 1 && dow <= 5 ? today : addDays(today, dow === 0 ? 1 : 2)
-  const short = localMidnight(weeknight).toLocaleDateString('en-US', { weekday: 'long' })
+  // The rest of this week, through Saturday — on a Sunday, the week ahead.
+  const saturday = addDays(today, dow === 0 ? 6 : 6 - dow)
   return [
     { key: 'today', label: 'Out today', form: { status: 'unavailable', date: today, allDay: true } },
     {
-      key: 'weekend',
-      label: weekendLabel,
-      form: { status: 'unavailable', date: sat, multiDay: true, lastDate: addDays(sat, 1), allDay: true },
-    },
-    {
-      key: 'weekly',
-      label: `Every ${short} evening`,
-      form: { status: 'unavailable', date: weeknight, allDay: false, start: '18:00', end: '21:00', weekly: true },
-    },
-    {
-      key: 'saturday',
-      label: dow === 6 ? 'Free today' : 'Free Saturday',
-      form: { status: 'available', date: sat, allDay: true },
+      key: 'week',
+      label: 'Out this week',
+      form: { status: 'unavailable', date: today, multiDay: saturday !== today, lastDate: saturday !== today ? saturday : '', allDay: true },
     },
   ]
 }
 
-export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose }: Props) {
+export function AvailabilityPanel({ myAvailability, onChanged, onClose }: Props) {
   // One "now" for the life of the panel: it is open for a minute, not a day.
   const [now] = useState(() => new Date())
   const today = localYmd(now)
   const [form, setForm] = useState<Form>(() => blankForm(today))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The block this one would overlap, when that's why it can't be saved — so
+  // the message can offer to open it.
+  const [clashId, setClashId] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const [hint, setHint] = useState<string | null>(null)
   const [showPast, setShowPast] = useState(false)
@@ -219,37 +225,59 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
     return () => window.removeEventListener('keydown', onKey)
   }, [confirmId, onClose])
 
+  function showError(message: string | null, clash: string | null = null) {
+    setError(message)
+    setClashId(clash)
+  }
+
   function update(patch: Partial<Form>) {
     setForm((f) => ({ ...f, ...patch }))
-    setError(null)
+    showError(null)
     setFlash(null)
   }
 
   function applyPreset(p: Preset) {
     setForm({ ...blankForm(today), ...p.form })
-    setError(null)
+    showError(null)
     setFlash(null)
     setHint(`${p.label} — check it, then tap Save.`)
   }
 
   function reset() {
     setForm(blankForm(today))
-    setError(null)
+    showError(null)
     setHint(null)
+  }
+
+  /** Open a saved block in the form. */
+  function edit(a: Availability) {
+    setForm(toForm(a, today))
+    showError(null)
+    setFlash(null)
+    setHint(null)
+    setConfirmId(null)
   }
 
   async function save() {
     const input = toInput(form)
     if (typeof input === 'string') {
-      setError(input)
+      showError(input)
+      return
+    }
+    // Two blocks over the same time leave the staff guessing which is true, so
+    // catch it here before the round trip. The server checks again and has
+    // the last word — this list can be a moment out of date.
+    const clash = findAvailabilityClash(asBlock(input), mine.filter((a) => a.status === 'unavailable'))
+    if (clash) {
+      showError(`You already have “${describeAvailability(clash, now)}” then — edit or delete that one instead.`, clash.id)
       return
     }
     setBusy(true)
-    setError(null)
+    showError(null)
     try {
       const res = await saveAvailability(input)
       if (!res.ok) {
-        setError(res.error)
+        showError(res.error, res.clashId ?? null)
         return
       }
       setFlash(form.id ? 'Updated. The calendar has the change.' : 'Saved — it’s on the calendar.')
@@ -257,7 +285,7 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
       setHint(null)
       onChanged()
     } catch {
-      setError('Couldn’t reach the server. Check the signal and try again.')
+      showError('Couldn’t reach the server. Check the signal and try again.')
     } finally {
       setBusy(false)
     }
@@ -265,11 +293,11 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
 
   async function remove(id: string) {
     setBusy(true)
-    setError(null)
+    showError(null)
     try {
       const res = await deleteAvailability(id)
       if (!res.ok) {
-        setError(res.error)
+        showError(res.error)
         return
       }
       setGone((g) => [...g, id])
@@ -278,34 +306,22 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
       setFlash('Deleted.')
       onChanged()
     } catch {
-      setError('Couldn’t reach the server. Check the signal and try again.')
+      showError('Couldn’t reach the server. Check the signal and try again.')
     } finally {
       setBusy(false)
     }
   }
 
   const preview = toInput(form)
-  const previewText =
-    typeof preview === 'string'
-      ? null
-      : describeAvailability(
-          {
-            id: '',
-            coachEmail: '',
-            coachName: '',
-            status: preview.status,
-            startsAt: preview.startsAt,
-            endsAt: preview.endsAt,
-            allDay: preview.allDay,
-            repeatWeekly: preview.repeatWeekly,
-            repeatUntil: preview.repeatUntil ?? null,
-            note: preview.note ?? null,
-          },
-          now,
-        )
+  const previewText = typeof preview === 'string' ? null : describeAvailability(asBlock(preview), now)
 
   // Soonest first: a weekly block sorts by its next time round.
   const mine = myAvailability.filter((a) => !gone.includes(a.id))
+  // Blocks already on top of each other — saved before the check existed, or
+  // from two phones at once. Nothing is deleted for the coach; they're marked
+  // so the coach can pick which one to keep.
+  const overlapping = overlappingAvailabilityIds(mine.filter((a) => a.status === 'unavailable'))
+  const clashBlock = clashId ? (mine.find((a) => a.id === clashId) ?? null) : null
   const upcoming = mine
     .map((a) => ({ a, next: nextOccurrence(a, now) }))
     .filter((x): x is { a: Availability; next: { startsAt: Date; endsAt: Date } } => x.next !== null)
@@ -326,7 +342,7 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
       <div className="flex items-start gap-3 px-4 py-3 border-b border-gray-100">
         <div className="min-w-0 flex-1">
           <div className="section-label">Availability</div>
-          <h2 className="text-lg font-black leading-tight">When you can and can&rsquo;t be there</h2>
+          <h2 className="text-lg font-black leading-tight">When you can&rsquo;t be there</h2>
         </div>
         <button
           type="button"
@@ -339,16 +355,8 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
-        <p className="text-sm text-gray-500">
-          {isOwner
-            ? 'Your staff plans around this the same way you do — put your own days away here and they show on every coach’s calendar. '
-            : 'The staff — and the head coach most of all — plans practices, film and team events around this. '}
-          Everyone on staff sees it on the calendar; players and parents never do.
-        </p>
 
-        {/* One tap to fill the form with the usual things. */}
         <div>
-          <div className="text-[0.7rem] font-black tracking-[0.15em] uppercase text-gray-400 mb-2">Quick fill</div>
           <div className="flex flex-wrap gap-2">
             {presetsFor(today).map((p) => (
               <button
@@ -379,37 +387,6 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
               </button>
             </div>
           )}
-
-          {/* Can't make it / Available — the first question, as two big halves. */}
-          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Status">
-            {(
-              [
-                { key: 'unavailable', label: 'Can’t make it', icon: '⛔' },
-                { key: 'available', label: 'Available', icon: '✅' },
-              ] as const
-            ).map((s) => {
-              const on = form.status === s.key
-              const c = KIND_COLORS[s.key]
-              return (
-                <button
-                  key={s.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => update({ status: s.key })}
-                  className="min-h-11 rounded-xl border-2 text-sm font-black inline-flex items-center justify-center gap-1.5 transition-colors"
-                  style={
-                    on
-                      ? { background: c.bg, color: c.fg, borderColor: c.fg }
-                      : { background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
-                  }
-                >
-                  <span aria-hidden>{s.icon}</span>
-                  {s.label}
-                </button>
-              )
-            })}
-          </div>
 
           {hint && <p className="text-xs font-semibold text-gray-500 -mt-1">{hint}</p>}
 
@@ -541,9 +518,18 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
           )}
 
           {error && (
-            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
-              {error}
-            </p>
+            <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
+              <p>{error}</p>
+              {clashBlock && clashBlock.id !== form.id && (
+                <button
+                  type="button"
+                  onClick={() => edit(clashBlock)}
+                  className="btn btn-ghost mt-2 min-h-9 !py-1.5 text-sm"
+                >
+                  Edit that one
+                </button>
+              )}
+            </div>
           )}
           {flash && !error && (
             <p role="status" className="text-sm font-bold text-[var(--gh-green)]">
@@ -582,7 +568,7 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
             {shown.length === 0 ? (
               <p className="text-sm text-gray-400 px-4 py-5">
                 {mine.length === 0
-                  ? 'Nothing yet. When a day comes up that you can’t make, put it here and the staff plans around it.'
+                  ? 'Nothing yet.'
                   : 'Nothing coming up. Past blocks are tucked away above.'}
               </p>
             ) : (
@@ -604,6 +590,14 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
                       />
                       <p className="min-w-0 flex-1 text-sm font-semibold break-words" style={{ color: isPast ? undefined : c.fg }}>
                         {describeAvailability(a, now)}
+                        {overlapping.has(a.id) && (
+                          <span
+                            title="Covers the same time as another of your blocks — keep one and delete the other."
+                            className="ml-2 inline-block align-middle rounded-full border border-red-200 bg-red-50 px-2 py-px text-[0.65rem] font-black uppercase tracking-wider text-red-800"
+                          >
+                            Overlaps
+                          </span>
+                        )}
                       </p>
                     </div>
                     {confirmId === a.id ? (
@@ -627,19 +621,19 @@ export function AvailabilityPanel({ myAvailability, isOwner, onChanged, onClose 
                       </div>
                     ) : (
                       <div className="mt-1 ml-5 flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm(toForm(a, today))
-                            setError(null)
-                            setFlash(null)
-                            setHint(null)
-                            setConfirmId(null)
-                          }}
-                          className="min-h-9 px-2 -ml-2 text-xs font-bold text-gray-500 hover:text-[var(--gh-green)]"
-                        >
-                          Edit
-                        </button>
+                        {/* Available is the default now; an old "available"
+                            block does nothing, so it can only be deleted. */}
+                        {a.status === 'available' ? (
+                          <span className="text-xs text-gray-400 -ml-2 px-2">Not needed — available is the default</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => edit(a)}
+                            className="min-h-9 px-2 -ml-2 text-xs font-bold text-gray-500 hover:text-[var(--gh-green)]"
+                          >
+                            Edit
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setConfirmId(a.id)}

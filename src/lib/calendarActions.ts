@@ -1,7 +1,9 @@
 'use server'
 
 import { getViewer } from './permissions'
+import { availabilityOverlaps, describeAvailability, findAvailabilityClash } from './availabilityText'
 import {
+  expandAvailability,
   getAvailability,
   getEvent,
   insertAvailability,
@@ -16,7 +18,8 @@ import {
   type AvailabilityWrite,
   type EventWrite,
 } from './calendarData'
-import { isCalAudience, isCalEventKind, isCalTeam } from './calendarModel'
+import { isCalAudience, isCalEventKind, isCalTeam, type Availability } from './calendarModel'
+import { zoneParts } from './zoned'
 
 /**
  * Writing the calendar.
@@ -26,7 +29,10 @@ import { isCalAudience, isCalEventKind, isCalTeam } from './calendarModel'
  * they are touching from the server's side, never from what the browser says.
  */
 
-export type CalResult = { ok: true; id?: string } | { ok: false; error: string }
+export type CalResult =
+  | { ok: true; id?: string }
+  /** clashId: the block this one would have overlapped, so the screen can open it. */
+  | { ok: false; error: string; clashId?: string }
 
 const MAX_SPAN_MS = 1000 * 60 * 60 * 24 * 60 // sixty days
 const MAX_BLOCKS = 300 // availability rows per coach
@@ -143,7 +149,8 @@ function cleanAvailability(input: AvailabilityInput): AvailabilityWrite | string
   if (typeof times === 'string') return times
   const until = String(input.repeatUntil ?? '').trim()
   return {
-    status: input.status === 'available' ? 'available' : 'unavailable',
+    // Available is the default; a coach only ever says when they're out.
+    status: 'unavailable',
     startsAt: times.s,
     endsAt: times.e,
     allDay: input.allDay === true,
@@ -153,25 +160,78 @@ function cleanAvailability(input: AvailabilityInput): AvailabilityWrite | string
   }
 }
 
-/** Every coach sets their own; the head of the program can correct anyone's. */
+/**
+ * An instant moved so that this server's own clock reads the team's wall
+ * clock. describeAvailability() speaks in the local clock — right in a coach's
+ * browser, but UTC here — so without this "all day Thursday" would come out
+ * as "Thursday – Friday", four hours late.
+ */
+function onTeamClock(iso: string): string {
+  const p = zoneParts(iso)
+  return new Date(p.y, p.m - 1, p.d, p.h, p.mi).toISOString()
+}
+
+/** "You already have “Available all day Thu, Sep 24” then — …", on the team's clock. */
+function clashMessage(clash: Availability, own: boolean): string {
+  const words = describeAvailability(
+    { ...clash, startsAt: onTeamClock(clash.startsAt), endsAt: onTeamClock(clash.endsAt) },
+    new Date(onTeamClock(new Date().toISOString())),
+  )
+  const who = own ? 'You already have' : `${clash.coachName || clash.coachEmail.split('@')[0]} already has`
+  return `${who} “${words}” then — edit or delete that one instead.`
+}
+
+/**
+ * Every coach sets their own; the head of the program can correct anyone's.
+ *
+ * No two of a coach's blocks may cover the same time — two "available all day
+ * Thursday"s, or "out" on top of "available", only leave the head coach
+ * guessing which one is true. The panel checks first; this is the check that
+ * counts.
+ */
 export async function saveAvailability(input: AvailabilityInput): Promise<CalResult> {
   const viewer = await getViewer()
   if (!viewer) return { ok: false, error: 'Sign in again.' }
   const write = cleanAvailability(input)
   if (typeof write === 'string') return { ok: false, error: write }
 
+  let existing: Availability | null = null
   if (input.id) {
-    const existing = await getAvailability(String(input.id))
+    existing = await getAvailability(String(input.id))
     if (!existing) return { ok: false, error: 'That block is gone.' }
     if (!mayEditAvailability(viewer, existing.coachEmail)) {
       return { ok: false, error: 'That isn’t your availability.' }
     }
+  }
+
+  // Whose calendar this lands on: the viewer's own, or — when the head of the
+  // program is fixing someone else's block — that coach's.
+  const coachEmail = existing ? existing.coachEmail : viewer.email.toLowerCase()
+  const theirs = await listMyAvailability(coachEmail)
+  /* Only "out" blocks can clash (an old "available" one means nothing now).
+     And an edit is only held to clashes it would make — a block that already
+     overlapped another before this rule can still have its note fixed. */
+  const against = theirs.filter(
+    (a) => a.status === 'unavailable' && !(existing && availabilityOverlaps(existing, a, expandAvailability)),
+  )
+  const clash = findAvailabilityClash(
+    { ...write, id: existing?.id ?? '', coachEmail, coachName: existing?.coachName ?? viewer.name },
+    against,
+    // The team's clock, so "Tuesdays four to six" lines up across the clock change.
+    expandAvailability,
+  )
+  if (clash) {
+    const own = coachEmail === viewer.email.toLowerCase()
+    return { ok: false, error: clashMessage(clash, own), clashId: clash.id }
+  }
+
+  if (existing) {
     const ok = await updateAvailability(existing.id, write)
     if (!ok) return { ok: false, error: 'Couldn’t save it.' }
     return { ok: true, id: existing.id }
   }
 
-  if ((await listMyAvailability(viewer.email)).length >= MAX_BLOCKS) {
+  if (theirs.length >= MAX_BLOCKS) {
     return { ok: false, error: 'That’s a lot of blocks — delete some old ones first.' }
   }
   const id = await insertAvailability(write, { email: viewer.email, name: viewer.name })

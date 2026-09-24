@@ -1,5 +1,5 @@
 'use client'
-import { useActionState, useState } from 'react'
+import { useActionState, useState, useTransition, type FormEvent } from 'react'
 import NumberField from '@/components/NumberField'
 import { savePlan } from '@/lib/actions'
 import type { FormState } from '@/lib/actions'
@@ -31,6 +31,7 @@ import { ReviewPriorities } from './ReviewPriorities'
 import { imageFromClipboard, uploadImage } from '@/lib/uploadImage'
 import { NoteEditor } from './NoteEditor'
 import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
+import { GamePlanEditor, type GameOption, type PlayOption } from './GamePlanEditor'
 
 const EMPTY: FormState = { ok: true }
 
@@ -63,6 +64,8 @@ export function PlanEditor({
   playersByRoster,
   coaches,
   drills,
+  plays = [],
+  games = [],
   canWrite = true,
 }: {
   plan: Plan
@@ -71,10 +74,23 @@ export function PlanEditor({
   playersByRoster: Record<string, PlayerOption[]>
   coaches: string[]
   drills: Drill[]
+  /** The Library's plays, for a game plan's systems to point at. */
+  plays?: PlayOption[]
+  /** Games off the schedule, for a game plan to be linked to. */
+  games?: GameOption[]
   /** False when this is the other team's plan: read it, don't change it. */
   canWrite?: boolean
 }) {
   const [state, save, saving] = useActionState(savePlan, EMPTY)
+  const [, startSave] = useTransition()
+  /* Saved by hand rather than as the form's action: React empties a form once
+     its action finishes, which put every dropdown back where the page started —
+     a block's type and the roster looked changed after a save. */
+  function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const data = new FormData(e.currentTarget)
+    startSave(() => save(data))
+  }
   const [title, setTitle] = useState(plan.title)
   const [date, setDate] = useState(plan.plan_date ?? '')
   /* The whole plan's clock runs off this. It is the plan's own now rather than
@@ -240,6 +256,24 @@ export function PlanEditor({
     return p ? `${p.number ? `#${p.number} ` : ''}${p.name}` : 'Player'
   }
 
+  /* A game plan is a set of decisions and a game day, not a clock of blocks.
+     It has its own editor. (Checked through a plain string so the practice
+     editor below still reads its own `kind === 'game'` wording without the
+     type checker calling it dead.) */
+  if ((plan.kind as string) === 'game') {
+    return (
+      <GamePlanEditor
+        plan={plan}
+        rosters={rosters}
+        playersByRoster={playersByRoster}
+        coaches={coaches}
+        plays={plays}
+        games={games}
+        canWrite={canWrite}
+      />
+    )
+  }
+
   /*
    * A note is a note.
    *
@@ -253,7 +287,7 @@ export function PlanEditor({
      not a running clock. */
   if (plan.kind === 'note' || plan.kind === 'scout') {
     return (
-      <form action={save}>
+      <form onSubmit={submit}>
         <input type="hidden" name="id" value={plan.id} />
         <input type="hidden" name="blocks" value="[]" />
         <input type="hidden" name="content" value={JSON.stringify(content)} />
@@ -298,7 +332,7 @@ export function PlanEditor({
   }
 
   return (
-    <form action={save}>
+    <form onSubmit={submit}>
       {/* The other team's plan. Read it, take what you want off it — but it is
           theirs, and the save is refused on the server as well as here. */}
       {!canWrite && (
@@ -636,6 +670,17 @@ export function PlanEditor({
                 )}
                 {assigned.length > 0 && <span className="text-[0.7rem] text-gray-400 shrink-0">{assigned.length}p</span>}
                 {b.board && <span className="text-[0.7rem] text-gray-400 shrink-0" title="Has a field diagram">▦</span>}
+                {/* Shows from the shut row so a coach flipping through an old
+                    plan can spot which blocks somebody wrote up afterwards. */}
+                {b.review?.trim() && (
+                  <span
+                    className="text-[0.65rem] font-bold rounded-full px-1.5 py-px shrink-0 border"
+                    style={{ color: 'var(--gh-green)', borderColor: 'var(--gh-green)' }}
+                    title="Has notes on how it went"
+                  >
+                    Notes
+                  </span>
+                )}
                 <span className="text-xs tabular-nums text-gray-500 shrink-0">{b.minutes}m</span>
                 <span className="text-gray-300 text-xs shrink-0">{open ? '▾' : '▸'}</span>
               </div>
@@ -774,6 +819,31 @@ export function PlanEditor({
                     placeholder="Coaching points, groups, what good looks like…"
                     className="field !py-1.5 text-sm"
                   />
+
+                  {/* After practice: what worked, what didn't, what to change
+                      next time. Folded away so it doesn't crowd the plan while
+                      building it, and it rides along when the plan is copied. */}
+                  <details className="group rounded-lg border border-gray-100">
+                    <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden px-2.5 py-2 min-h-9 flex items-center gap-2 text-xs font-bold text-gray-500">
+                      <span className="text-gray-300 transition-transform group-open:rotate-90">▸</span>
+                      <span className="shrink-0">How it went</span>
+                      {b.review?.trim() && (
+                        <span className="font-normal text-gray-400 truncate min-w-0">
+                          {b.review.trim().split('\n')[0]}
+                        </span>
+                      )}
+                    </summary>
+                    <div className="px-2.5 pb-2.5">
+                      <textarea
+                        value={b.review ?? ''}
+                        onChange={(e) => patch(b.id, { review: e.target.value })}
+                        rows={3}
+                        placeholder="Did it work? Too long, too short? What would you change next time?"
+                        className="field !py-1.5 text-sm"
+                        aria-label={`How ${b.title || 'this block'} went`}
+                      />
+                    </div>
+                  </details>
 
                   <div className="flex items-center gap-3 flex-wrap text-xs">
                     <button

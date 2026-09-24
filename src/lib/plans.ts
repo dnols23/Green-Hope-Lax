@@ -20,6 +20,8 @@ function shape(row: Record<string, unknown>): Plan {
     // Left raw here: only the note editor knows how to read it, and the
     // column is missing entirely until 0026 has been run.
     content: Array.isArray(row.content) ? (row.content as unknown[]) : [],
+    // A game plan's decisions (0042). Read properly with readGamePlan where used.
+    details: row.details && typeof row.details === 'object' ? row.details : {},
     roster_id: (row.roster_id as string) ?? null,
     // Rows written before the two staffs were split are varsity, which is what
     // they were.

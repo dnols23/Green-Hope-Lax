@@ -54,6 +54,7 @@ export type CalEventKind =
   | 'social'
   | 'fundraiser'
   | 'deadline'
+  | 'open'
 
 export const CAL_EVENT_KINDS: { key: CalEventKind; label: string; icon: string }[] = [
   { key: 'event', label: 'Event', icon: '📌' },
@@ -64,6 +65,8 @@ export const CAL_EVENT_KINDS: { key: CalEventKind; label: string; icon: string }
   { key: 'social', label: 'Team social', icon: '🍕' },
   { key: 'fundraiser', label: 'Fundraiser', icon: '💵' },
   { key: 'deadline', label: 'Deadline', icon: '⏰' },
+  // A field or gym nobody has booked — where an off-season workout can go.
+  { key: 'open', label: 'Open field', icon: '🟩' },
 ]
 
 export function isCalEventKind(v: unknown): v is CalEventKind {
@@ -177,6 +180,7 @@ export const KIND_COLORS: Record<string, { bg: string; fg: string; border: strin
   social: { bg: '#e87ba4', fg: '#3b0a1f', border: '#c75d86' },
   fundraiser: { bg: '#eda100', fg: '#3a2800', border: '#c48400' },
   deadline: { bg: '#e34948', fg: '#ffffff', border: '#b83332' },
+  open: { bg: '#dcf2e4', fg: '#00512F', border: '#6fbf8f' },
   unavailable: { bg: '#fde8ea', fg: '#7A1F2B', border: '#f3b8bf' },
   available: { bg: '#e3f4ea', fg: '#00512F', border: '#a9d8bd' },
 }

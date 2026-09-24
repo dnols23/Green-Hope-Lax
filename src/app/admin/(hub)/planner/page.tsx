@@ -5,6 +5,7 @@ import { listRosters } from '@/lib/rosters'
 import { createPlan } from '@/lib/actions'
 import { PLAN_KINDS, formatMinutes, totalMinutes, minutesByTag } from '@/lib/planner'
 import { describeNote, readNoteBlocks } from '@/lib/noteBlocks'
+import { describeGamePlan, readGamePlan } from '@/lib/gamePlan'
 import { formatShortDate } from '@/lib/format'
 import { teamLabel, withTeam } from '@/lib/teams'
 
@@ -16,7 +17,11 @@ export default async function PlannerPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const { team, locked } = await requireTeam('planner', (await searchParams).team)
+  const sp = await searchParams
+  const { team, locked } = await requireTeam('planner', sp.team)
+  // Set when a plan could not be made (see createPlan).
+  const failed = typeof sp.error === 'string' ? sp.error : null
+  const failedKind = typeof sp.kind === 'string' ? sp.kind : null
 
   if (!(await plannerReady())) {
     return (
@@ -57,6 +62,23 @@ export default async function PlannerPage({
         </p>
       </div>
 
+      {failed && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3" role="alert">
+          {failed === 'kind' ? (
+            <>
+              <p className="text-sm text-amber-900 font-bold mb-1">
+                The database won&rsquo;t take a {failedKind === 'scout' ? 'scout' : 'plan of that kind'} yet.
+              </p>
+              <p className="text-sm text-amber-900">
+                Run <code>supabase/migrations/0042_game_plans.sql</code> in the Supabase SQL editor, then try again.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-amber-900 font-bold">That plan couldn&rsquo;t be made. Try again in a moment.</p>
+          )}
+        </div>
+      )}
+
       <div className="grid sm:grid-cols-3 gap-3">
         {PLAN_KINDS.map((k) => (
           <form key={k.key} action={createPlan} className="card p-4 flex flex-col">
@@ -80,7 +102,9 @@ export default async function PlannerPage({
             <div className="space-y-2">
               {group.map((p) => {
                 const mins = totalMinutes(p.blocks)
-                const tags = minutesByTag(p.blocks)
+                // A game plan has no running clock; what shows is how much of it is decided.
+                const tags = p.kind === 'game' ? [] : minutesByTag(p.blocks)
+                const gameLine = p.kind === 'game' ? describeGamePlan(readGamePlan(p.details)) : ''
                 return (
                   <Link
                     key={p.id}
@@ -109,7 +133,10 @@ export default async function PlannerPage({
                         {describeNote(readNoteBlocks(p.content))}
                       </div>
                     )}
-                    {p.kind !== 'note' && (
+                    {p.kind === 'game' && gameLine && (
+                      <div className="text-xs text-gray-400 shrink-0 text-right max-w-[45%]">{gameLine}</div>
+                    )}
+                    {p.kind !== 'note' && p.kind !== 'game' && (
                       <div className="text-right shrink-0">
                         <div className="text-lg font-black" style={{ color: 'var(--gh-green)' }}>
                           {formatMinutes(mins)}

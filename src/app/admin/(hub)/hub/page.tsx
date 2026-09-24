@@ -7,6 +7,7 @@ import { HUB_MODES, isModeOn } from '@/lib/hubModes'
 import { saveHubModes, createPlan } from '@/lib/actions'
 import { listPlans, plannerReady } from '@/lib/plans'
 import { getGames } from '@/lib/queries'
+import { listRosters } from '@/lib/rosters'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { loadWall } from '@/lib/wallData'
 import { WallPanel } from '@/components/wall/WallPanel'
@@ -19,6 +20,8 @@ import { audienceLabel, colorFor, type CalItem } from '@/lib/calendarModel'
 import { addDaysYmd, hmOf, ymdOf, zoneParts, zonedToUtc } from '@/lib/zoned'
 import { WarRoomPanels, type Panel } from './WarRoomPanels'
 import { PrioritiesPanel } from './PriorityRow'
+import { GameDayPanel, MakeGamePlanButton, findGamePlan, gameDay, planDateLabel } from './GameTiles'
+import { describeGamePlan, readGamePlan } from '@/lib/gamePlan'
 
 export const metadata = { title: 'War Room' }
 export const dynamic = 'force-dynamic'
@@ -26,6 +29,11 @@ export const dynamic = 'force-dynamic'
 /** Today where the team is, not where the server is. */
 function todayIso(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TEAM_TIME_ZONE }).format(new Date())
+}
+
+/** The clock where the team is, "HH:MM" — for placing game day's current step. */
+function nowHm(): string {
+  return hmOf(new Date())
 }
 
 // ── The week ahead ───────────────────────────────────────────────────────────
@@ -190,16 +198,33 @@ export default async function WarRoom({
   const gamePlans = plans.filter((p) => p.kind === 'game').slice(0, 3)
 
   const games = await getGames(undefined, 'admin', team)
+  const publicRosterId = (await listRosters().catch(() => [])).find((r) => r.is_public)?.id ?? ''
   const upcoming = games
-    .filter((g) => g.game_date >= today && g.status !== 'final')
+    .filter((g) => ymdOf(g.game_date) >= today && g.status !== 'final')
     .slice(0, 4)
-  const gamesToday = games.filter((g) => g.game_date.slice(0, 10) === today)
+  const gamesToday = games.filter((g) => ymdOf(g.game_date) === today)
   /* Who we play next, and the scout for them if somebody has started one — a
      scout is a plan of its own kind, dated to the game. */
   const nextGame = upcoming[0] ?? null
+  /* The game's day where the team is. Scouts made before this was fixed were
+     dated by the server's clock, which puts a late game on the next day, so
+     either date finds the scout. */
+  const scoutDays = nextGame ? [gameDay(nextGame), nextGame.game_date.slice(0, 10)] : []
   const scout = nextGame
-    ? plans.find((p) => p.kind === 'scout' && p.plan_date === nextGame.game_date.slice(0, 10)) ?? null
+    ? plans.find((p) => p.kind === 'scout' && p.plan_date !== null && scoutDays.includes(p.plan_date)) ?? null
     : null
+  /* The latest scouts, newest touched first rather than by date, so one
+     started without a date — an opponent not on the schedule yet — still
+     turns up here. */
+  const recentScouts = plans
+    .filter((p) => p.kind === 'scout' && p.id !== scout?.id)
+    .sort((a, b) => (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at))
+    .slice(0, 3)
+  // The next game's game plan, which both the Game plans and Game day tiles read.
+  const nextGamePlan = nextGame ? findGamePlan(plans, nextGame) : null
+  /* Buttons that make a plan only show to a coach who can write on this side
+     of the program — anyone else would press one and get nothing. */
+  const mayPlan = hasPlanner && canTeam(viewer, team)
 
   /* The wall and the priorities load alongside each other. Neither can take
      the War Room down: a table that isn't there yet reads as empty. */
@@ -397,63 +422,132 @@ export default async function WarRoom({
     {
       key: 'gameplans',
       title: 'Game plans',
-      body:
-        gamePlans.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            None written.{' '}
-            <Link href={withTeam('/admin/planner', team)} className="font-semibold text-[var(--gh-green)]">Start one →</Link>
-          </p>
-        ) : (
-          <ul className="space-y-1">
-            {gamePlans.map((p) => (
-              <li key={p.id} className="text-sm">
-                <Link href={`/admin/planner/${p.id}`} className="font-semibold hover:underline">{p.title}</Link>
-                <span className="text-xs text-gray-400 ml-2">
-                  {p.plan_date ? formatShortDate(p.plan_date) : 'no date'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ),
+      body: (
+        <div>
+          {gamePlans.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              None written.{' '}
+              <Link href={withTeam('/admin/planner', team)} className="font-semibold text-[var(--gh-green)]">Start one →</Link>
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {gamePlans.map((p) => {
+                const progress = describeGamePlan(readGamePlan(p.details))
+                return (
+                  <li key={p.id} className="text-sm min-w-0">
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <Link
+                        href={withTeam(`/admin/planner/${p.id}`, team)}
+                        className="flex-1 w-0 truncate font-semibold hover:underline"
+                      >
+                        {p.title}
+                      </Link>
+                      <span className="text-xs text-gray-400 shrink-0">{planDateLabel(p.plan_date)}</span>
+                    </div>
+                    <div className="text-xs text-gray-500">{progress || 'Nothing decided yet'}</div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          {/* The next game with no plan against it gets the button that starts
+              one, already pointed at that opponent and faceoff. */}
+          {nextGame && !nextGamePlan && mayPlan && (
+            <div className="mt-3">
+              <MakeGamePlanButton game={nextGame} team={team} rosterId={publicRosterId} />
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       key: 'scout',
       title: nextGame ? 'Next opponent' : 'Scouting',
-      body: !nextGame ? (
-        <p className="text-sm text-gray-500">
-          Nothing on the schedule to scout yet.
-        </p>
-      ) : (
+      body: (
         <div className="text-sm">
-          <div className="font-bold text-base leading-tight">
-            {nextGame.home_away === 'away' ? '@' : 'vs'} {nextGame.opponent}
-          </div>
-          <div className="text-gray-500">
-            {formatShortDate(nextGame.game_date)} · {formatTime(nextGame.game_date)}
-            {nextGame.location ? ` · ${nextGame.location}` : ''}
-            {nextGame.is_conference ? ' · conference' : ''}
-          </div>
-          <div className="mt-2">
-            {scout ? (
-              <Link href={withTeam(`/admin/planner/${scout.id}`, team)} className="font-semibold hover:underline">
-                🔭 {scout.title} →
-              </Link>
-            ) : (
-              /* No scout yet, so the button makes one already named and dated
-                 for this opponent — the scouting starts on the next screen,
-                 not after ten seconds of filling in a form. */
-              <form action={createPlan}>
-                <input type="hidden" name="kind" value="scout" />
-                <input type="hidden" name="team" value={team} />
-                <input type="hidden" name="title" value={`Scout — ${nextGame.opponent}`} />
-                <input type="hidden" name="plan_date" value={nextGame.game_date.slice(0, 10)} />
-                <button type="submit" className="font-semibold hover:underline" style={{ color: 'var(--gh-green)' }}>
-                  🔭 Scout them →
-                </button>
-              </form>
-            )}
-          </div>
+          {nextGame ? (
+            <>
+              <div className="font-bold text-base leading-tight break-words">
+                {nextGame.home_away === 'away' ? '@' : 'vs'} {nextGame.opponent}
+              </div>
+              <div className="text-gray-500">
+                {formatShortDate(nextGame.game_date)} · {formatTime(nextGame.game_date)}
+                {nextGame.location ? ` · ${nextGame.location}` : ''}
+                {nextGame.is_conference ? ' · conference' : ''}
+              </div>
+              <div className="mt-2">
+                {scout ? (
+                  <Link href={withTeam(`/admin/planner/${scout.id}`, team)} className="font-semibold hover:underline">
+                    🔭 {scout.title} →
+                  </Link>
+                ) : mayPlan ? (
+                  /* No scout yet, so the button makes one already named and dated
+                     for this opponent — the scouting starts on the next screen,
+                     not after ten seconds of filling in a form. */
+                  <form action={createPlan}>
+                    <input type="hidden" name="kind" value="scout" />
+                    <input type="hidden" name="team" value={team} />
+                    <input type="hidden" name="title" value={`Scout — ${nextGame.opponent}`} />
+                    <input type="hidden" name="plan_date" value={gameDay(nextGame)} />
+                    <button type="submit" className="btn btn-primary">
+                      🔭 Scout them
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-gray-500">Nobody has scouted them yet.</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-500">Nothing on the schedule.</p>
+          )}
+
+          {recentScouts.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="text-xs font-black uppercase tracking-wide text-gray-500 mb-1">Recent scouts</div>
+              <ul className="space-y-0.5">
+                {recentScouts.map((p) => (
+                  <li key={p.id} className="flex items-center gap-2 min-h-9 min-w-0">
+                    <Link
+                      href={withTeam(`/admin/planner/${p.id}`, team)}
+                      className="flex-1 w-0 truncate font-semibold hover:underline"
+                    >
+                      {p.title}
+                    </Link>
+                    <span className="text-xs text-gray-400 shrink-0">{planDateLabel(p.plan_date)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Always here, game or no game: a scout for a team further down the
+              schedule, or one met in a tournament, starts the same way. */}
+          {mayPlan && (
+            <form action={createPlan} className="mt-3">
+              <input type="hidden" name="kind" value="scout" />
+              <input type="hidden" name="team" value={team} />
+              <button type="submit" className={nextGame ? 'btn btn-ghost' : 'btn btn-primary'}>
+                + New scout
+              </button>
+            </form>
+          )}
         </div>
+      ),
+    },
+    {
+      key: 'gameday',
+      title: 'Game day',
+      body: (
+        <GameDayPanel
+          game={nextGame}
+          plan={nextGamePlan}
+          team={team}
+          today={today}
+          nowHm={nowHm()}
+          mayPlan={mayPlan}
+          rosterId={publicRosterId}
+        />
       ),
     },
     {

@@ -220,3 +220,134 @@ export function whoIsOut<
   out.sort((a, b) => a.coachName.localeCompare(b.coachName, 'en', { sensitivity: 'base' }))
   return out
 }
+
+// ── Overlaps ─────────────────────────────────────────────────────────────────
+//
+// A coach can't be two things at once, so no two of their blocks may cover the
+// same stretch of time — two "Available all day Thursday"s, or "Out Tuesday
+// evenings" on top of "Available Tuesday 5–7". Status doesn't matter; any
+// overlap is a mistake. Finishing at six and starting at six is fine.
+
+/** One time round of a block, as instants. */
+export interface AvailabilityOccurrence {
+  startsAt: string
+  endsAt: string
+}
+
+/**
+ * Every time round of a block that touches [from, to). The browser uses
+ * expandLocalAvailability below; the server hands in calendarData's
+ * expandAvailability, which reads the team's clock rather than its own UTC.
+ */
+export type ExpandAvailability = (a: Availability, from: Date, to: Date) => AvailabilityOccurrence[]
+
+/** How far ahead two open-ended weekly blocks are checked — a season and then some. */
+export const OVERLAP_HORIZON_DAYS = 400
+
+// Weekly blocks are walked in slices this long, so no one call has to hand
+// back more than a few dozen weeks.
+const SLICE_MS = 180 * DAY_MS
+
+/**
+ * expandAvailability on the browser's clock: whole calendar weeks, so a
+ * Tuesday four to six is still four to six after the clocks change.
+ */
+export function expandLocalAvailability(a: Availability, from: Date, to: Date): AvailabilityOccurrence[] {
+  const start = new Date(a.startsAt)
+  const end = new Date(a.endsAt)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
+  if (!a.repeatWeekly) {
+    return start < to && end > from ? [{ startsAt: a.startsAt, endsAt: a.endsAt }] : []
+  }
+  const out: AvailabilityOccurrence[] = []
+  const first = Math.max(0, Math.floor((from.getTime() - end.getTime()) / (7 * DAY_MS)) - 1)
+  for (let n = first; n < first + 60; n++) {
+    const s = new Date(start.getFullYear(), start.getMonth(), start.getDate() + n * 7, start.getHours(), start.getMinutes())
+    if (a.repeatUntil && localYmd(s) > a.repeatUntil) break
+    if (s >= to) break
+    const e = new Date(end.getFullYear(), end.getMonth(), end.getDate() + n * 7, end.getHours(), end.getMinutes())
+    if (e > from) out.push({ startsAt: s.toISOString(), endsAt: e.toISOString() })
+  }
+  return out
+}
+
+/** First start to last finish, in milliseconds. A weekly block with no end runs for ever. */
+function reachOf(a: Availability): { from: number; to: number } | null {
+  const start = new Date(a.startsAt).getTime()
+  const end = new Date(a.endsAt).getTime()
+  if (Number.isNaN(start) || Number.isNaN(end)) return null
+  if (!a.repeatWeekly) return { from: start, to: end }
+  if (!a.repeatUntil) return { from: start, to: Infinity }
+  // A couple of days' slack past the last week, so a clock change or a
+  // different time zone on the server never cuts the last one off. The
+  // expander itself decides exactly which weeks count.
+  return { from: start, to: localMidnight(a.repeatUntil).getTime() + 2 * DAY_MS + (end - start) }
+}
+
+/** Do any two times round of these blocks cover the same moment? */
+export function availabilityOverlaps(
+  a: Availability,
+  b: Availability,
+  expand: ExpandAvailability = expandLocalAvailability,
+): boolean {
+  const ra = reachOf(a)
+  const rb = reachOf(b)
+  if (!ra || !rb) return false
+  // Only the stretch both could reach is worth walking.
+  const from = Math.max(ra.from, rb.from)
+  let to = Math.min(ra.to, rb.to, from + OVERLAP_HORIZON_DAYS * DAY_MS)
+  // Two weekly blocks line up the same way every week, so once both are
+  // running a few weeks shows everything a whole season would.
+  if (a.repeatWeekly && b.repeatWeekly) to = Math.min(to, from + 21 * DAY_MS)
+  if (!(from < to)) return false
+
+  for (let sliceFrom = from; sliceFrom < to; sliceFrom += SLICE_MS) {
+    const window: [Date, Date] = [new Date(sliceFrom), new Date(Math.min(sliceFrom + SLICE_MS, to))]
+    const as = expand(a, ...window)
+    if (as.length === 0) continue
+    const bs = expand(b, ...window)
+    for (const x of as) {
+      const xs = new Date(x.startsAt).getTime()
+      const xe = new Date(x.endsAt).getTime()
+      for (const y of bs) {
+        // Strictly inside each other: 4–6 then 6–8 only touch.
+        if (xs < new Date(y.endsAt).getTime() && new Date(y.startsAt).getTime() < xe) return true
+      }
+    }
+  }
+  return false
+}
+
+/**
+ * The first of `others` a block would overlap, or null when it fits. A block
+ * never clashes with itself, so an edit can be checked against the whole list.
+ */
+export function findAvailabilityClash<T extends Availability>(
+  block: Availability,
+  others: T[],
+  expand: ExpandAvailability = expandLocalAvailability,
+): T | null {
+  for (const o of others) {
+    if (block.id && o.id === block.id) continue
+    if (availabilityOverlaps(block, o, expand)) return o
+  }
+  return null
+}
+
+/** Every block in a list that overlaps another in the same list. */
+export function overlappingAvailabilityIds(
+  list: Availability[],
+  expand: ExpandAvailability = expandLocalAvailability,
+): Set<string> {
+  const ids = new Set<string>()
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      if (ids.has(list[i].id) && ids.has(list[j].id)) continue
+      if (availabilityOverlaps(list[i], list[j], expand)) {
+        ids.add(list[i].id)
+        ids.add(list[j].id)
+      }
+    }
+  }
+  return ids
+}
