@@ -1047,3 +1047,40 @@
   background: var(--vb-accent);
   flex-shrink: 0;
 }
+
+/* ── Phones ──
+   The board was laid out for a laptop. On a phone the toolbar wraps so film
+   names get their own row, the transport drops what a thumb doesn't need
+   (±10s — ±5s and frame steps stay; hardware buttons do volume), and the clip
+   list comes up from the bottom instead of covering the film from the side. */
+@media (max-width: 760px) {
+  .toolbar { flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+  .libraryStrip { order: 10; flex: 1 1 100%; }
+  .libraryStrip:has(.libEmpty) { display: none; }
+
+  .tWide { display: none; }
+  .volSlider { display: none; }
+  .tRow { gap: 2px; }
+  .tBtn { width: 36px; height: 36px; }
+  .tPlay { width: 42px; }
+  .timeText { margin: 0 4px; font-size: 0.7rem; }
+  .controls { padding: 22px 8px 6px; }
+
+  .clipBar { gap: 6px; padding: 7px 8px; }
+  .clipNameInput { flex: 1 1 140px; }
+  .markBtn, .saveBtn { min-height: 34px; }
+
+  .drawer {
+    top: auto;
+    left: 0;
+    width: 100%;
+    height: min(58%, 420px);
+    border-left: none;
+    border-top: 1px solid var(--vb-line);
+    border-radius: 14px 14px 0 0;
+    transform: translateY(102%);
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.6);
+  }
+  .drawer.drawerOpen { transform: translateY(0); }
+  .clipAct { width: 40px; height: 40px; }
+}

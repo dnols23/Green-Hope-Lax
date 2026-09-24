@@ -11,7 +11,7 @@ export default async function AdminFilmLibrary() {
   // Turned off for coaches in Admin → Pages.
   await assertPageVisible('film-coaches')
   return (
-    <div className="flex-1 flex flex-col" style={{ background: '#0b0d0c' }}>
+    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col" style={{ background: '#0b0d0c' }}>
       <Library basePath="/admin/film" />
     </div>
   )
