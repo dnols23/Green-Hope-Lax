@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
   const [ready, availReady] = await Promise.all([calendarReady(), availabilityReady()])
   const [items, mine] = await Promise.all([
-    listCalendarItems({ from, to, surface: 'coach', viewer }),
+    listCalendarItems({ from, to, surface: 'coach', viewer, withFieldTimes: true }),
     availReady ? listMyAvailability(viewer.email) : Promise.resolve([]),
   ])
 

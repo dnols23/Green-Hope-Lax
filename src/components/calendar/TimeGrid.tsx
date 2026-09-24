@@ -18,7 +18,7 @@ import {
   type Positioned,
 } from '@/lib/calendarMath'
 import { whoIsOut } from '@/lib/availabilityText'
-import { HOUR_PX, MIN_PX, SCROLL_TO_HOUR, dayKey, isAvailability, itemTitle, gridTitle, shortTime, surname, coachLabel } from './calShared'
+import { HOUR_PX, MIN_PX, SCROLL_TO_HOUR, dayKey, isAvailability, isFieldTime, itemTitle, gridTitle, shortTime, surname, coachLabel } from './calShared'
 
 /**
  * The day and week views: a 24-hour grid, one column per day.
@@ -120,8 +120,9 @@ export function TimeGrid({ days, items, now, canCreate, onOpen, onOpenOut, onCre
   // ── What goes where ──────────────────────────────────────────────────────
 
   const layout = useMemo(() => {
-    const events = items.filter((i) => !isAvailability(i))
+    const events = items.filter((i) => !isAvailability(i) && !isFieldTime(i))
     const avail = items.filter(isAvailability)
+    const fieldTimes = items.filter(isFieldTime)
     const bandItems = events.filter(isAllDayish)
     const timed = events.filter((i) => !isAllDayish(i))
 
@@ -144,6 +145,8 @@ export function TimeGrid({ days, items, now, canCreate, onOpen, onOpenOut, onCre
       return {
         day,
         blocks: layoutDay(timed, day),
+        // Open field time sits underneath, side by side only with other open slots.
+        fields: layoutDay(fieldTimes, day),
         strips,
         availToday,
         out: whoIsOut(availToday),
@@ -496,7 +499,7 @@ export function TimeGrid({ days, items, now, canCreate, onOpen, onOpenOut, onCre
               backgroundPosition: `0 0, 0 ${HOUR_PX / 2}px`,
             }}
           >
-            {perDay.map(({ day, blocks, strips }, col) => {
+            {perDay.map(({ day, blocks, fields, strips }, col) => {
               const today = nowDate ? sameDay(day, nowDate) : false
               return (
                 <div
@@ -530,6 +533,29 @@ export function TimeGrid({ days, items, now, canCreate, onOpen, onOpenOut, onCre
                           boxShadow: `inset 0 0 0 1px ${out ? '#e8aab2' : '#a9d8bd'}`,
                         }}
                       />
+                    )
+                  })}
+
+                  {/* Field availability: open slots, dashed and see-through, under the real events. */}
+                  {fields.map((p) => {
+                    const it = p.item
+                    const px = p.height * MIN_PX
+                    const w = `calc((100% - ${STRIP_W + 2}px) / ${p.lanes} - 2px)`
+                    const l = `calc((100% - ${STRIP_W + 2}px) * ${p.lane} / ${p.lanes} + 1px)`
+                    return (
+                      <button
+                        key={it.key}
+                        type="button"
+                        data-block
+                        onClick={() => onOpen(it)}
+                        title={`${it.location ?? itemTitle(it)} open · ${formatRange(it.startsAt, it.endsAt, false)}`}
+                        className="absolute rounded-md text-left overflow-hidden px-1.5 py-0.5 cal-open-slot"
+                        style={{ top: p.top * MIN_PX + 1, height: Math.max(px - 2, 14), left: l, width: w }}
+                      >
+                        <span className="block text-[0.66rem] font-semibold leading-tight truncate">
+                          {it.location ?? itemTitle(it)}
+                        </span>
+                      </button>
                     )
                   })}
 

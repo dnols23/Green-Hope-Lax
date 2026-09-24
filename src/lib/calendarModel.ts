@@ -65,8 +65,8 @@ export const CAL_EVENT_KINDS: { key: CalEventKind; label: string; icon: string }
   { key: 'social', label: 'Team social', icon: '🍕' },
   { key: 'fundraiser', label: 'Fundraiser', icon: '💵' },
   { key: 'deadline', label: 'Deadline', icon: '⏰' },
-  // A field or gym nobody has booked — where an off-season workout can go.
-  { key: 'open', label: 'Open field', icon: '🟩' },
+  // A field or room nobody has booked — where an off-season workout can go.
+  { key: 'open', label: 'Field availability', icon: '🟩' },
 ]
 
 export function isCalEventKind(v: unknown): v is CalEventKind {

@@ -14,7 +14,7 @@ import {
   startOfDay,
 } from '@/lib/calendarMath'
 import { whoIsOut, timeLabel } from '@/lib/availabilityText'
-import { AUDIENCE_TONE, audienceBadge, dayKey, isAvailability, itemTitle, kindMeta, surname, teamLabel, coachLabel } from './calShared'
+import { AUDIENCE_TONE, audienceBadge, dayKey, isAvailability, isFieldTime, itemTitle, kindMeta, surname, teamLabel, coachLabel } from './calShared'
 
 /**
  * The next two months as a list, a day at a time.
@@ -69,7 +69,8 @@ export function AgendaView({ from, items, now, canCreate, onOpen, onOpenOut, onN
   return (
     <div className="rounded-xl border border-gray-200 bg-white">
       {days.map(({ day, items: onDay }, index) => {
-        const events = onDay.filter((i) => !isAvailability(i))
+        const events = onDay.filter((i) => !isAvailability(i) && !isFieldTime(i))
+        const openSlots = onDay.filter(isFieldTime)
         const avail = onDay.filter(isAvailability)
         const out = whoIsOut(avail)
         const free = avail.filter((a) => a.kind === 'available')
@@ -122,13 +123,27 @@ export function AgendaView({ from, items, now, canCreate, onOpen, onOpenOut, onN
             </div>
 
             {events.length === 0 ? (
-              <p className="px-4 py-2.5 text-sm text-gray-400">Nothing scheduled — just staff availability.</p>
+              <p className="px-4 py-2.5 text-sm text-gray-400">Nothing scheduled.</p>
             ) : (
               <ul>
                 {events.map((it) => (
                   <AgendaRow key={it.key} item={it} day={day} onOpen={onOpen} />
                 ))}
               </ul>
+            )}
+            {openSlots.length > 0 && (
+              <div className="px-3 sm:px-4 pb-2.5 flex flex-wrap gap-1.5">
+                {openSlots.map((it) => (
+                  <button
+                    key={it.key}
+                    type="button"
+                    onClick={() => onOpen(it)}
+                    className="rounded-md px-2 py-1 text-xs font-semibold cal-open-slot"
+                  >
+                    {it.location ?? itemTitle(it)} open · {formatRange(it.startsAt, it.endsAt, false)}
+                  </button>
+                ))}
+              </div>
             )}
           </section>
         )

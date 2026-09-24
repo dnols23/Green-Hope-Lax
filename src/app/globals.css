@@ -456,3 +456,19 @@ html[data-theme='dark'] .app-theme .keep-light {
   background: #ffffff;
   color: #141414;
 }
+
+/* Field availability on the coaches' calendar: open slots, not events — dashed,
+   see-through, never solid like something that is actually happening. */
+.cal-open-slot {
+  border: 1.5px dashed #6fbf8f;
+  color: #1d6b43;
+  background: repeating-linear-gradient(135deg, rgb(111 191 143 / 0.16) 0 5px, transparent 5px 10px);
+}
+.cal-open-slot:hover { background-color: rgb(111 191 143 / 0.12); }
+.cal-open-dot { border: 1.5px dashed #4fa574; background: transparent; }
+html[data-theme='dark'] .app-theme .cal-open-slot {
+  border-color: #3f8a60;
+  color: #8fd6ad;
+  background: repeating-linear-gradient(135deg, rgb(79 165 116 / 0.18) 0 5px, transparent 5px 10px);
+}
+html[data-theme='dark'] .app-theme .cal-open-dot { border-color: #5bb483; }

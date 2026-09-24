@@ -62,6 +62,9 @@ export function layerOf(item: Pick<CalItem, 'source'>): CalLayer {
 
 export const isAvailability = (item: Pick<CalItem, 'source'>) => item.source === 'availability'
 
+/** An open field or weight-room slot: room to schedule into, not something happening. */
+export const isFieldTime = (item: Pick<CalItem, 'source' | 'kind'>) => item.source === 'event' && item.kind === 'open'
+
 // ── Words ───────────────────────────────────────────────────────────────────
 
 export function teamLabel(team: CalTeam): string {
