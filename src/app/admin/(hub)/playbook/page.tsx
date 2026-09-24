@@ -133,13 +133,21 @@ export default async function PlaybookPage({
       )}
 
       {owner && ready && (
-        <form action={addPlaybookPage} className="card p-4 mt-5 flex items-end gap-2 flex-wrap">
+        <form action={addPlaybookPage} className="card p-4 mt-5 space-y-3">
           <input type="hidden" name="team" value={team} />
-          <div className="flex-1 min-w-[12rem]">
-            <label className="field-label">New page</label>
-            <input name="title" placeholder="2-3-1 — the first look" className="field" />
+          <div>
+            <label className="field-label" htmlFor="new-page-title">New page</label>
+            <input id="new-page-title" name="title" placeholder="2-3-1 — the first look" className="field" />
           </div>
-          <button type="submit" className="btn btn-primary">Add page</button>
+          {/* What sort of page. A field page is the field, full screen, drawn on
+              directly; a words page is a title and text; a picture page is a
+              photo from the phone, the computer or Drive. */}
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" name="kind" value="field" className="btn btn-primary">🥍 Field page</button>
+            <button type="submit" name="kind" value="field-half" className="btn btn-ghost">🥅 Half-field page</button>
+            <button type="submit" name="kind" value="words" className="btn btn-ghost">✍️ Words page</button>
+            <button type="submit" name="kind" value="picture" className="btn btn-ghost">🖼 Picture page</button>
+          </div>
         </form>
       )}
     </div>

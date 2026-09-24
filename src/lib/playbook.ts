@@ -53,8 +53,29 @@ export function readFrame(raw: unknown): Frame | undefined {
   return clampFrame({ x, y, w, h })
 }
 
-/** How a page arranges what is on it. */
-export type PageLayout = 'split' | 'stack' | 'full' | 'free'
+/**
+ * What a page is.
+ *
+ * Three kinds a playbook is made of:
+ *
+ *   field    the page is the field — full field or one end, turned or not,
+ *            grass edge to edge. The words, arrows and players are drawn on
+ *            the field itself.
+ *   words    a title and what you want to say: a section divider, the
+ *            install plan, the calls.
+ *   picture  a photo or a screenshot, the whole page.
+ *
+ * The older arranged layouts (free, side by side, stacked, full bleed) still
+ * read and still edit, for the pages made before these.
+ */
+export type PageKind = 'field' | 'words' | 'picture'
+export type PageLayout = PageKind | 'split' | 'stack' | 'full' | 'free'
+
+export const PAGE_KINDS: { key: PageKind; label: string; icon: string; hint: string }[] = [
+  { key: 'field', label: 'Field', icon: '🥍', hint: 'The page is the field. Draw on it full screen — players, runs, words.' },
+  { key: 'words', label: 'Words', icon: '✍️', hint: 'A title and what you want to say.' },
+  { key: 'picture', label: 'Picture', icon: '🖼', hint: 'A photo or screenshot, the whole page.' },
+]
 
 export const PAGE_LAYOUTS: { key: PageLayout; label: string; hint: string }[] = [
   { key: 'free', label: 'Free', hint: 'Put everything exactly where you want it. Drag to move, pull a corner to resize.' },
@@ -63,8 +84,27 @@ export const PAGE_LAYOUTS: { key: PageLayout; label: string; hint: string }[] = 
   { key: 'full', label: 'Full bleed', hint: 'The play as big as the page allows.' },
 ]
 
+export function isPageKind(v: unknown): v is PageKind {
+  return v === 'field' || v === 'words' || v === 'picture'
+}
+
 export function isLayout(v: unknown): v is PageLayout {
-  return v === 'split' || v === 'stack' || v === 'full' || v === 'free'
+  return isPageKind(v) || v === 'split' || v === 'stack' || v === 'full' || v === 'free'
+}
+
+/** The first block of a kind on a page — a field page's field, a picture page's picture. */
+export function firstOf<K extends SlideBlock['kind']>(blocks: SlideBlock[], kind: K): Extract<SlideBlock, { kind: K }> | null {
+  return (blocks.find((b) => b.kind === kind) as Extract<SlideBlock, { kind: K }> | undefined) ?? null
+}
+
+/** A new page's blocks, by kind. A field page starts as a blank field of its own. */
+export function startingBlocks(kind: PageKind, opts: { half?: boolean; playId?: string } = {}): SlideBlock[] {
+  if (kind === 'field') {
+    if (opts.playId) return [{ kind: 'play', id: 'b1', playId: opts.playId }]
+    return [{ kind: 'play', id: 'b1', playId: '', board: opts.half ? { ...EMPTY_BOARD, view: { half: 'right' } } : EMPTY_BOARD }]
+  }
+  if (kind === 'words') return [{ kind: 'text', id: 'b1', body: '', size: 'body' }]
+  return []
 }
 
 export type TextSize = 'heading' | 'body' | 'small'

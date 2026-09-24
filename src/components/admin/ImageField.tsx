@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { shrinkImage as shrink } from '@/lib/uploadImage'
 
 /**
  * Pick a photo from the phone — no links, no file manager, no hosting account.
@@ -13,40 +14,6 @@ import { useRef, useState } from 'react'
  * The value it produces is an ordinary URL in a hidden field, so the form and
  * the server action behind it never had to change.
  */
-
-const MAX_EDGE = 1600
-const QUALITY = 0.85
-
-async function shrink(file: File): Promise<Blob> {
-  // A GIF is usually animated and a canvas would flatten it to one frame.
-  if (file.type === 'image/gif') return file
-
-  // A format the browser cannot decode is sent as it came; the server is the
-  // one that decides what it will accept.
-  let bitmap: ImageBitmap
-  try {
-    bitmap = await createImageBitmap(file)
-  } catch {
-    return file
-  }
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
-  const w = Math.round(bitmap.width * scale)
-  const h = Math.round(bitmap.height * scale)
-
-  const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return file
-  ctx.drawImage(bitmap, 0, 0, w, h)
-  bitmap.close()
-
-  // PNG keeps transparency — a logo on a transparent background would come back
-  // with a black box behind it as a JPEG.
-  const type = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
-  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, type, QUALITY))
-  return blob ?? file
-}
 
 /**
  * Why a pasted link will not work, when we can tell before the browser tries.

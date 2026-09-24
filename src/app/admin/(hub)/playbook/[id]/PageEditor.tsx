@@ -3,10 +3,12 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useState, useTransition } from 'react'
 import { SlideCanvas } from '@/components/playbook/SlideCanvas'
+import { FieldEditor, PictureEditor, WordsEditor } from './KindEditors'
 import type { SlidePlay } from '@/components/playbook/BlockArt'
 import { deletePlaybookPage, savePlaybookPage } from '@/lib/playbookActions'
 import {
   BLOCK_KINDS,
+  PAGE_KINDS,
   PAGE_LAYOUTS,
   SHAPES,
   SLIDE_COLORS,
@@ -15,6 +17,8 @@ import {
   blockId,
   clampFrame,
   emptyBlock,
+  firstOf,
+  isPageKind,
   type Frame,
   type InsertKind,
   type PageLayout,
@@ -90,6 +94,22 @@ export function PageEditor({
      out for you that you then rearrange is a page you rearranged. */
   const takeOver = () => setLayout('free')
 
+  /* Changing what sort of page it is keeps what is already on it, and makes
+     sure the new kind has the thing it is made of. */
+  function switchTo(next: PageLayout) {
+    if (next === layout) return
+    if (next === 'field' && !firstOf(blocks, 'play')) {
+      setBlocks((bs) => [{ kind: 'play', id: blockId(), playId: '', board: EMPTY_BOARD }, ...bs])
+    }
+    if (next === 'words' && !firstOf(blocks, 'text')) {
+      setBlocks((bs) => [...bs, { kind: 'text', id: blockId(), body: '', size: 'body' }])
+    }
+    if (next === 'free') setBlocks((bs) => autoFrames(bs, 'free'))
+    setLayout(next)
+  }
+  const kind = isPageKind(layout) ? layout : null
+  const current: PlaybookPage = { ...page, title, layout, blocks }
+
   function patch(id: string, next: Partial<SlideBlock>) {
     setBlocks((bs) => bs.map((b) => (b.id === id ? ({ ...b, ...next } as SlideBlock) : b)))
   }
@@ -127,28 +147,57 @@ export function PageEditor({
     <div>
       <Link href={back} className="text-sm font-bold text-[var(--gh-green)]">← The deck</Link>
 
-      <div className="flex items-center gap-2 mt-2 mb-3 flex-wrap">
+      <div className="mt-2 mb-3 space-y-2">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Page title"
-          className="field !py-1.5 max-w-sm font-bold"
+          placeholder={kind === 'words' ? 'The heading — e.g. Man-up offense' : 'Page title'}
+          aria-label="Page title"
+          className="field font-bold text-lg"
         />
-        <select
-          value={layout}
-          onChange={(e) => setLayout(e.target.value as PageLayout)}
-          className="field !py-1.5 !w-auto text-sm"
-          aria-label="How the page is laid out"
-        >
-          {PAGE_LAYOUTS.map((l) => (
-            <option key={l.key} value={l.key}>{l.label}</option>
-          ))}
-        </select>
-        <span className="text-xs text-gray-400 hidden sm:inline">
-          {PAGE_LAYOUTS.find((l) => l.key === layout)?.hint}
-        </span>
+        {/* What sort of page this is. The three kinds a playbook is made of,
+            and the hand-arranged page for anything else. */}
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="What sort of page">
+          {[...PAGE_KINDS.map((k) => ({ key: k.key as PageLayout, label: `${k.icon} ${k.label}` })), { key: 'free' as PageLayout, label: '⬚ Arrange' }].map((k) => {
+            const on = k.key === layout || (k.key === 'free' && !kind)
+            return (
+              <button
+                key={k.key}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => switchTo(k.key)}
+                className={`btn !py-1.5 text-sm ${on ? 'btn-primary' : 'btn-ghost'}`}
+              >
+                {k.label}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-xs text-gray-500">
+          {kind ? PAGE_KINDS.find((k) => k.key === kind)?.hint : 'Put boards, pictures and words exactly where you want them.'}
+        </p>
+        {!kind && (
+          <select
+            value={layout}
+            onChange={(e) => setLayout(e.target.value as PageLayout)}
+            className="field !py-1.5 !w-auto text-sm"
+            aria-label="How the page is laid out"
+          >
+            {PAGE_LAYOUTS.map((l) => (
+              <option key={l.key} value={l.key}>{l.label}</option>
+            ))}
+          </select>
+        )}
       </div>
 
+      {kind === 'field' && (
+        <FieldEditor page={current} plays={plays} blocks={blocks} setBlocks={setBlocks} title={title} />
+      )}
+      {kind === 'words' && <WordsEditor page={current} blocks={blocks} setBlocks={setBlocks} />}
+      {kind === 'picture' && <PictureEditor page={current} shots={shots} blocks={blocks} setBlocks={setBlocks} />}
+
+      {!kind && (<>
       {/* ── Insert ── */}
       <div className="flex gap-1.5 flex-wrap mb-3">
         {BLOCK_KINDS.map((k) => (
@@ -327,6 +376,7 @@ export function PageEditor({
           Tap something on the page to change it, or put something new on with the buttons above.
         </p>
       )}
+      </>)}
 
       {/* ── Save ── */}
       <form action={savePlaybookPage} className="card p-4 mt-3 space-y-3">
