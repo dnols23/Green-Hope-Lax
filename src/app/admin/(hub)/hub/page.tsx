@@ -4,13 +4,13 @@ import { createServiceClient } from '@/lib/supabase-server'
 import { getViewer, teamFor } from '@/lib/permissions'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
-import { saveHubModes, createPlan, addPriorityAction } from '@/lib/actions'
+import { saveHubModes, createPlan } from '@/lib/actions'
 import { listPlans, plannerReady } from '@/lib/plans'
 import { getGames } from '@/lib/queries'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { loadWall } from '@/lib/wallData'
 import { WallPanel } from '@/components/wall/WallPanel'
-import { listPriorities, prioritiesReady, PRIORITY_LEVELS, DEFAULT_LEVEL } from '@/lib/priorities'
+import { listPriorities, prioritiesReady } from '@/lib/priorities'
 import { canTeam } from '@/lib/sections'
 import { formatDate, formatShortDate, formatTime, TEAM_TIME_ZONE } from '@/lib/format'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
@@ -18,7 +18,7 @@ import { listCalendarItems } from '@/lib/calendarData'
 import { audienceLabel, colorFor, type CalItem } from '@/lib/calendarModel'
 import { addDaysYmd, hmOf, ymdOf, zoneParts, zonedToUtc } from '@/lib/zoned'
 import { WarRoomPanels, type Panel } from './WarRoomPanels'
-import { PriorityRow } from './PriorityRow'
+import { PrioritiesPanel } from './PriorityRow'
 
 export const metadata = { title: 'War Room' }
 export const dynamic = 'force-dynamic'
@@ -36,8 +36,6 @@ function todayIso(): string {
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const WEEK_LINES = 10
-/** Open priorities shown in the War Room, worst first; the rest are counted. */
-const PRIORITY_LINES = 6
 
 /** "Tue" for a calendar date, with no time zone to trip over. */
 function weekdayOf(ymd: string): string {
@@ -208,14 +206,6 @@ export default async function WarRoom({
   const [wall, hasPriorities] = await Promise.all([loadWall(viewer), prioritiesReady()])
   const priorityLists = hasPriorities ? await listPriorities(team) : []
   const mayWritePriorities = canTeam(viewer, team)
-  const openPriorities = priorityLists
-    .flatMap((l) => l.items.filter((i) => !i.done).map((i) => ({ ...i, listName: l.name })))
-    .sort((a, b) => b.level - a.level || a.createdAt.localeCompare(b.createdAt))
-  const shownPriorities = openPriorities.slice(0, PRIORITY_LINES)
-  const levelCounts = PRIORITY_LEVELS.slice()
-    .reverse()
-    .map((l) => ({ ...l, n: openPriorities.filter((i) => i.level === l.level).length }))
-    .filter((l) => l.n > 0)
 
   const calendar = await weekAhead
   const thisWeek = calendar.filter((i) => i.source !== 'availability' && onThisSide(i, team))
@@ -474,78 +464,11 @@ export default async function WarRoom({
           Run <code>supabase/migrations/0030_priorities.sql</code> to keep the staff&rsquo;s list of what needs work here.
         </p>
       ) : (
-        <div>
-          {levelCounts.length > 0 && (
-            <p className="text-xs text-gray-500 mb-2">
-              {levelCounts.map((l, i) => (
-                <span key={l.level}>
-                  {i > 0 && ' · '}
-                  <span className="font-bold" style={{ color: l.level >= 3 ? '#b42318' : undefined }}>
-                    {l.n} {l.label}
-                  </span>
-                </span>
-              ))}{' '}
-              open across {priorityLists.length} list{priorityLists.length === 1 ? '' : 's'}
-            </p>
-          )}
-          {shownPriorities.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              {priorityLists.length === 0
-                ? 'No lists yet. Start one — offense, defense, rides, clears — and what the staff notices lands here.'
-                : 'Nothing open. Everything the staff flagged has been dealt with.'}
-            </p>
-          ) : (
-            <ul className="space-y-1.5">
-              {shownPriorities.map((item) => (
-                <PriorityRow
-                  key={item.id}
-                  item={{ id: item.id, body: item.body, level: item.level, listId: item.listId, listName: item.listName }}
-                  lists={priorityLists.map((l) => ({ id: l.id, name: l.name }))}
-                  canWrite={mayWritePriorities}
-                />
-              ))}
-            </ul>
-          )}
-          {openPriorities.length > shownPriorities.length && (
-            <p className="text-xs text-gray-400 mt-1">+{openPriorities.length - shownPriorities.length} more</p>
-          )}
-          {mayWritePriorities && priorityLists.length > 0 && (
-            /* The thirty-second capture: something went wrong at practice, it
-               goes on the list without leaving the War Room. */
-            <details className="mt-3 group">
-              <summary className="cursor-pointer text-sm font-semibold text-[var(--gh-green)] list-none">+ Add a priority</summary>
-              <form action={addPriorityAction} className="mt-2 space-y-2">
-                <input
-                  name="body"
-                  required
-                  maxLength={300}
-                  placeholder="e.g. Slides late off the ball carrier"
-                  aria-label="What needs work"
-                  className="field !py-1.5 text-sm"
-                />
-                <div className="flex gap-2">
-                  <select name="listId" aria-label="Which list" className="field !py-1.5 text-sm min-w-0 flex-1">
-                    {priorityLists.map((l) => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
-                  <select name="level" defaultValue={DEFAULT_LEVEL} aria-label="How urgent" className="field !py-1.5 text-sm !w-auto">
-                    {PRIORITY_LEVELS.slice().reverse().map((l) => (
-                      <option key={l.level} value={l.level}>{l.label}</option>
-                    ))}
-                  </select>
-                  <button type="submit" className="btn btn-primary !py-1.5 !px-3 text-sm">Add</button>
-                </div>
-              </form>
-            </details>
-          )}
-          <Link
-            href={withTeam('/admin/priorities', team)}
-            className="inline-block mt-2 text-sm font-semibold text-[var(--gh-green)]"
-          >
-            All priorities →
-          </Link>
-        </div>
+        <PrioritiesPanel
+          lists={priorityLists.map((l) => ({ id: l.id, name: l.name, items: l.items }))}
+          canWrite={mayWritePriorities}
+          allHref={withTeam('/admin/priorities', team)}
+        />
       ),
     },
     {

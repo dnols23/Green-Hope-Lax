@@ -46,6 +46,7 @@ import {
   deleteList as deletePriorityList,
   addItem as addPriorityItem,
   setItem as setPriorityItem,
+  reorderItems as reorderPriorityItems,
   deleteItem as deletePriorityItem,
 } from './priorities'
 import { saveContact } from './playerContacts'
@@ -1372,6 +1373,20 @@ export async function setPriorityAction(formData: FormData) {
   await setPriorityItem(id, next)
   revalidatePath('/admin/priorities')
   revalidatePath('/admin/hub')
+}
+
+/**
+ * The staff's own order for one list, after a drag. Called with plain values
+ * from the list itself; the list is checked against who is asking.
+ */
+export async function reorderPrioritiesAction(listId: string, ids: string[]): Promise<{ ok: boolean; error?: string }> {
+  const viewer = await requireSection('priorities')
+  if (!listId || !(await mayTouchList(viewer, listId))) return { ok: false, error: 'That list isn’t yours to change.' }
+  const clean = [...new Set(ids.map(String))].slice(0, 500)
+  const ok = await reorderPriorityItems(listId, clean)
+  revalidatePath('/admin/priorities')
+  revalidatePath('/admin/hub')
+  return ok ? { ok } : { ok, error: 'Couldn’t save the order — has supabase/migrations/0041_priority_groups.sql been run?' }
 }
 
 export async function deletePriorityAction(formData: FormData) {
