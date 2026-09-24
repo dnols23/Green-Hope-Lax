@@ -23,6 +23,7 @@ import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
 import { readBlocks, readStart, type PlanKind } from './planner'
+import { gamePlanStarter, readGamePlan } from './gamePlan'
 import { readNoteBlocks } from './noteBlocks'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
 import {
@@ -1938,6 +1939,17 @@ export async function createPlan(formData: FormData) {
      that a coach sitting down to scout an opponent already knows what he is
      being asked, and fills it in. */
   if (kind === 'scout') row.content = scoutStarter()
+  /* A game plan opens with every decision to make laid out — the systems, the
+     lineup, each coach's job and a standard game day — against the game it is
+     for, when it was made from one. */
+  if (kind === 'game') {
+    row.details = gamePlanStarter({
+      opponent: str(formData.get('opponent')),
+      gameId: str(formData.get('game_id')) || null,
+    })
+  }
+  const faceoff = readStart(str(formData.get('start_time')))
+  if (faceoff) row.start_time = faceoff
 
   let { data, error } = await svc.from('plans').insert({ ...row, team }).select('id').single()
 
@@ -1949,10 +1961,24 @@ export async function createPlan(formData: FormData) {
     data = retry.data
     error = retry.error
   }
+  // Nor is the game plan's own column there before 0042, or the start time
+  // before 0032: make the plan without them rather than not at all.
+  for (const col of ['details', 'start_time'] as const) {
+    if (error && new RegExp(col).test(error.message ?? '') && col in row) {
+      delete row[col]
+      const retry = await svc.from('plans').insert({ ...row, team }).select('id').single()
+      data = retry.data
+      error = retry.error
+    }
+  }
 
   if (error || !data) {
     console.error('[createPlan]', error)
-    return
+    /* Said out loud rather than a button that does nothing. The usual cause is
+       a scout on a database from before 0042, which only allowed practices,
+       game plans and notes. */
+    const why = /kind_check|violates check/i.test(error?.message ?? '') ? 'kind' : 'save'
+    redirect(withTeam(`/admin/planner?error=${why}&kind=${kind}`, team))
   }
   revalidatePath('/admin/planner')
   redirect(withTeam(`/admin/planner/${(data as { id: string }).id}`, team))
@@ -2063,6 +2089,27 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   if (error) {
     console.error('[savePlan]', error)
     return { ok: false, error: `Couldn\u2019t save: ${error.message}` }
+  }
+
+  /* A game plan's decisions and game-day schedule live in their own column,
+     which arrives with 0042. Written on their own, after everything else has
+     saved, so a missing column costs only this part and says so. */
+  if (formData.has('details')) {
+    let raw: unknown = {}
+    try {
+      raw = JSON.parse(str(formData.get('details')) || '{}')
+    } catch {
+      return { ok: false, error: 'Saved, but the game plan could not be read back — try again.' }
+    }
+    const { error: detailsError } = await svc.from('plans').update({ details: readGamePlan(raw) }).eq('id', id)
+    if (detailsError) {
+      return {
+        ok: false,
+        error: /details/i.test(detailsError.message)
+          ? 'Saved everything but the game plan itself — run supabase/migrations/0042_game_plans.sql in the Supabase SQL editor.'
+          : `Couldn\u2019t save the game plan: ${detailsError.message}`,
+      }
+    }
   }
 
   revalidatePath('/admin/planner')
