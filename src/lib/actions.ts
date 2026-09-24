@@ -1355,10 +1355,20 @@ export async function setPriorityAction(formData: FormData) {
   const viewer = await requireSection('priorities')
   const id = str(formData.get('id'))
   if (!id || !(await mayTouchItem(viewer, id))) return
-  const next: { body?: string; level?: number; done?: boolean } = {}
-  if (formData.has('body')) next.body = str(formData.get('body'))
+  const next: { body?: string; level?: number; done?: boolean; listId?: string } = {}
+  if (formData.has('body')) {
+    // A blank name is a slip of the thumb, not a wish to empty the item.
+    const body = str(formData.get('body'))
+    if (body) next.body = body
+  }
   if (formData.has('level')) next.level = Number(str(formData.get('level')))
   if (formData.has('done')) next.done = str(formData.get('done')) === 'true'
+  if (formData.has('listId')) {
+    // Moving it to another list needs the right to write to that list too —
+    // a varsity item can't be walked onto the JV board by a varsity-only coach.
+    const listId = str(formData.get('listId'))
+    if (listId && (await mayTouchList(viewer, listId))) next.listId = listId
+  }
   await setPriorityItem(id, next)
   revalidatePath('/admin/priorities')
   revalidatePath('/admin/hub')

@@ -141,10 +141,11 @@ export async function addItem(
 
 export async function setItem(
   id: string,
-  next: { body?: string; level?: number; done?: boolean; note?: string | null }
+  next: { body?: string; level?: number; done?: boolean; note?: string | null; listId?: string }
 ): Promise<void> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (next.body !== undefined) patch.body = next.body
+  if (next.listId !== undefined) patch.list_id = next.listId
   if (next.level !== undefined) patch.level = clampLevel(next.level)
   if (next.done !== undefined) patch.done = next.done
   if (next.note !== undefined) patch.note = next.note
