@@ -2137,21 +2137,38 @@ export async function duplicatePlan(formData: FormData) {
   const { data: original } = await svc.from('plans').select('*').eq('id', id).maybeSingle()
   if (!original) return
   const o = original as Record<string, unknown>
-  const { data: copy } = await svc
-    .from('plans')
-    .insert({
-      kind: o.kind,
-      title: `${String(o.title)} (copy)`,
-      season: o.season,
-      summary: o.summary,
-      roster_id: o.roster_id,
-      blocks: o.blocks,
-      created_by: viewer?.email ?? null,
-    })
-    .select('id')
-    .single()
+  /* The copy stays on the same team's side — a JV plan's copy is a JV plan —
+     and only a coach who may write to that side can make one. */
+  const team = readTeam(o.team)
+  if (!canTeam(viewer, team)) return
+  /* Everything that makes the plan what it is comes with it: a note's or
+     scout's page, a game plan's decisions and game day, the start time, the
+     squads, the blocks with their "how it went" notes. Columns a database has
+     not been given yet are left off rather than failing the copy. */
+  const row: Record<string, unknown> = {
+    kind: o.kind,
+    title: `${String(o.title)} (copy)`,
+    season: o.season,
+    summary: o.summary,
+    roster_id: o.roster_id,
+    blocks: o.blocks,
+    created_by: viewer?.email ?? null,
+    team,
+  }
+  for (const col of ['content', 'details', 'start_time', 'sides'] as const) {
+    if (col in o && o[col] !== null && o[col] !== undefined) row[col] = o[col]
+  }
+  let { data: copy, error } = await svc.from('plans').insert(row).select('id').single()
+  for (let tries = 0; error && tries < 5; tries++) {
+    const missing = ['details', 'sides', 'start_time', 'content', 'team'].find(
+      (col) => col in row && new RegExp(col).test(error?.message ?? ''),
+    )
+    if (!missing) break
+    delete row[missing]
+    ;({ data: copy, error } = await svc.from('plans').insert(row).select('id').single())
+  }
   revalidatePath('/admin/planner')
-  if (copy) redirect(`/admin/planner/${(copy as { id: string }).id}`)
+  if (copy) redirect(withTeam(`/admin/planner/${(copy as { id: string }).id}`, team))
 }
 
 // ── Which modes a coach sees in the hub ──
