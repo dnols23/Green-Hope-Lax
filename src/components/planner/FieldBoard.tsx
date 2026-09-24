@@ -24,6 +24,7 @@ import {
   type SavedLook,
 } from '@/lib/formations'
 import { BoardMenu, type Selection } from './BoardMenu'
+import { BoardViewer, useDoubleTap } from './BoardViewer'
 
 /** A player who can be dropped onto the field. */
 export interface BoardPlayer {
@@ -52,6 +53,9 @@ export function FieldBoard({
   readOnly = false,
   onShot,
   extraTools,
+  fit = false,
+  zoomable = true,
+  title,
 }: {
   board: Board
   onChange?: (next: Board) => void
@@ -62,6 +66,12 @@ export function FieldBoard({
   onShot?: (png: Blob) => void | Promise<void>
   /** Buttons that belong to whoever is using the board — recording, mostly. */
   extraTools?: ReactNode
+  /** Fill the box it is given, both ways, rather than the width. The full-screen viewer uses it. */
+  fit?: boolean
+  /** A read-only board opens full screen on a double tap. Off where that makes no sense — a clip mid-play. */
+  zoomable?: boolean
+  /** Named in the full-screen view's header. */
+  title?: string | null
 }) {
   /* Every colour in use on the board, so each one gets its own set of end
      shapes below. */
@@ -89,6 +99,8 @@ export function FieldBoard({
   const groupBefore = useRef<Board | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [full, setFull] = useState(false)
+  // The read-only board, blown up to the whole screen.
+  const [viewing, setViewing] = useState(false)
   const [tool, setTool] = useState<'move' | 'select' | PathKind>('move')
   const [dragId, setDragId] = useState<string | null>(null)
   const [draft, setDraft] = useState<{ x: number; y: number }[] | null>(null)
@@ -505,21 +517,65 @@ export function FieldBoard({
 
   /* Full screen is how this gets used on a phone: turn it sideways and the field
      fills the glass. The board is an SVG in yards, so it simply scales. */
-  async function toggleFullscreen() {
+  /* Full screen on a phone held upright turns the field on its side, so it runs
+     the long way down the glass; leaving full screen turns it back. Only the
+     view turns — nothing about the play is saved differently. */
+  const autoTurned = useRef(false)
+  function leaveFull() {
+    setFull(false)
+    if (autoTurned.current) {
+      autoTurned.current = false
+      setTurn(0)
+    }
+  }
+
+  function toggleFullscreen() {
     const el = wrapRef.current
     if (!el) return
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen()
-        setFull(false)
-      } else {
-        await el.requestFullscreen()
-        setFull(true)
-      }
-    } catch {
-      // Some browsers refuse without a gesture they recognise; the board still
-      // works at its normal size.
+    if (full) {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+      leaveFull()
+      return
     }
+    if (turn === 0 && half === 'off' && window.innerHeight > window.innerWidth) {
+      autoTurned.current = true
+      setTurn(90)
+    }
+    /* The board fills the screen on its own (fixed, over everything), which is
+       all an iPhone allows — it won't put anything but a video full screen. Where
+       the browser will, the real thing is asked for too. */
+    setFull(true)
+    el.requestFullscreen?.().catch(() => {})
+  }
+
+  // Leaving the browser's full screen by its own means (Escape, a swipe) ends ours.
+  useEffect(() => {
+    if (!full) return
+    let was = !!document.fullscreenElement
+    const onFs = () => {
+      const now = !!document.fullscreenElement
+      if (was && !now) leaveFull()
+      was = now
+    }
+    document.addEventListener('fullscreenchange', onFs)
+    return () => document.removeEventListener('fullscreenchange', onFs)
+  }, [full])
+
+  /* Double-tap the field: a read-only board opens full screen to look at; the
+     board being drawn on goes full screen to keep drawing — or comes back. */
+  const doubleTap = useDoubleTap(() => {
+    if (readOnly) setViewing(true)
+    else toggleFullscreen()
+  })
+
+  function onBoardPointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    if (readOnly) {
+      if (zoomable) doubleTap(e)
+      return
+    }
+    // Only in Move, where a tap on the grass does nothing else.
+    if (tool === 'move' && !placing && doubleTap(e)) return
+    onPointerDown(e)
   }
 
   /** Press inside the box to take the whole group with you. */
@@ -539,7 +595,18 @@ export function FieldBoard({
     }`
 
   return (
-    <div ref={wrapRef} className={full ? 'p-3 bg-white flex flex-col h-full' : ''}>
+    <div
+      ref={wrapRef}
+      className={
+        full
+          ? 'fixed inset-0 z-[90] p-3 bg-white flex flex-col overflow-auto'
+          : readOnly && zoomable && !fit
+            ? 'relative group/board'
+            : fit
+              ? 'h-full'
+              : ''
+      }
+    >
       {!readOnly && (
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
           <button
@@ -660,7 +727,11 @@ export function FieldBoard({
           </button>
           <button
             type="button"
-            onClick={() => setTurn((t) => (t + 90) % 360)}
+            onClick={() => {
+              // Turned by hand, it stays the way the coach left it.
+              autoTurned.current = false
+              setTurn((t) => (t + 90) % 360)
+            }}
             className={toolBtn(turn !== 0)}
             style={{
               background: turn !== 0 ? 'var(--gh-green)' : undefined,
@@ -803,15 +874,15 @@ export function FieldBoard({
       <svg
         ref={svgRef}
         viewBox={viewBox}
-        className={`w-full rounded-xl select-none touch-none ${full ? 'flex-1 min-h-0' : ''}`}
+        className={`w-full rounded-xl select-none ${readOnly ? 'touch-manipulation' : 'touch-none'} ${full ? 'flex-1 min-h-0' : ''} ${fit ? 'h-full' : ''}`}
         style={{
           cursor: placing ? 'copy' : tool === 'move' ? 'default' : 'crosshair',
           /* A half field, or a turned one, is nearly square — left to fill the
              width it would be taller than the screen and the coach would be
              scrolling to see his own play. */
-          maxHeight: full ? undefined : '72vh',
+          maxHeight: full || fit ? undefined : '72vh',
         }}
-        onPointerDown={onPointerDown}
+        onPointerDown={onBoardPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
@@ -1001,6 +1072,20 @@ export function FieldBoard({
         </defs>
       </svg>
 
+      {/* The way in for a mouse, and a hint for a thumb that double-tapping works. */}
+      {readOnly && zoomable && !fit && (
+        <button
+          type="button"
+          onClick={() => setViewing(true)}
+          aria-label="See this board full screen"
+          title="Full screen (or double-tap the field)"
+          className="absolute top-1.5 right-1.5 w-7 h-7 inline-flex items-center justify-center rounded-md bg-black/35 text-white text-sm opacity-70 hover:opacity-100 group-hover/board:opacity-100"
+        >
+          ⤢
+        </button>
+      )}
+      {viewing && <BoardViewer board={board} title={title} onClose={() => setViewing(false)} />}
+
       {!readOnly && menu && selected && (
         <BoardMenu
           board={board}
@@ -1021,7 +1106,7 @@ export function FieldBoard({
         <p className="text-[0.7rem] text-gray-400 mt-1.5">
           Drag a disc to move it · right-click, or press and hold on a phone, for everything you can
           change about it · Select draws a box round a group to move it, delete it or keep it as a
-          look · double-click a disc to take it off
+          look · double-click a disc to take it off · double-tap the grass for full screen
         </p>
       )}
     </div>
