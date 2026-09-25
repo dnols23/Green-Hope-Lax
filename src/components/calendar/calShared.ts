@@ -78,6 +78,21 @@ export const openSlotClass = (item: Pick<CalItem, 'location' | 'title'>) =>
 export const openDotClass = (item: Pick<CalItem, 'location' | 'title'>) =>
   isWeightRoom(item) ? 'cal-open-dot cal-open-weight' : 'cal-open-dot'
 
+/**
+ * The places with open time on a day, once each, short enough for a phone's
+ * month cell: "PF", "FF", "WR".
+ */
+export function openTags(items: Pick<CalItem, 'location' | 'title'>[]): { label: string; weight: boolean }[] {
+  const out: { label: string; weight: boolean }[] = []
+  for (const it of items) {
+    const weight = isWeightRoom(it)
+    const place = (it.location || it.title.replace(/^open:\s*/i, '')).trim()
+    const label = weight ? 'WR' : place.length <= 4 ? place.toUpperCase() : place.slice(0, 3)
+    if (!out.some((t) => t.label === label)) out.push({ label, weight })
+  }
+  return out
+}
+
 // ── Words ───────────────────────────────────────────────────────────────────
 
 export function teamLabel(team: CalTeam): string {
