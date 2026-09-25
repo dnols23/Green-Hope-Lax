@@ -84,7 +84,12 @@ export function WallMode({ player, onClose }: { player: WallPlayer; onClose: () 
       onTouchStart={wake}
       onClick={wake}
       className="fixed inset-0 z-[80] flex flex-col text-white select-none"
-      style={{ background: coverCss(playlist?.cover ?? 'night'), cursor: awake ? 'default' : 'none' }}
+      style={{
+        background: coverCss(playlist?.cover ?? 'night'),
+        cursor: awake ? 'default' : 'none',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
     >
       <div className={`flex items-center gap-3 p-4 sm:p-6 transition-opacity duration-500 ${awake ? 'opacity-100' : 'opacity-0'}`}>
         <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-white/70 truncate flex-1">

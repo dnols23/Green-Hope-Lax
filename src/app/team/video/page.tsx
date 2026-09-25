@@ -12,7 +12,7 @@ export default async function VideoBoardPage() {
   // Turned off for the Team Hub in Admin → Pages.
   await assertPageVisible('film-team')
   return (
-    <div className="flex flex-col h-svh overflow-hidden" style={{ background: '#0b0d0c' }}>
+    <div className="flex flex-col h-[calc(100svh-env(safe-area-inset-top))] overflow-hidden" style={{ background: '#0b0d0c' }}>
       {/* Header — dark chrome to match the board */}
       <header
         className="text-white shrink-0"

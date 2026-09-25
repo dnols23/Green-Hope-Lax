@@ -69,7 +69,12 @@ export function Modal({
         className={`${frame} flex flex-col min-h-0 bg-white overflow-hidden outline-none`}
         // The global focus ring is for keyboard users moving between controls;
         // on the frame itself, focused only so Tab starts inside, it is noise.
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', outline: 'none' }}
+        style={{
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          // Full-screen on a phone: start below the clock.
+          paddingTop: shape === 'card' ? undefined : 'env(safe-area-inset-top)',
+          outline: 'none',
+        }}
       >
         {children}
       </div>
