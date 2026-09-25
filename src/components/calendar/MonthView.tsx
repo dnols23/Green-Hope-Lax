@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { colorFor, type CalItem } from '@/lib/calendarModel'
 import { MONTH_NAMES, MONTH_SHORT, WEEKDAY_NAMES, WEEKDAY_SHORT, addDays, isAllDayish, itemsOnDay, monthGrid, sameDay, startOfDay } from '@/lib/calendarMath'
 import { whoIsOut } from '@/lib/availabilityText'
-import { dayKey, gridTitle, isAvailability, isFieldTime, itemTitle, openDotClass, openSlotClass, shortTime } from './calShared'
+import { dayKey, gridTitle, isAvailability, isFieldTime, itemTitle, openSlotClass, openTags, shortTime } from './calShared'
 
 /**
  * The month: six weeks, always, so the grid doesn't jump as the season pages by.
@@ -129,17 +129,35 @@ export function MonthView({ anchor, items, now, narrow, canCreate, onOpen, onOpe
               </div>
 
               {narrow ? (
-                <div className="flex flex-wrap gap-[3px] px-1.5 pt-1" style={{ opacity: inMonth ? 1 : 0.55 }}>
-                  {info.events.slice(0, 6).map((it) => (
-                    <span
-                      key={it.key}
-                      className={`w-[7px] h-[7px] rounded-full ${isFieldTime(it) ? openDotClass(it) : ''}`}
-                      style={isFieldTime(it) ? undefined : { background: colorFor(it).bg }}
-                      aria-hidden
-                    />
-                  ))}
-                  {info.events.length > 6 && <span className="text-[0.55rem] font-bold text-gray-500 leading-[7px]">+</span>}
-                  {info.events.length > 0 && <span className="sr-only">{info.events.length} on the calendar</span>}
+                <div className="px-1 pt-1 space-y-[3px]" style={{ opacity: inMonth ? 1 : 0.55 }}>
+                  {/* What is happening: a dot each. */}
+                  {(() => {
+                    const real = info.events.filter((it) => !isFieldTime(it))
+                    const open = openTags(info.events.filter(isFieldTime))
+                    return (
+                      <>
+                        {real.length > 0 && (
+                          <div className="flex flex-wrap gap-[3px] px-0.5">
+                            {real.slice(0, 6).map((it) => (
+                              <span key={it.key} className="w-[7px] h-[7px] rounded-full" style={{ background: colorFor(it).bg }} aria-hidden />
+                            ))}
+                            {real.length > 6 && <span className="text-[0.55rem] font-bold text-gray-500 leading-[7px]">+</span>}
+                          </div>
+                        )}
+                        {/* Where there is room: a small tag per place. */}
+                        {open.length > 0 && (
+                          <div className="flex flex-wrap gap-[2px]">
+                            {open.map((t) => (
+                              <span key={t.label} className={`cal-open-tag ${t.weight ? 'cal-open-tag-weight' : ''}`}>
+                                {t.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {info.events.length > 0 && <span className="sr-only">{info.events.length} on the calendar</span>}
+                      </>
+                    )
+                  })()}
                 </div>
               ) : (
                 <div className="px-1 pb-1 pt-0.5 space-y-[2px]" style={{ opacity: inMonth ? 1 : 0.6 }}>

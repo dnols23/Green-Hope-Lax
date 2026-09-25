@@ -506,3 +506,18 @@ html[data-theme='dark'] .app-theme .cal-open-slot.cal-open-weight {
   background: repeating-linear-gradient(135deg, rgb(200 90 105 / 0.16) 0 5px, transparent 5px 10px);
 }
 html[data-theme='dark'] .app-theme .cal-open-dot.cal-open-weight { border-color: #c86a78; }
+
+/* Open time on a phone's month cell: a small solid tag per place, not a dashed ring. */
+.cal-open-tag {
+  display: inline-block;
+  font-size: 0.55rem;
+  line-height: 0.85rem;
+  font-weight: 800;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: #dcf2e4;
+  color: #1d6b43;
+}
+.cal-open-tag.cal-open-tag-weight { background: #f6e3e6; color: #7A1F2B; }
+html[data-theme='dark'] .app-theme .cal-open-tag { background: rgb(79 165 116 / 0.22); color: #8fd6ad; }
+html[data-theme='dark'] .app-theme .cal-open-tag.cal-open-tag-weight { background: rgb(200 90 105 / 0.22); color: #f0a7b1; }
