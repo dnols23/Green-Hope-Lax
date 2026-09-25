@@ -18,6 +18,9 @@ import {
   rangeFor,
   sameDay,
   startOfDay,
+  startOfMonth,
+  addMonths,
+  addDays,
   stepAnchor,
   titleFor,
   toYmd,
@@ -30,6 +33,7 @@ import { EventDetail, type DetailTarget } from './EventDetail'
 import { EventEditor, type EditorDraft } from './EventEditor'
 import { Modal } from './Modal'
 import { SharePanel } from './SharePanel'
+import { ExportPanel } from './ExportPanel'
 import { MonthView } from './MonthView'
 import { TimeGrid } from './TimeGrid'
 import { MiniMonth, YearView, dayLoad } from './YearView'
@@ -81,6 +85,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
   const [editor, setEditor] = useState<EditorDraft | null>(null)
   const [availOpen, setAvailOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [toast, setToast] = useState<Toast | null>(null)
 
   // A phone opens on the list, the one view that reads well at that width —
@@ -338,7 +343,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
         else if (detail) setDetail(null)
         return
       }
-      if (typing || editor || detail || availOpen || shareOpen) return
+      if (typing || editor || detail || availOpen || shareOpen || exportOpen) return
 
       const k = e.key.toLowerCase()
       const views: Record<string, CalView> = { d: 'day', w: 'week', m: 'month', y: 'year', a: 'agenda' }
@@ -358,6 +363,14 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
   // ── Drawing ──────────────────────────────────────────────────────────────
 
   const title = titleFor(view, anchor)
+  /* What is on screen, for "print this": the week's seven days, the month's
+     own days rather than its six-week grid, the year, the agenda's stretch. */
+  const visibleRange =
+    view === 'week'
+      ? { from: days[0], to: addDays(days[days.length - 1], 1) }
+      : view === 'month'
+        ? { from: startOfMonth(anchor), to: startOfMonth(addMonths(anchor, 1)) }
+        : rangeFor(view, anchor)
   const outToday = view === 'day' ? itemsOnDay(items.filter(isAvailability), anchor) : []
 
   return (
@@ -420,12 +433,23 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
           <button
             type="button"
             onClick={() => setAvailOpen(true)}
-            className="btn btn-ghost !px-3 !py-1.5 min-h-9 whitespace-nowrap"
+            className="btn btn-ghost !px-2.5 sm:!px-3 !py-1.5 min-h-9 whitespace-nowrap"
             title="When you can and can’t be there"
+            aria-label="Set availability"
           >
             <span aria-hidden>🙋</span>
-            <span className="sm:hidden">Availability</span>
             <span className="hidden sm:inline">Set availability</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            aria-label="Export or print"
+            title="Export or print the calendar"
+            className="btn btn-ghost !px-2.5 !py-1.5 min-h-9"
+          >
+            <svg aria-hidden className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 9V3h12v6M6 18H4a1 1 0 01-1-1v-6a2 2 0 012-2h14a2 2 0 012 2v6a1 1 0 01-1 1h-2M6 14h12v7H6z" />
+            </svg>
           </button>
           {data?.me.isOwner && (
             <button
@@ -707,6 +731,16 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
               say(msg)
               refetch()
             }}
+          />
+        </Modal>
+      )}
+      {exportOpen && (
+        <Modal shape="drawer" label="Export and print" onClose={() => setExportOpen(false)}>
+          <ExportPanel
+            view={{ ...visibleRange, label: `This ${view === 'agenda' ? 'list' : view} · ${title}` }}
+            teams={prefs.teams}
+            layers={prefs.layers}
+            onClose={() => setExportOpen(false)}
           />
         </Modal>
       )}
