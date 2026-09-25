@@ -18,7 +18,7 @@ import {
   type Positioned,
 } from '@/lib/calendarMath'
 import { whoIsOut } from '@/lib/availabilityText'
-import { HOUR_PX, MIN_PX, SCROLL_TO_HOUR, dayKey, isAvailability, isFieldTime, itemTitle, gridTitle, shortTime, surname, coachLabel } from './calShared'
+import { HOUR_PX, MIN_PX, SCROLL_TO_HOUR, dayKey, isAvailability, isFieldTime, itemTitle, openSlotClass, gridTitle, shortTime, surname, coachLabel } from './calShared'
 
 /**
  * The day and week views: a 24-hour grid, one column per day.
@@ -549,7 +549,7 @@ export function TimeGrid({ days, items, now, canCreate, onOpen, onOpenOut, onCre
                         data-block
                         onClick={() => onOpen(it)}
                         title={`${it.location ?? itemTitle(it)} open · ${formatRange(it.startsAt, it.endsAt, false)}`}
-                        className="absolute rounded-md text-left overflow-hidden px-1.5 py-0.5 cal-open-slot"
+                        className={`absolute rounded-md text-left overflow-hidden px-1.5 py-0.5 ${openSlotClass(it)}`}
                         style={{ top: p.top * MIN_PX + 1, height: Math.max(px - 2, 14), left: l, width: w }}
                       >
                         <span className="block text-[0.66rem] font-semibold leading-tight truncate">

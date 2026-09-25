@@ -14,7 +14,7 @@ import {
   startOfDay,
 } from '@/lib/calendarMath'
 import { whoIsOut, timeLabel } from '@/lib/availabilityText'
-import { AUDIENCE_TONE, audienceBadge, dayKey, isAvailability, isFieldTime, itemTitle, kindMeta, surname, teamLabel, coachLabel } from './calShared'
+import { AUDIENCE_TONE, audienceBadge, dayKey, isAvailability, isFieldTime, itemTitle, openSlotClass, kindMeta, surname, teamLabel, coachLabel } from './calShared'
 
 /**
  * The next two months as a list, a day at a time.
@@ -138,7 +138,7 @@ export function AgendaView({ from, items, now, canCreate, onOpen, onOpenOut, onN
                     key={it.key}
                     type="button"
                     onClick={() => onOpen(it)}
-                    className="rounded-md px-2 py-1 text-xs font-semibold cal-open-slot"
+                    className={`rounded-md px-2 py-1 text-xs font-semibold ${openSlotClass(it)}`}
                   >
                     {it.location ?? itemTitle(it)} open · {formatRange(it.startsAt, it.endsAt, false)}
                   </button>

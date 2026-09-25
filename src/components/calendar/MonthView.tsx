@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { colorFor, type CalItem } from '@/lib/calendarModel'
 import { MONTH_NAMES, MONTH_SHORT, WEEKDAY_NAMES, WEEKDAY_SHORT, addDays, isAllDayish, itemsOnDay, monthGrid, sameDay, startOfDay } from '@/lib/calendarMath'
 import { whoIsOut } from '@/lib/availabilityText'
-import { dayKey, gridTitle, isAvailability, isFieldTime, itemTitle, shortTime } from './calShared'
+import { dayKey, gridTitle, isAvailability, isFieldTime, itemTitle, openDotClass, openSlotClass, shortTime } from './calShared'
 
 /**
  * The month: six weeks, always, so the grid doesn't jump as the season pages by.
@@ -133,7 +133,7 @@ export function MonthView({ anchor, items, now, narrow, canCreate, onOpen, onOpe
                   {info.events.slice(0, 6).map((it) => (
                     <span
                       key={it.key}
-                      className={`w-[7px] h-[7px] rounded-full ${isFieldTime(it) ? 'cal-open-dot' : ''}`}
+                      className={`w-[7px] h-[7px] rounded-full ${isFieldTime(it) ? openDotClass(it) : ''}`}
                       style={isFieldTime(it) ? undefined : { background: colorFor(it).bg }}
                       aria-hidden
                     />
@@ -152,7 +152,7 @@ export function MonthView({ anchor, items, now, narrow, canCreate, onOpen, onOpe
                           key={it.key}
                           type="button"
                           onClick={() => onOpen(it)}
-                          className="w-full flex items-center gap-1 rounded px-1 text-left text-[0.7rem] leading-[1.1rem] truncate cal-open-slot"
+                          className={`w-full flex items-center gap-1 rounded px-1 text-left text-[0.7rem] leading-[1.1rem] truncate ${openSlotClass(it)}`}
                           title={`${it.location ?? itemTitle(it)} open`}
                         >
                           <span className="shrink-0 opacity-80">{shortTime(new Date(it.startsAt))}</span>

@@ -65,6 +65,16 @@ export const isAvailability = (item: Pick<CalItem, 'source'>) => item.source ===
 /** An open field or weight-room slot: room to schedule into, not something happening. */
 export const isFieldTime = (item: Pick<CalItem, 'source' | 'kind'>) => item.source === 'event' && item.kind === 'open'
 
+/** Open weight-room time is maroon; open field time is green. */
+const isWeightRoom = (item: Pick<CalItem, 'location' | 'title'>) => /weight/i.test(`${item.location ?? ''} ${item.title}`)
+
+/** The dashed see-through look for an open slot, in its place's colour. */
+export const openSlotClass = (item: Pick<CalItem, 'location' | 'title'>) =>
+  isWeightRoom(item) ? 'cal-open-slot cal-open-weight' : 'cal-open-slot'
+
+export const openDotClass = (item: Pick<CalItem, 'location' | 'title'>) =>
+  isWeightRoom(item) ? 'cal-open-dot cal-open-weight' : 'cal-open-dot'
+
 // ── Words ───────────────────────────────────────────────────────────────────
 
 export function teamLabel(team: CalTeam): string {

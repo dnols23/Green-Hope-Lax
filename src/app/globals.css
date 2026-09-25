@@ -492,3 +492,17 @@ body {
   z-index: 100;
   pointer-events: none;
 }
+/* Open weight-room time: the same dashed slot, in maroon. */
+.cal-open-slot.cal-open-weight {
+  border-color: #c98a93;
+  color: #7A1F2B;
+  background: repeating-linear-gradient(135deg, rgb(122 31 43 / 0.10) 0 5px, transparent 5px 10px);
+}
+.cal-open-slot.cal-open-weight:hover { background-color: rgb(122 31 43 / 0.08); }
+.cal-open-dot.cal-open-weight { border-color: #b8616e; }
+html[data-theme='dark'] .app-theme .cal-open-slot.cal-open-weight {
+  border-color: #9c4a56;
+  color: #f0a7b1;
+  background: repeating-linear-gradient(135deg, rgb(200 90 105 / 0.16) 0 5px, transparent 5px 10px);
+}
+html[data-theme='dark'] .app-theme .cal-open-dot.cal-open-weight { border-color: #c86a78; }
