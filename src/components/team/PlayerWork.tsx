@@ -54,7 +54,7 @@ export async function PlayerWork({ player, preview = false }: { player: Player; 
   const rated = skills.filter((s) => s.average !== null)
 
   const today = todayIso()
-  const todaysPlan = plans.find((p) => p.publish_players && p.plan_date === today)
+  const todaysPlan = plans.find((p) => p.publish_players && !p.private && p.plan_date === today)
 
   const byFocus = new Map<string, typeof set extends null ? never : NonNullable<typeof set>['items']>()
   for (const item of set?.items ?? []) {

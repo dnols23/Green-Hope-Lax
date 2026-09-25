@@ -16,7 +16,7 @@ import type { Team } from './teams'
 // Server-only — reads cookies and the database. Client components that just need
 // the section list should import from ./sections instead.
 
-export { SECTIONS, GRANTABLE, STAFF_TEAMS, STAFF_ROLES, runsATeam, canSee, visibleSections, teamScope, teamsFor, canTeam, teamFor } from './sections'
+export { SECTIONS, GRANTABLE, STAFF_TEAMS, STAFF_ROLES, runsATeam, isSandboxed, mayReview, canSee, visibleSections, teamScope, teamsFor, canTeam, teamFor } from './sections'
 export type { AdminSection, Viewer, StaffRole, StaffTeam } from './sections'
 
 export async function getViewer(): Promise<Viewer | null> {

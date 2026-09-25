@@ -31,6 +31,15 @@ export function teamForRole(role: StaffRole, team: StaffTeam): StaffTeam {
   return role === 'jv-assistant' ? 'jv' : team
 }
 
+/**
+ * A JV assistant works in a sandbox: his plans are private drafts, and nothing
+ * he does reaches a War Room, the players or the rest of the staff unless a
+ * head coach takes it in. The owner lifts it by changing his role.
+ */
+export function isSandboxed(viewer: { isOwner: boolean; role: StaffRole } | null): boolean {
+  return !!viewer && !viewer.isOwner && viewer.role === 'jv-assistant'
+}
+
 /** Runs a team, either of them. */
 export function runsATeam(role: StaffRole): boolean {
   return role === 'head' || role === 'jv-head'
@@ -201,6 +210,8 @@ export function canSee(viewer: Viewer | null, key: string): boolean {
   if (!section) return false
   if (section.ownerOnly) return viewer.isOwner
   if (viewer.isOwner) return true
+  // Rosters feed the public site; a sandboxed coach plans with them but doesn't keep them.
+  if (key === 'rosters' && isSandboxed(viewer)) return false
   if (section.always) return true
   return viewer.permissions.includes(key)
 }
@@ -238,4 +249,11 @@ export function teamScope(
   if (canSee(viewer, fullKey)) return jvOnly ? 'jv' : 'all'
   if (canSee(viewer, jvKey)) return 'jv'
   return 'none'
+}
+
+/** May review a draft sent in on this team: the owner, or a coach who runs that team. */
+export function mayReview(viewer: Viewer | null, team: Team): boolean {
+  if (!viewer) return false
+  if (viewer.isOwner) return true
+  return runsATeam(viewer.role) && canTeam(viewer, team)
 }

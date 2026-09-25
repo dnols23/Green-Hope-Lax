@@ -2,6 +2,7 @@ import { createServiceClient } from './supabase-server'
 import { readBlocks, readStart, type Plan, type PlanKind } from './planner'
 import { readSides } from './compete'
 import { isTeam, type Team } from './teams'
+import { mayReview, type Viewer } from './sections'
 
 // Reading plans. Coach-only data, so the service client throughout — the table
 // has RLS on with no policies for anyone else.
@@ -34,6 +35,8 @@ function shape(row: Record<string, unknown>): Plan {
     publish_players: row.publish_players === true,
     // Older rows predate the column; a plan without it behaves as it always did.
     publish_coaches: row.publish_coaches !== false,
+    private: row.private === true,
+    review_requested_at: (row.review_requested_at as string) ?? null,
     created_by: (row.created_by as string) ?? null,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
@@ -76,6 +79,24 @@ export async function listPracticePlansBetween(fromYmd: string, toYmd: string): 
     .lte('plan_date', toYmd)
   if (error) return []
   return ((data ?? []) as Record<string, unknown>[]).map(shape)
+}
+
+/** A plan the whole staff works from — the only kind a War Room, the calendar or the players see. */
+export const isShared = (p: Plan) => !p.private
+
+/**
+ * Whether this coach may open a plan. A draft is its author's; once he sends
+ * it for review, the coaches who run that team may open it too.
+ */
+export function canSeePlan(viewer: Viewer | null, p: Plan): boolean {
+  if (!p.private) return true
+  if (!viewer) return false
+  if (p.created_by && p.created_by.toLowerCase() === viewer.email.toLowerCase()) return true
+  return !!p.review_requested_at && mayReview(viewer, p.team)
+}
+
+export function isAuthor(viewer: Viewer | null, p: Plan): boolean {
+  return !!viewer && !!p.created_by && p.created_by.toLowerCase() === viewer.email.toLowerCase()
 }
 
 export async function getPlan(id: string): Promise<Plan | null> {

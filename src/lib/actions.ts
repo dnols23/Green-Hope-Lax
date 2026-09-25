@@ -16,13 +16,13 @@ import {
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection, canTeam } from './permissions'
-import { isStaffRole, isStaffTeam, teamForRole, type StaffRole, type StaffTeam, type Viewer } from './sections'
+import { isSandboxed, isStaffRole, isStaffTeam, mayReview, teamForRole, type StaffRole, type StaffTeam, type Viewer } from './sections'
 import { readSides } from './compete'
-import { getPlan } from './plans'
+import { canSeePlan, getPlan, isAuthor } from './plans'
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
-import { readBlocks, readStart, type PlanKind } from './planner'
+import { readBlocks, readStart, type Plan, type PlanKind } from './planner'
 import { gamePlanStarter, readGamePlan } from './gamePlan'
 import { readNoteBlocks } from './noteBlocks'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
@@ -1246,10 +1246,27 @@ export async function savePlayAction(formData: FormData) {
   revalidatePath('/admin/library')
 }
 
+/**
+ * A sandboxed coach may only change what is his: his own shelf in the Library,
+ * the drills he wrote. Everyone else's is there to read and copy.
+ */
+async function ownsRow(
+  viewer: Viewer | null,
+  table: 'plays' | 'library_items' | 'drills',
+  id: string,
+): Promise<boolean> {
+  if (!isSandboxed(viewer)) return true
+  if (!viewer || !id) return false
+  const column = table === 'drills' ? 'created_by' : 'owner_email'
+  const { data } = await createServiceClient().from(table).select(column).eq('id', id).maybeSingle()
+  const owner = (data as Record<string, unknown> | null)?.[column]
+  return typeof owner === 'string' && owner.toLowerCase() === viewer.email.toLowerCase()
+}
+
 export async function deletePlayAction(formData: FormData) {
-  await requireSection('playboard')
+  const viewer = await requireSection('playboard')
   const id = str(formData.get('id'))
-  if (id) await deletePlay(id)
+  if (id && (await ownsRow(viewer, 'plays', id))) await deletePlay(id)
   revalidatePath('/admin/playboard')
   revalidatePath('/admin/library')
 }
@@ -1269,36 +1286,36 @@ export async function saveShotAction(formData: FormData) {
 }
 
 export async function renameShotAction(formData: FormData) {
-  await requireSection('library')
+  const viewer = await requireSection('library')
   const id = str(formData.get('id'))
   const title = str(formData.get('title'))
-  if (id) await renameShot(id, title)
+  if (id && (await ownsRow(viewer, 'library_items', id))) await renameShot(id, title)
   revalidatePath('/admin/library')
 }
 
 /** Everything that was ticked, in one go. */
 export async function deleteLibraryAction(formData: FormData) {
-  await requireSection('library')
+  const viewer = await requireSection('library')
   const shots = str(formData.get('shots')).split(',').filter(Boolean)
   const plays = str(formData.get('plays')).split(',').filter(Boolean)
-  for (const id of shots) await deleteShot(id)
-  for (const id of plays) await deletePlay(id)
+  for (const id of shots) if (await ownsRow(viewer, 'library_items', id)) await deleteShot(id)
+  for (const id of plays) if (await ownsRow(viewer, 'plays', id)) await deletePlay(id)
   revalidatePath('/admin/library')
   revalidatePath('/admin/playboard')
 }
 
 export async function deleteShotAction(formData: FormData) {
-  await requireSection('library')
+  const viewer = await requireSection('library')
   const id = str(formData.get('id'))
-  if (id) await deleteShot(id)
+  if (id && (await ownsRow(viewer, 'library_items', id))) await deleteShot(id)
   revalidatePath('/admin/library')
 }
 
 /** Keep the play, throw away the take. */
 export async function clearPlayClipAction(formData: FormData) {
-  await requireSection('playboard')
+  const viewer = await requireSection('playboard')
   const id = str(formData.get('id'))
-  if (id) await clearPlayClip(id)
+  if (id && (await ownsRow(viewer, 'plays', id))) await clearPlayClip(id)
   revalidatePath('/admin/playboard')
   revalidatePath('/admin/library')
 }
@@ -1309,11 +1326,14 @@ export async function clearPlayClipAction(formData: FormData) {
 /* The team behind a list or an item, checked against the coach reaching for it.
    A list nobody can find is still a list somebody can post to. */
 async function mayTouchList(viewer: Viewer | null, listId: string): Promise<boolean> {
+  // The staff's priorities show in the War Room; a sandboxed coach reads them.
+  if (isSandboxed(viewer)) return false
   const team = await priorityListTeam(listId)
   return team === null ? true : canTeam(viewer, team)
 }
 
 async function mayTouchItem(viewer: Viewer | null, itemId: string): Promise<boolean> {
+  if (isSandboxed(viewer)) return false
   const team = await priorityItemTeam(itemId)
   return team === null ? true : canTeam(viewer, team)
 }
@@ -1322,7 +1342,7 @@ export async function addPriorityListAction(formData: FormData) {
   const viewer = await requireSection('priorities')
   const name = str(formData.get('name'))
   const team = readTeam(formData.get('team'))
-  if (!name || !canTeam(viewer, team)) return
+  if (!name || !canTeam(viewer, team) || isSandboxed(viewer)) return
   await addPriorityList(name, viewer.name || viewer.email, team)
   revalidatePath('/admin/priorities')
 }
@@ -1937,6 +1957,15 @@ export async function createPlan(formData: FormData) {
     created_by: viewer?.email ?? null,
     blocks: [],
   }
+  /* A sandboxed coach's plans are his own drafts. Never written without the
+     column that keeps them private — a draft that lands in the War Room
+     because a migration wasn't run is the one thing this must not do. */
+  const sandboxed = isSandboxed(viewer)
+  if (sandboxed) {
+    row.private = true
+    row.publish_coaches = false
+    row.publish_players = false
+  }
   /* A scout opens with the headings rather than a blank page — the point is
      that a coach sitting down to scout an opponent already knows what he is
      being asked, and fills it in. */
@@ -1958,6 +1987,9 @@ export async function createPlan(formData: FormData) {
   // The team column arrives with its own SQL. Until it is run there is one
   // staff's worth of plans, which is how it was — better than refusing to make
   // a plan at all.
+  if (error && sandboxed && /private/i.test(error.message ?? '')) {
+    redirect(withTeam(`/admin/planner?error=drafts&kind=${kind}`, team))
+  }
   if (error && /team/i.test(error.message ?? '')) {
     const retry = await svc.from('plans').insert(row).select('id').single()
     data = retry.data
@@ -2003,6 +2035,16 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   if (existing && !canTeam(viewer, existing.team)) {
     return { ok: false, error: 'That plan belongs to the other team.' }
   }
+  if (existing && !mayEditPlan(viewer, existing)) {
+    return {
+      ok: false,
+      error: isSandboxed(viewer)
+        ? 'This one isn’t yours to change — Duplicate it to make your own copy.'
+        : 'That’s somebody’s draft.',
+    }
+  }
+  // A draft stays off the War Room and away from the players until a head coach takes it in.
+  const draft = existing?.private === true
 
   let blocks: unknown = []
   let content: unknown = []
@@ -2032,8 +2074,8 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     roster_id: str(formData.get('roster_id')) || null,
     blocks: blocksOut,
     sides,
-    publish_players: str(formData.get('publish_players')) === 'true',
-    publish_coaches: str(formData.get('publish_coaches')) === 'true',
+    publish_players: !draft && str(formData.get('publish_players')) === 'true',
+    publish_coaches: !draft && str(formData.get('publish_coaches')) === 'true',
     updated_at: new Date().toISOString(),
   }
 
@@ -2123,11 +2165,11 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
 export async function deletePlan(id: string) {
   const viewer = await requireSection('planner')
   const svc = createServiceClient()
-  const { data: plan } = await svc.from('plans').select('team').eq('id', id).maybeSingle()
+  const plan = await getPlan(id)
   if (!plan) redirect('/admin/planner')
   // Reading the other side's plans is fine; deleting them is not.
-  const team = readTeam((plan as { team?: unknown }).team)
-  if (!canTeam(viewer, team)) redirect(withTeam('/admin/planner', team))
+  const team = plan.team
+  if (!canTeam(viewer, team) || !mayEditPlan(viewer, plan)) redirect(withTeam('/admin/planner', team))
   await svc.from('plans').delete().eq('id', id)
   revalidatePath('/admin/planner')
   revalidatePath('/admin/hub')
@@ -2148,6 +2190,9 @@ export async function duplicatePlan(formData: FormData) {
      and only a coach who may write to that side can make one. */
   const team = readTeam(o.team)
   if (!canTeam(viewer, team)) return
+  // Somebody's draft can't be copied by a coach who can't open it.
+  const source = await getPlan(id)
+  if (!source || !canSeePlan(viewer, source)) return
   /* Everything that makes the plan what it is comes with it: a note's or
      scout's page, a game plan's decisions and game day, the start time, the
      squads, the blocks with their "how it went" notes. Columns a database has
@@ -2167,7 +2212,18 @@ export async function duplicatePlan(formData: FormData) {
   }
   // A copied game plan is a starting point for another game, not a second plan for this one.
   if (o.kind === 'game' && row.details) row.details = { ...readGamePlan(row.details), gameId: null }
+  /* A sandboxed coach's copy is his draft — the way he starts from one of the
+     staff's plans. A coach copying his own draft keeps it a draft. */
+  const keepPrivate = isSandboxed(viewer) || (source.private && isAuthor(viewer, source))
+  if (keepPrivate) {
+    row.private = true
+    row.publish_coaches = false
+    row.publish_players = false
+  }
   let { data: copy, error } = await svc.from('plans').insert(row).select('id').single()
+  if (error && keepPrivate && /private/i.test(error.message ?? '')) {
+    redirect(withTeam('/admin/planner?error=drafts', team))
+  }
   for (let tries = 0; error && tries < 5; tries++) {
     const missing = ['details', 'sides', 'start_time', 'content', 'team'].find(
       (col) => col in row && new RegExp(col).test(error?.message ?? ''),
@@ -2202,6 +2258,8 @@ export async function upsertDrill(formData: FormData) {
   await requireSection('drills')
   const viewer = await getViewer()
   const id = str(formData.get('id'))
+  // Anyone may add a drill; a sandboxed coach only changes his own.
+  if (id && !(await ownsRow(viewer, 'drills', id))) return
   const payload = {
     name: str(formData.get('name')),
     category: str(formData.get('category')) || 'stickwork',
@@ -2213,7 +2271,8 @@ export async function upsertDrill(formData: FormData) {
     link: str(formData.get('link')) || null,
     link_label: str(formData.get('link_label')) || null,
     equipment: str(formData.get('equipment')) || null,
-    is_favorite: str(formData.get('is_favorite')) === 'true',
+    // The staff's favourites are the staff's call.
+    is_favorite: !isSandboxed(viewer) && str(formData.get('is_favorite')) === 'true',
     updated_at: new Date().toISOString(),
   }
   if (!payload.name) return
@@ -2239,16 +2298,17 @@ export async function upsertDrill(formData: FormData) {
 }
 
 export async function deleteDrill(id: string) {
-  await requireSection('drills')
+  const viewer = await requireSection('drills')
+  if (!(await ownsRow(viewer, 'drills', id))) return
   const svc = createServiceClient()
   await svc.from('drills').delete().eq('id', id)
   revalidatePath('/admin/drills')
 }
 
 export async function toggleDrillFavorite(formData: FormData) {
-  await requireSection('drills')
+  const viewer = await requireSection('drills')
   const id = str(formData.get('id'))
-  if (!id) return
+  if (!id || isSandboxed(viewer)) return
   const svc = createServiceClient()
   await svc
     .from('drills')
@@ -2261,6 +2321,7 @@ export async function toggleDrillFavorite(formData: FormData) {
 export async function importDrills(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireSection('drills')
   const viewer = await getViewer()
+  if (isSandboxed(viewer)) return { ok: false, error: 'Add drills one at a time.' }
   const rows = parseDrillPaste(str(formData.get('paste')), str(formData.get('category')) || 'stickwork')
   if (rows.length === 0) return { ok: false, error: 'Nothing to import — one drill per line.' }
 
@@ -2330,6 +2391,8 @@ async function prescribeFor(playerId: string, drills: Awaited<ReturnType<typeof 
 export async function generateDrillSet(formData: FormData) {
   await requireSection('hub')
   const viewer = await getViewer()
+  // Drill sets land on a player's own page.
+  if (isSandboxed(viewer)) return
   const playerId = str(formData.get('player_id'))
   if (!playerId) return
   const drills = await listDrills()
@@ -2345,6 +2408,7 @@ export async function generateDrillSetsForRoster(
 ): Promise<FormState> {
   await requireSection('hub')
   const viewer = await getViewer()
+  if (isSandboxed(viewer)) return { ok: false, error: 'The head coach sends drill sets to players.' }
   const listId = str(formData.get('list_id'))
   if (!listId) return { ok: false, error: 'Pick a roster first.' }
 
@@ -2378,7 +2442,7 @@ export async function generateDrillSetsForRoster(
 // ── Player invite links ──
 
 export async function createPlayerInvite(formData: FormData) {
-  await requireSection('hub')
+  if (isSandboxed(await requireSection('hub'))) return
   const playerId = str(formData.get('player_id'))
   if (!playerId) return
   await ensurePlayerToken(playerId)
@@ -2386,9 +2450,55 @@ export async function createPlayerInvite(formData: FormData) {
 }
 
 export async function revokePlayerInvite(formData: FormData) {
-  await requireSection('hub')
+  if (isSandboxed(await requireSection('hub'))) return
   const playerId = str(formData.get('player_id'))
   if (!playerId) return
   await revokePlayerToken(playerId)
   revalidatePath('/admin/hub/players')
+}
+
+// ── Drafts and review ────────────────────────────────────────────────────────
+
+/**
+ * Who may change a plan. A sandboxed coach only his own drafts; a draft only
+ * its author, or — once it has been sent in — the coaches who run that team.
+ */
+function mayEditPlan(viewer: Viewer | null, plan: Plan): boolean {
+  if (!viewer || !canTeam(viewer, plan.team)) return false
+  const mine = !!plan.created_by && plan.created_by.toLowerCase() === viewer.email.toLowerCase()
+  if (isSandboxed(viewer)) return plan.private && mine
+  if (!plan.private) return true
+  return mine || (!!plan.review_requested_at && mayReview(viewer, plan.team))
+}
+
+/** The author sends his draft to the head coaches, or takes it back. */
+export async function sendPlanForReview(formData: FormData) {
+  const viewer = await requireSection('planner')
+  const plan = await getPlan(str(formData.get('id')))
+  if (!plan || !plan.private || !plan.created_by) return
+  if (plan.created_by.toLowerCase() !== viewer.email.toLowerCase()) return
+  const on = str(formData.get('on')) === 'true'
+  await createServiceClient()
+    .from('plans')
+    .update({ review_requested_at: on ? new Date().toISOString() : null })
+    .eq('id', plan.id)
+  revalidatePath('/admin/planner')
+  revalidatePath(`/admin/planner/${plan.id}`)
+}
+
+/**
+ * A head coach takes a draft into the team's planner: it stops being private
+ * and is a plan like any other — in the War Room, and his to publish.
+ */
+export async function adoptPlan(formData: FormData) {
+  const viewer = await requireSection('planner')
+  const plan = await getPlan(str(formData.get('id')))
+  if (!plan || !plan.private || !plan.review_requested_at || !mayReview(viewer, plan.team)) return
+  await createServiceClient()
+    .from('plans')
+    .update({ private: false, review_requested_at: null, publish_coaches: true })
+    .eq('id', plan.id)
+  revalidatePath('/admin/planner')
+  revalidatePath(`/admin/planner/${plan.id}`)
+  revalidatePath('/admin/hub')
 }
