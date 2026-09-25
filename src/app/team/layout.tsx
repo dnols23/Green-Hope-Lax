@@ -6,5 +6,6 @@ export const metadata: Metadata = {
 }
 
 export default function TeamLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen" style={{ background: 'var(--surface-2)' }}>{children}</div>
+  // app-theme: the Coaches Hub's light and dark palette, so the moon button works here too.
+  return <div className="app-theme min-h-screen" style={{ background: 'var(--surface-2)' }}>{children}</div>
 }
