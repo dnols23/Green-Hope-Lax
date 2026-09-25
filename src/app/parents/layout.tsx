@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { FalconHead } from '@/components/Logo'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { PARENT_COOKIE } from '@/lib/parentAccess.edge'
 import { signOutParent } from '@/lib/hubAccountActions'
 
@@ -13,8 +14,8 @@ export const metadata: Metadata = {
 export default async function ParentsLayout({ children }: { children: React.ReactNode }) {
   const signedIn = !!(await cookies()).get(PARENT_COOKIE)?.value
   return (
-    <div className="min-h-screen" style={{ background: 'var(--surface-2)' }}>
-      <header className="shadow-sm" style={{ background: 'var(--gh-green-dk)' }}>
+    <div className="app-theme min-h-screen" style={{ background: 'var(--surface-2)' }}>
+      <header className="shadow-sm" style={{ background: '#004D2E' }}>
         <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-3">
           <Link href="/parents" className="flex items-center gap-2.5">
             <FalconHead size={36} />
@@ -25,8 +26,9 @@ export default async function ParentsLayout({ children }: { children: React.Reac
               </span>
             </span>
           </Link>
+          <ThemeToggle className="ml-auto" />
           {signedIn && (
-            <form action={signOutParent} className="ml-auto">
+            <form action={signOutParent}>
               <button type="submit" className="text-xs font-bold text-white/70 hover:text-white">
                 Sign out
               </button>

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { getTeamPosts, getGames } from '@/lib/queries'
 import { shares } from '@/lib/calendarShare'
 import { teamLogout } from '@/lib/actions'
@@ -77,7 +78,7 @@ export default async function TeamHubPage() {
   return (
     <>
       {/* Header */}
-      <header className="text-white" style={{ background: 'var(--gh-green-dk)' }}>
+      <header className="text-white" style={{ background: '#004D2E' }}>
         <div className="max-w-screen-lg mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/team" className="flex items-center gap-2.5">
             <span className="inline-flex items-center justify-center bg-white rounded-lg px-1.5 py-1">
@@ -89,6 +90,7 @@ export default async function TeamHubPage() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link href="/" className="text-xs text-white/70 hover:text-white">Main site ↗</Link>
             <form action={teamLogout}>
               <button type="submit" className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded transition-colors">
