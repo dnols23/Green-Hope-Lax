@@ -120,7 +120,7 @@ export const EVAL_SECTIONS: string[] = [...new Set(EVAL_CATEGORIES.map((c) => c.
 export const PLAYING_TIME_OPTIONS = ['Varsity Starter', 'Varsity', 'JV', 'Develop'] as const
 export type PlayingTime = (typeof PLAYING_TIME_OPTIONS)[number]
 
-export type CoachRole = 'head' | 'jv-head' | 'assistant'
+export type CoachRole = 'head' | 'jv-head' | 'assistant' | 'jv-assistant'
 
 export interface CoachAccount {
   email: string
