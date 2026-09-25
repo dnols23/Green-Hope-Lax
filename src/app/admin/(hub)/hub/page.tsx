@@ -5,14 +5,14 @@ import { getViewer, teamFor } from '@/lib/permissions'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
 import { saveHubModes, createPlan } from '@/lib/actions'
-import { listPlans, plannerReady } from '@/lib/plans'
+import { isShared, listPlans, plannerReady } from '@/lib/plans'
 import { getGames } from '@/lib/queries'
 import { listRosters } from '@/lib/rosters'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { loadWall } from '@/lib/wallData'
 import { WallPanel } from '@/components/wall/WallPanel'
 import { listPriorities, prioritiesReady } from '@/lib/priorities'
-import { canTeam } from '@/lib/sections'
+import { canTeam, isSandboxed } from '@/lib/sections'
 import { formatDate, formatShortDate, formatTime, TEAM_TIME_ZONE } from '@/lib/format'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
 import { listCalendarItems } from '@/lib/calendarData'
@@ -192,7 +192,8 @@ export default async function WarRoom({
   const { error: evalError } = await svc.from('evaluations').select('id').limit(1)
 
   const hasPlanner = await plannerReady()
-  const plans = hasPlanner ? await listPlans(team) : []
+  // Drafts are their author's alone; the War Room is what the staff works from.
+  const plans = hasPlanner ? (await listPlans(team)).filter(isShared) : []
   const todaysPlan = plans.find((p) => p.kind === 'practice' && p.plan_date === today)
   const nextPractice = plans.find((p) => p.kind === 'practice' && p.plan_date && p.plan_date > today)
   const gamePlans = plans.filter((p) => p.kind === 'game').slice(0, 3)
@@ -224,13 +225,14 @@ export default async function WarRoom({
   const nextGamePlan = nextGame ? findGamePlan(plans, nextGame) : null
   /* Buttons that make a plan only show to a coach who can write on this side
      of the program — anyone else would press one and get nothing. */
-  const mayPlan = hasPlanner && canTeam(viewer, team)
+  // A sandboxed coach plans in the planner, where his drafts live — not from here.
+  const mayPlan = hasPlanner && canTeam(viewer, team) && !isSandboxed(viewer)
 
   /* The wall and the priorities load alongside each other. Neither can take
      the War Room down: a table that isn't there yet reads as empty. */
   const [wall, hasPriorities] = await Promise.all([loadWall(viewer), prioritiesReady()])
   const priorityLists = hasPriorities ? await listPriorities(team) : []
-  const mayWritePriorities = canTeam(viewer, team)
+  const mayWritePriorities = canTeam(viewer, team) && !isSandboxed(viewer)
 
   const calendar = await weekAhead
   const thisWeek = calendar.filter((i) => i.source !== 'availability' && onThisSide(i, team))

@@ -275,7 +275,8 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
     // Only the window's practices — game plans are already on the calendar as the game.
     const plans = await listPracticePlansBetween(addDaysYmd(ymdOf(q.from), -1), ymdOf(q.to))
     for (const p of plans) {
-      if (!p.plan_date) continue
+      // A private draft is nobody's schedule.
+      if (!p.plan_date || p.private) continue
       if (q.surface === 'team' && !p.publish_players) continue
       const start = zonedToUtc(p.plan_date, p.start_time ?? DEFAULT_START)
       const minutes = totalMinutes(p.blocks) || 120

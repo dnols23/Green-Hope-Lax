@@ -1,6 +1,6 @@
 'use server'
 
-import { getViewer } from './permissions'
+import { getViewer, isSandboxed } from './permissions'
 import { createServiceClient } from './supabase-server'
 import { getPlaylistOwner, getQuoteAdder, mayEditPlaylist, mayEditQuote, nextPosition } from './wallData'
 import { cleanLine, isCoverKey } from './wallModel'
@@ -28,6 +28,8 @@ export async function addWallQuote(input: {
 }): Promise<WallResult> {
   const viewer = await getViewer()
   if (!viewer) return { ok: false, error: 'Sign in again.' }
+  // Every quote plays in every War Room; this coach's ideas go to the head coach first.
+  if (isSandboxed(viewer)) return { ok: false, error: 'Send this one to the head coach to put on the wall.' }
   const line = cleanLine(input.line)
   if (!line) return { ok: false, error: 'Type the quote first.' }
   const who = cleanLine(input.who, 120) || null
@@ -120,6 +122,8 @@ export async function createWallPlaylist(input: PlaylistInput & { quoteIds?: str
   const viewer = await getViewer()
   if (!viewer) return { ok: false, error: 'Sign in again.' }
   const row = cleanPlaylist(input)
+  // A sandboxed coach's playlists are his own.
+  if (isSandboxed(viewer)) row.shared = false
   if (!row.name) return { ok: false, error: 'Give the playlist a name.' }
 
   const svc = createServiceClient()
@@ -156,6 +160,8 @@ export async function updateWallPlaylist(id: string, input: PlaylistInput): Prom
   const refused = await guardPlaylist(id)
   if (refused) return refused
   const row = cleanPlaylist(input)
+  // A sandboxed coach's playlists are his own.
+  if (isSandboxed(await getViewer())) row.shared = false
   if (!row.name) return { ok: false, error: 'Give the playlist a name.' }
   const { error } = await createServiceClient()
     .from('wall_playlists')

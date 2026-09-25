@@ -25,7 +25,8 @@ export function PrioritiesPanel({
 }: {
   lists: PanelList[]
   canWrite: boolean
-  allHref: string
+  /** Where "All priorities" goes; none on the page that already is all of them. */
+  allHref?: string
 }) {
   const [group, setGroup] = useState<string>('all')
   const [error, setError] = useState<string | null>(null)
@@ -164,9 +165,11 @@ export function PrioritiesPanel({
           </form>
         </details>
       )}
-      <Link href={allHref} className="inline-block mt-2 text-sm font-semibold text-[var(--gh-green)]">
-        All priorities →
-      </Link>
+      {allHref && (
+        <Link href={allHref} className="inline-block mt-2 text-sm font-semibold text-[var(--gh-green)]">
+          All priorities →
+        </Link>
+      )}
     </div>
   )
 }

@@ -881,28 +881,32 @@ export function GamePlanEditor({
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
         <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
-          <label className="flex items-center gap-2 text-sm cursor-pointer min-h-9">
-            <input
-              type="checkbox"
-              name="publish_coaches"
-              value="true"
-              checked={toCoaches}
-              onChange={(e) => setToCoaches(e.target.checked)}
-              className="w-4 h-4 accent-[var(--gh-green)]"
-            />
-            War Room
-          </label>
-          <label className="flex items-center gap-2 text-sm cursor-pointer min-h-9">
-            <input
-              type="checkbox"
-              name="publish_players"
-              value="true"
-              checked={toPlayers}
-              onChange={(e) => setToPlayers(e.target.checked)}
-              className="w-4 h-4 accent-[var(--gh-green)]"
-            />
-            Players
-          </label>
+          {!plan.private && (
+            <>
+              <label className="flex items-center gap-2 text-sm cursor-pointer min-h-9">
+                <input
+                  type="checkbox"
+                  name="publish_coaches"
+                  value="true"
+                  checked={toCoaches}
+                  onChange={(e) => setToCoaches(e.target.checked)}
+                  className="w-4 h-4 accent-[var(--gh-green)]"
+                />
+                War Room
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer min-h-9">
+                <input
+                  type="checkbox"
+                  name="publish_players"
+                  value="true"
+                  checked={toPlayers}
+                  onChange={(e) => setToPlayers(e.target.checked)}
+                  className="w-4 h-4 accent-[var(--gh-green)]"
+                />
+                Players
+              </label>
+            </>
+          )}
           <button
             type="submit"
             disabled={saving || !canWrite}
