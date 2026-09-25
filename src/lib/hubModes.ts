@@ -37,6 +37,7 @@ export const HUB_MODES: HubMode[] = [
   { key: 'schedule',  label: 'Games',            section: 'schedule', icon: '🏟', href: '/admin/schedule' },
   { key: 'film',      label: 'Film Room',        section: 'film',     icon: '🎬', href: '/admin/film' },
   { key: 'inventory', label: 'Inventory',        section: 'inventory',icon: '📦', href: '/admin/inventory' },
+  { key: 'wishlist',  label: 'Wish List',        section: 'wishlist', icon: '🎁', href: '/admin/wishlist' },
 ]
 
 export const HUB_MODE_KEYS = HUB_MODES.map((m) => m.key)
