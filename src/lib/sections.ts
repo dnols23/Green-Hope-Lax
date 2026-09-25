@@ -129,6 +129,8 @@ export const SECTIONS: AdminSection[] = [
   // coach publishes it; only he ever writes it, which the pages enforce.
   { key: 'playbook',     label: 'Playbook',     href: '/admin/playbook',     group: 'Coaches Hub', always: true, hidden: true },
   { key: 'priorities',   label: 'Priorities',   href: '/admin/priorities',   group: 'Coaches Hub', always: true },
+  // What the program needs and wants. Every coach adds; the head coach decides.
+  { key: 'wishlist',     label: 'Wish List',    href: '/admin/wishlist',     group: 'Coaches Hub', always: true },
   { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaches Hub', always: true,
     views: [{ audience: 'public', href: '/roster' }] },
   // The head coach's review of his own staff. Lives only in the hub sidebar.
