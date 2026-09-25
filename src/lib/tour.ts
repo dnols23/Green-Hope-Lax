@@ -47,7 +47,7 @@ export const AUDIENCE_LABELS: Record<Audience, string> = {
 
 export function audienceOf(opts: {
   isOwner: boolean
-  role: 'head' | 'jv-head' | 'assistant'
+  role: 'head' | 'jv-head' | 'assistant' | 'jv-assistant'
   team: 'all' | 'varsity' | 'jv'
 }): Audience {
   // Whoever runs the program is the varsity head coach, whatever else is set.
@@ -56,6 +56,7 @@ export function audienceOf(opts: {
      coach who also helps with varsity is still a JV head coach, and the
      walk-round he wants is the one about running JV. */
   if (opts.role === 'jv-head') return 'jv-head'
+  if (opts.role === 'jv-assistant') return 'jv-assistant'
   const side = opts.team === 'jv' ? 'jv' : 'varsity'
   const rank = opts.role === 'head' ? 'head' : 'assistant'
   return `${side}-${rank}` as Audience

@@ -13,16 +13,22 @@ import { DEFAULT_TEAM, TEAMS, isTeam, type Team } from './teams'
  * first time he signs in, what the War Room calls him, and whether he may
  * delete somebody else's evaluation.
  */
-export type StaffRole = 'head' | 'jv-head' | 'assistant'
+export type StaffRole = 'head' | 'jv-head' | 'assistant' | 'jv-assistant'
 
 export const STAFF_ROLES: { key: StaffRole; label: string; hint: string }[] = [
   { key: 'head', label: 'Head coach', hint: 'Runs the program.' },
   { key: 'jv-head', label: 'JV head coach', hint: 'Runs the JV team.' },
   { key: 'assistant', label: 'Assistant', hint: 'Coaches a group.' },
+  { key: 'jv-assistant', label: 'JV assistant', hint: 'Coaches a group on JV.' },
 ]
 
 export function isStaffRole(v: unknown): v is StaffRole {
-  return v === 'head' || v === 'jv-head' || v === 'assistant'
+  return v === 'head' || v === 'jv-head' || v === 'assistant' || v === 'jv-assistant'
+}
+
+/** A JV assistant works on JV, whatever the team switch was left on. */
+export function teamForRole(role: StaffRole, team: StaffTeam): StaffTeam {
+  return role === 'jv-assistant' ? 'jv' : team
 }
 
 /** Runs a team, either of them. */

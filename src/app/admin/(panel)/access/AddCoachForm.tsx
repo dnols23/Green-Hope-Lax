@@ -114,7 +114,16 @@ Username: ${state.email}${state.password ? `\nPassword: ${state.password}` : ''}
         </div>
         <div>
           <label className="field-label">Role</label>
-          <select name="role" defaultValue="assistant" className="field">
+          <select
+            name="role"
+            defaultValue="assistant"
+            className="field"
+            onChange={(e) => {
+              // A JV assistant is on JV: move the team to match.
+              const team = e.currentTarget.form?.elements.namedItem('staff_team')
+              if (e.currentTarget.value === 'jv-assistant' && team instanceof HTMLSelectElement) team.value = 'jv'
+            }}
+          >
             {STAFF_ROLES.map((r) => (
               <option key={r.key} value={r.key}>{r.label} — {r.hint.toLowerCase().replace(/\.$/, '')}</option>
             ))}

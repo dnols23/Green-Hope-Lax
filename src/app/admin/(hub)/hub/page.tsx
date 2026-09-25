@@ -597,7 +597,9 @@ export default async function WarRoom({
               ? '★ Head Coach'
               : coach.role === 'jv-head'
                 ? '★ JV Head Coach'
-                : 'Coach'}{' '}
+                : coach.role === 'jv-assistant'
+                  ? 'JV Assistant'
+                  : 'Coach'}{' '}
             · {coach.name}
           </span>
         )}

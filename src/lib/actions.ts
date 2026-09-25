@@ -16,7 +16,7 @@ import {
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection, canTeam } from './permissions'
-import { isStaffRole, isStaffTeam, type StaffRole, type StaffTeam, type Viewer } from './sections'
+import { isStaffRole, isStaffTeam, teamForRole, type StaffRole, type StaffTeam, type Viewer } from './sections'
 import { readSides } from './compete'
 import { getPlan } from './plans'
 import { readStaff, writeStaff, deleteStaff } from './staff'
@@ -1042,7 +1042,7 @@ export async function createCoachAccount(
   const role: StaffRole = isStaffRole(roleRaw) ? roleRaw : 'assistant'
   const permissions = formData.getAll('permissions').map(String).filter(Boolean)
   const rawTeam = str(formData.get('staff_team'))
-  const team: StaffTeam = isStaffTeam(rawTeam) ? rawTeam : 'all'
+  const team: StaffTeam = teamForRole(role, isStaffTeam(rawTeam) ? rawTeam : 'all')
 
   const typed = str(formData.get('password'))
   if (typed && typed.length < 8)
@@ -1122,11 +1122,13 @@ export async function setCoachAccess(formData: FormData) {
   const existing = await readStaff(email)
   if (!existing) return
 
+  const role: StaffRole = isStaffRole(str(formData.get('role'))) ? (str(formData.get('role')) as StaffRole) : 'assistant'
+  const team: StaffTeam = isStaffTeam(str(formData.get('staff_team'))) ? (str(formData.get('staff_team')) as StaffTeam) : 'all'
   await writeStaff({
     ...existing,
-    role: isStaffRole(str(formData.get('role'))) ? (str(formData.get('role')) as StaffRole) : 'assistant',
+    role,
     permissions: formData.getAll('permissions').map(String).filter(Boolean),
-    team: isStaffTeam(str(formData.get('staff_team'))) ? (str(formData.get('staff_team')) as StaffTeam) : 'all',
+    team: teamForRole(role, team),
   })
   revalidatePath('/admin/access')
 }
