@@ -54,7 +54,8 @@ export async function proxy(request: NextRequest) {
   const isTeamLogin = path === '/team/login'
   // An invite link is its own way in — following one is how a player gets a
   // session in the first place, so it cannot sit behind the team password.
-  const isPlayerJoin = path.startsWith('/team/join/') || path.startsWith('/team/join-team/')
+  const isPlayerJoin =
+    path.startsWith('/team/join/') || path.startsWith('/team/join-team/') || path === '/team/register'
   if (isTeamRoute && !isPlayerJoin) {
     const token = request.cookies.get(TEAM_COOKIE)?.value
     let valid = !!token && token === (await teamCookieToken())

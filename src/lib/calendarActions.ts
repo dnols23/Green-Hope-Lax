@@ -15,11 +15,13 @@ import {
   removeEvent,
   updateAvailability,
   updateEvent,
+  writeCalendarShare,
   type AvailabilityWrite,
   type EventWrite,
 } from './calendarData'
 import { isCalAudience, isCalEventKind, isCalTeam, type Availability } from './calendarModel'
 import { zoneParts } from './zoned'
+import { parseCalendarShare } from './calendarShare'
 
 /**
  * Writing the calendar.
@@ -248,4 +250,14 @@ export async function deleteAvailability(id: string): Promise<CalResult> {
   }
   await removeAvailability(id)
   return { ok: true }
+}
+
+// ── Sharing ──────────────────────────────────────────────────────────────────
+
+/** The owner's choice of what each calendar shares with each hub. */
+export async function saveCalendarShare(input: unknown): Promise<CalResult> {
+  const viewer = await getViewer()
+  if (!viewer?.isOwner) return { ok: false, error: 'Only the head of the program sets this.' }
+  const ok = await writeCalendarShare(parseCalendarShare(input))
+  return ok ? { ok: true } : { ok: false, error: 'Couldn’t save it.' }
 }

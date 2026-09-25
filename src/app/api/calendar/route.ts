@@ -6,6 +6,7 @@ import {
   listCalendarItems,
   listMyAvailability,
   postableTeams,
+  readCalendarShare,
 } from '@/lib/calendarData'
 
 /**
@@ -33,9 +34,11 @@ export async function GET(request: NextRequest) {
   }
 
   const [ready, availReady] = await Promise.all([calendarReady(), availabilityReady()])
-  const [items, mine] = await Promise.all([
+  const [items, mine, share] = await Promise.all([
     listCalendarItems({ from, to, surface: 'coach', viewer, withFieldTimes: true }),
     availReady ? listMyAvailability(viewer.email) : Promise.resolve([]),
+    // The share settings are the owner's to change, so only he is sent them.
+    viewer.isOwner ? readCalendarShare() : Promise.resolve(null),
   ])
 
   return NextResponse.json({
@@ -44,5 +47,6 @@ export async function GET(request: NextRequest) {
     myAvailability: mine,
     canPost: postableTeams(viewer),
     me: { email: viewer.email, name: viewer.name, isOwner: viewer.isOwner },
+    share,
   })
 }

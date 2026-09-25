@@ -29,6 +29,7 @@ import { AgendaView } from './AgendaView'
 import { EventDetail, type DetailTarget } from './EventDetail'
 import { EventEditor, type EditorDraft } from './EventEditor'
 import { Modal } from './Modal'
+import { SharePanel } from './SharePanel'
 import { MonthView } from './MonthView'
 import { TimeGrid } from './TimeGrid'
 import { MiniMonth, YearView, dayLoad } from './YearView'
@@ -79,6 +80,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
   const [detail, setDetail] = useState<DetailTarget | null>(null)
   const [editor, setEditor] = useState<EditorDraft | null>(null)
   const [availOpen, setAvailOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [toast, setToast] = useState<Toast | null>(null)
 
   // A phone opens on the list, the one view that reads well at that width —
@@ -336,7 +338,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
         else if (detail) setDetail(null)
         return
       }
-      if (typing || editor || detail || availOpen) return
+      if (typing || editor || detail || availOpen || shareOpen) return
 
       const k = e.key.toLowerCase()
       const views: Record<string, CalView> = { d: 'day', w: 'week', m: 'month', y: 'year', a: 'agenda' }
@@ -425,6 +427,20 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
             <span className="sm:hidden">Availability</span>
             <span className="hidden sm:inline">Set availability</span>
           </button>
+          {data?.me.isOwner && (
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              aria-label="Sharing settings"
+              title="What each calendar shares with each hub"
+              className="btn btn-ghost !px-2.5 !py-1.5 min-h-9"
+            >
+              <svg aria-hidden className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.3 4.3c.4-1.7 3-1.7 3.4 0a1.7 1.7 0 002.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 001 2.5c1.8.4 1.8 3 0 3.4a1.7 1.7 0 00-1 2.6c.9 1.5-.9 3.3-2.4 2.4a1.7 1.7 0 00-2.6 1c-.4 1.8-3 1.8-3.4 0a1.7 1.7 0 00-2.5-1c-1.6.9-3.3-.9-2.4-2.4a1.7 1.7 0 00-1.1-2.6c-1.7-.4-1.7-3 0-3.4a1.7 1.7 0 001.1-2.5c-.9-1.6.8-3.3 2.4-2.4a1.7 1.7 0 002.5-1.1z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          )}
           {canCreate && (
             <button
               type="button"
@@ -691,6 +707,18 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
               say(msg)
               refetch()
             }}
+          />
+        </Modal>
+      )}
+      {shareOpen && data && (
+        <Modal shape="drawer" label="Sharing" onClose={() => setShareOpen(false)}>
+          <SharePanel
+            initial={data.share}
+            onSaved={() => {
+              say('Sharing saved.')
+              refetch()
+            }}
+            onClose={() => setShareOpen(false)}
           />
         </Modal>
       )}

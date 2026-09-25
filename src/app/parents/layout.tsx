@@ -1,13 +1,17 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { cookies } from 'next/headers'
 import { FalconHead } from '@/components/Logo'
+import { PARENT_COOKIE } from '@/lib/parentAccess.edge'
+import { signOutParent } from '@/lib/hubAccountActions'
 
 export const metadata: Metadata = {
   title: 'Parent Hub | Green Hope Falcons Lacrosse',
   robots: { index: false, follow: false }, // private area — keep out of search
 }
 
-export default function ParentsLayout({ children }: { children: React.ReactNode }) {
+export default async function ParentsLayout({ children }: { children: React.ReactNode }) {
+  const signedIn = !!(await cookies()).get(PARENT_COOKIE)?.value
   return (
     <div className="min-h-screen" style={{ background: 'var(--surface-2)' }}>
       <header className="shadow-sm" style={{ background: 'var(--gh-green-dk)' }}>
@@ -21,6 +25,13 @@ export default function ParentsLayout({ children }: { children: React.ReactNode 
               </span>
             </span>
           </Link>
+          {signedIn && (
+            <form action={signOutParent} className="ml-auto">
+              <button type="submit" className="text-xs font-bold text-white/70 hover:text-white">
+                Sign out
+              </button>
+            </form>
+          )}
         </div>
       </header>
       <main className="max-w-3xl mx-auto px-4 py-8">{children}</main>

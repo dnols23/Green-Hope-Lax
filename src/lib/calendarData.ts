@@ -4,6 +4,7 @@ import { listPracticePlansBetween } from './plans'
 import { DEFAULT_START, totalMinutes } from './planner'
 import { normalizeAudience as gameAudience } from './schedule'
 import { withTeam } from './teams'
+import { CALENDAR_SHARE_KEY, parseCalendarShare, shares, type CalendarShare, type ShareHub, type ShareLayer } from './calendarShare'
 import { addDaysYmd, daysBetweenYmd, hmOf, ymdOf, zonedToUtc } from './zoned'
 import {
   GAME_MINUTES,
@@ -184,6 +185,29 @@ export interface CalendarQuery {
  * start. Missing tables — a migration not yet run — read as empty rather than
  * breaking the page.
  */
+/** What each calendar shares with each hub. Never throws: unreadable means the defaults. */
+export async function readCalendarShare(): Promise<CalendarShare> {
+  try {
+    const { data } = await createServiceClient()
+      .from('app_settings')
+      .select('value')
+      .eq('key', CALENDAR_SHARE_KEY)
+      .maybeSingle()
+    return parseCalendarShare(data?.value)
+  } catch {
+    return parseCalendarShare(null)
+  }
+}
+
+export async function writeCalendarShare(next: CalendarShare): Promise<boolean> {
+  const { error } = await createServiceClient()
+    .from('app_settings')
+    .upsert({ key: CALENDAR_SHARE_KEY, value: JSON.stringify(next) }, { onConflict: 'key' })
+  return !error
+}
+
+const HUB_OF: Partial<Record<CalSurface, ShareHub>> = { coach: 'coaches', team: 'team', parents: 'parents' }
+
 export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
   const svc = createServiceClient()
   const fromIso = q.from.toISOString()
@@ -191,6 +215,13 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
   const sees = SURFACE_SEES[q.surface]
   const coach = q.surface === 'coach'
   const items: CalItem[] = []
+
+  /* The owner's share settings narrow what each hub gets. He always sees the
+     whole calendar himself — it is his to manage. The public schedule goes by
+     each item's own audience alone. */
+  const hub = HUB_OF[q.surface]
+  const share = hub && !(coach && q.viewer?.isOwner) ? await readCalendarShare() : null
+  const shared = (team: CalTeam, layer: ShareLayer) => !share || !hub || shares(share, team, hub, layer)
 
   // Events.
   {
@@ -205,6 +236,7 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
       for (const row of (data ?? []) as Record<string, unknown>[]) {
         const e = readEvent(row)
         if (e.kind === 'open' && !q.withFieldTimes) continue
+        if (e.kind !== 'open' && !shared(e.team, 'events')) continue
         items.push({
           key: `event:${e.id}`,
           source: 'event',
@@ -243,9 +275,10 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
           aud === 'public' ||
           (aud === 'team' && (q.surface === 'team' || q.surface === 'parents'))
         if (!visible) continue
+        const level = g.level === 'jv' ? 'jv' : 'varsity'
+        if (!shared(level, 'games')) continue
         const start = new Date(String(g.game_date))
         const end = new Date(start.getTime() + GAME_MINUTES * 60000)
-        const level = g.level === 'jv' ? 'jv' : 'varsity'
         const ha = String(g.home_away ?? 'home')
         const final = g.status === 'final' && g.team_score != null && g.opp_score != null
         items.push({
@@ -270,14 +303,16 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
     }
   }
 
-  // Practice plans — coaches see every one; players see the ones published to them.
-  if (q.surface === 'coach' || q.surface === 'team') {
+  // Practice plans — coaches see every one; players (and parents, when the
+  // owner shares them) see the ones published to the players.
+  if (q.surface === 'coach' || q.surface === 'team' || q.surface === 'parents') {
     // Only the window's practices — game plans are already on the calendar as the game.
     const plans = await listPracticePlansBetween(addDaysYmd(ymdOf(q.from), -1), ymdOf(q.to))
     for (const p of plans) {
       // A private draft is nobody's schedule.
       if (!p.plan_date || p.private) continue
-      if (q.surface === 'team' && !p.publish_players) continue
+      if (!coach && !p.publish_players) continue
+      if (!shared(p.team, 'practices')) continue
       const start = zonedToUtc(p.plan_date, p.start_time ?? DEFAULT_START)
       const minutes = totalMinutes(p.blocks) || 120
       const end = new Date(start.getTime() + minutes * 60000)

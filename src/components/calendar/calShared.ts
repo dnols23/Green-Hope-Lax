@@ -5,6 +5,7 @@
 // layer does it belong to, how do I write its time in four characters", and
 // asking one file keeps the week view and the agenda from drifting apart.
 
+import type { CalendarShare } from '@/lib/calendarShare'
 import {
   CAL_EVENT_KINDS,
   CAL_TEAMS,
@@ -22,6 +23,8 @@ export interface CalPayload {
   myAvailability: Availability[]
   canPost: CalTeam[]
   me: { email: string; name: string; isOwner: boolean }
+  /** What each calendar shares with each hub — sent to the owner only. */
+  share?: CalendarShare | null
 }
 
 // ── The time grid's scale ───────────────────────────────────────────────────
