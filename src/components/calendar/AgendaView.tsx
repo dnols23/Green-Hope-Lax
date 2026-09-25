@@ -79,7 +79,7 @@ export function AgendaView({ from, items, now, canCreate, onOpen, onOpenOut, onN
         return (
           <section key={dayKey(day)} className="border-b border-gray-100 last:border-b-0">
             <div
-              className={`sticky top-0 z-[5] flex items-center gap-2.5 px-3 sm:px-4 py-2 bg-white/95 backdrop-blur border-b border-gray-100 ${
+              className={`sticky top-[env(safe-area-inset-top)] z-[5] flex items-center gap-2.5 px-3 sm:px-4 py-2 bg-white/95 backdrop-blur border-b border-gray-100 ${
                 index === 0 ? 'rounded-t-xl' : ''
               }`}
             >

@@ -266,7 +266,7 @@ function Rail({
         data-tour="sidebar"
         aria-label="Coaching tools"
         className={`shrink-0 md:w-56 md:static md:translate-x-0 md:z-auto md:overflow-visible md:p-0 md:bg-transparent
-          fixed inset-y-0 left-0 z-[61] w-72 max-w-[85vw] overflow-y-auto p-3 transition-transform duration-200
+          fixed inset-y-0 left-0 z-[61] w-72 max-w-[85vw] overflow-y-auto p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] md:pt-0 transition-transform duration-200
           ${drawer ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ background: 'var(--surface, #fff)' }}
       >

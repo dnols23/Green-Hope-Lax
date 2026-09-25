@@ -472,3 +472,23 @@ html[data-theme='dark'] .app-theme .cal-open-slot {
   background: repeating-linear-gradient(135deg, rgb(79 165 116 / 0.18) 0 5px, transparent 5px 10px);
 }
 html[data-theme='dark'] .app-theme .cal-open-dot { border-color: #5bb483; }
+
+/* ── Under the iPhone status bar ──
+   With viewport-fit=cover the page starts at the very top of the screen; this
+   keeps content below the clock and notch, and paints the strip behind the
+   clock the program green. Zero everywhere without a notch or status bar. */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+.safe-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background: #004D2E;
+  z-index: 100;
+  pointer-events: none;
+}

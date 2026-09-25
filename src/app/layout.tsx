@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
 import './globals.css'
 import { THEME_SCRIPT } from '@/lib/theme'
@@ -32,6 +32,15 @@ export const metadata: Metadata = {
   },
 }
 
+/* iPhones now draw the page under the clock and battery. Covering the whole
+   screen and then padding the body by the status bar's height keeps every
+   page's own bar below it, and the green strip behind the clock (.safe-top)
+   keeps it readable while the page scrolls underneath. */
+export const viewport: Viewport = {
+  viewportFit: 'cover',
+  themeColor: '#004D2E',
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // The theme script sets data-theme before React loads, so the attribute is
@@ -40,7 +49,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <div aria-hidden className="safe-top" />
+        {children}
+      </body>
     </html>
   )
 }

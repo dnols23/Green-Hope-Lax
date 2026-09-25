@@ -12,10 +12,10 @@ export default async function FilmLibraryPage() {
   // Turned off for the Team Hub in Admin → Pages.
   await assertPageVisible('film-team')
   return (
-    <div className="flex flex-col min-h-svh" style={{ background: '#0b0d0c' }}>
+    <div className="flex flex-col min-h-[calc(100svh-env(safe-area-inset-top))]" style={{ background: '#0b0d0c' }}>
       {/* Header — dark chrome to match the board */}
       <header
-        className="text-white shrink-0 sticky top-0 z-40"
+        className="text-white shrink-0 sticky top-[env(safe-area-inset-top)] z-40"
         style={{ background: '#141715', borderBottom: '1px solid #262b27' }}
       >
         <div className="px-4 h-14 flex items-center justify-between">

@@ -30,7 +30,7 @@ export default function Nav({ hidden = [] }: { hidden?: string[] }) {
   const links = LINKS.filter((l) => !hidden.includes(l.href))
 
   return (
-    <nav className="fixed top-0 inset-x-0 z-50 shadow-sm" style={{ background: 'var(--gh-green-dk)' }}>
+    <nav className="fixed inset-x-0 z-50 shadow-sm" style={{ background: 'var(--gh-green-dk)', top: 'env(safe-area-inset-top)' }}>
       <div className="relative max-w-screen-xl mx-auto px-4 flex items-center h-16 gap-4">
         <Link href="/" className="shrink-0 flex items-center gap-2.5" onClick={() => setOpen(false)}>
           <FalconHead size={40} />
