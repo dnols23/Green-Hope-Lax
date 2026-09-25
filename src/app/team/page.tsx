@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getTeamPosts, getGames } from '@/lib/queries'
+import { shares } from '@/lib/calendarShare'
 import { teamLogout } from '@/lib/actions'
 import { TeamFeed } from '@/components/TeamFeed'
 import { FalconHead } from '@/components/Logo'
@@ -10,7 +11,7 @@ import { getSettings } from '@/lib/playbookData'
 import { TEAMS } from '@/lib/teams'
 import { getPageSettings } from '@/lib/queries'
 import { currentPlayer } from '@/lib/playerAccess'
-import { calendarReady, listCalendarItems } from '@/lib/calendarData'
+import { calendarReady, listCalendarItems, readCalendarShare } from '@/lib/calendarData'
 import { mayReadTeamCalendar } from '@/lib/calendarGate'
 import { addDaysYmd, ymdOf, zonedToUtc } from '@/lib/zoned'
 import { UpcomingList } from '@/components/calendar/UpcomingList'
@@ -45,7 +46,9 @@ export default async function TeamHubPage() {
   const me = await currentPlayer()
   // Games marked for everyone or for players and parents — coaches-only ones stay
   // in the admin.
-  const games = await getGames(undefined, 'team')
+  // …and only from the calendars the head coach shares with the Team Hub.
+  const [allGames, share] = await Promise.all([getGames(undefined, 'team'), readCalendarShare()])
+  const games = allGames.filter((g) => shares(share, g.level === 'jv' ? 'jv' : 'varsity', 'team', 'games'))
   // Dynamic (force-dynamic) server render — current time is intentional here.
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now()

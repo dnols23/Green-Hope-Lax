@@ -1,20 +1,12 @@
+import { HubSignIn } from '@/components/hubs/HubSignIn'
+
 export const metadata = { title: 'Parent Hub' }
 
-export default function ParentWelcomePage() {
+export default function ParentSignInPage() {
   return (
-    <div className="card p-8 text-center">
-      <h1 className="text-2xl font-black mb-2">Parent Hub</h1>
-      <p className="text-gray-600">
-        The Parent Hub opens from the link Coach Nolan sends in the team email. Follow that
-        link once on this phone or computer and you will stay signed in.
-      </p>
-      <p className="text-sm text-gray-400 mt-4">
-        Can&rsquo;t find it? Email{' '}
-        <a href="mailto:info@greenhopelacrosse.com" className="font-semibold text-[var(--gh-green)]">
-          info@greenhopelacrosse.com
-        </a>{' '}
-        and we will send it again.
-      </p>
+    <div className="max-w-md mx-auto">
+      <h1 className="text-2xl font-black mb-4">Parent Hub</h1>
+      <HubSignIn kind="parent" joinHref="/parents/join" />
     </div>
   )
 }

@@ -14,6 +14,7 @@ import {
   type InterestSubmission,
 } from './types'
 import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
+import { PLAYER_COOKIE } from './playerAccess.edge'
 import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection, canTeam } from './permissions'
 import { isSandboxed, isStaffRole, isStaffTeam, mayReview, teamForRole, type StaffRole, type StaffTeam, type Viewer } from './sections'
@@ -176,11 +177,14 @@ export async function registerTeamMember(_prev: FormState, formData: FormData): 
 export async function teamLogout() {
   const jar = await cookies()
   jar.delete(TEAM_COOKIE)
+  // A player's own sign-in goes too, or the proxy lets the next person straight back in as him.
+  jar.delete(PLAYER_COOKIE)
   redirect('/team/login')
 }
 
-// Admin-only (reachable only from the auth-protected /admin area).
+// The head of the program's to change.
 export async function setTeamPassword(formData: FormData) {
+  await requireOwner()
   const pw = str(formData.get('team_password'))
   if (pw.length < 4) return
   const supabase = createServiceClient()

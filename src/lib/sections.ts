@@ -148,7 +148,7 @@ export const SECTIONS: AdminSection[] = [
     views: [{ audience: 'public', href: '/roster' }] },
   { key: 'parents',      label: 'Parent Hub',   href: '/admin/parents',      group: 'Team',
     views: [{ audience: 'parent', href: '/parents' }] },
-  { key: 'members',      label: 'Members',      href: '/admin/members',      group: 'Team' },
+  { key: 'members',      label: 'Hub Sign-ups', href: '/admin/members',      group: 'Team' },
   { key: 'coaches',      label: 'Coaches',      href: '/admin/coaches',      group: 'Team',
     views: [{ audience: 'public', href: '/coaches' }] },
   { key: 'news',         label: 'News',         href: '/admin/news',         group: 'Content',

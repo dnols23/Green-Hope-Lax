@@ -11,6 +11,8 @@ export function PasswordField({
   minLength,
   autoComplete = 'off',
   hint,
+  value,
+  onChange,
 }: {
   name: string
   label: string
@@ -19,6 +21,9 @@ export function PasswordField({
   minLength?: number
   autoComplete?: string
   hint?: string
+  /** Controlled, for a form that keeps its own state across steps. */
+  value?: string
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
 }) {
   const [shown, setShown] = useState(false)
   const id = useId()
@@ -35,6 +40,7 @@ export function PasswordField({
           minLength={minLength}
           placeholder={placeholder}
           autoComplete={autoComplete}
+          {...(onChange ? { value: value ?? '', onChange } : {})}
           className="field pw-input"
         />
         <button

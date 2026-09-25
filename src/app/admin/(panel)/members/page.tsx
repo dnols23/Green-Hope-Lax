@@ -2,6 +2,9 @@ import { getTeamMembers } from '@/lib/queries'
 import { ExportCsvButton } from '@/components/admin/ExportCsvButton'
 import { formatShortDate } from '@/lib/format'
 import { requireSection } from '@/lib/permissions'
+import { listHubAccounts } from '@/lib/hubAccounts'
+import { createServiceClient } from '@/lib/supabase-server'
+import { HubAccountsList } from '@/components/admin/HubAccountsList'
 
 export const metadata = { title: 'Team Members' }
 export const dynamic = 'force-dynamic'
@@ -10,13 +13,30 @@ const fmt = formatShortDate
 
 export default async function AdminMembersPage() {
   await requireSection('members')
-  const members = await getTeamMembers()
+  const [members, accounts] = await Promise.all([getTeamMembers(), listHubAccounts()])
   const optedIn = members.filter((m) => m.email_opt_in).length
+  const ids = [...new Set((accounts ?? []).flatMap((a) => a.playerIds))]
+  const { data: kids } = ids.length
+    ? await createServiceClient().from('players').select('id, name').in('id', ids)
+    : { data: [] as { id: string; name: string }[] }
+  const names = Object.fromEntries(((kids ?? []) as { id: string; name: string }[]).map((k) => [k.id, k.name]))
 
   return (
     <div>
+      <h1 className="text-xl font-black mb-4">Team Hub &amp; Parent Hub</h1>
+      {accounts === null ? (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-8">
+          Run <code>supabase/migrations/0045_hub_accounts.sql</code> in the Supabase SQL editor to turn on sign-ups.
+        </p>
+      ) : (
+        <div className="mb-10">
+          <HubAccountsList accounts={accounts} names={names} />
+        </div>
+      )}
+      {members.length > 0 && (
+      <>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
-        <h1 className="text-xl font-black">Team Members</h1>
+        <h2 className="text-lg font-black">Old sign-ups</h2>
         <ExportCsvButton
           rows={members.map((m) => ({
             registered: fmt(m.created_at),
@@ -63,6 +83,8 @@ export default async function AdminMembersPage() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </div>
   )
