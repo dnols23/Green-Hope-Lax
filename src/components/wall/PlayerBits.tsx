@@ -54,10 +54,13 @@ export function Transport({
   player,
   size = 'md',
   tone = 'light',
+  ghost = false,
 }: {
   player: WallPlayer
   size?: 'sm' | 'md' | 'lg'
   tone?: 'light' | 'dark'
+  /** See-through play button — an outline, not a filled green disc. */
+  ghost?: boolean
 }) {
   const dark = tone === 'dark'
   const idle = dark ? 'text-white/70 hover:text-white' : 'text-gray-500 hover:text-gray-900'
@@ -97,10 +100,16 @@ export function Transport({
         aria-label={player.playing ? 'Pause' : 'Play'}
         title={player.playing ? 'Pause' : 'Play'}
         disabled={!player.order.length}
-        className={`${big} inline-flex items-center justify-center rounded-full shadow-md transition-transform hover:scale-105 active:scale-95 disabled:opacity-40 ${
-          dark ? 'bg-white text-gray-900' : 'text-white'
+        className={`${big} inline-flex items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95 disabled:opacity-40 ${
+          ghost
+            ? dark
+              ? 'border border-white/40 text-white'
+              : 'border border-gray-300 text-gray-800 hover:border-gray-500'
+            : dark
+              ? 'bg-white text-gray-900 shadow-md'
+              : 'text-white shadow-md'
         }`}
-        style={dark ? undefined : { background: 'var(--gh-green)' }}
+        style={dark || ghost ? undefined : { background: 'var(--gh-green)' }}
       >
         {player.playing ? <IconPause className={bigIcon} /> : <IconPlay className={`${bigIcon} translate-x-[1px]`} />}
       </button>
