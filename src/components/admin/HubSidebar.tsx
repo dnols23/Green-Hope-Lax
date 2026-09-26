@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState, useSyncExternalStore } from 'react'
 import { TOUR_EVENT, TOUR_KEY } from '@/lib/tour'
+import { SlideList } from './SlideList'
 
 export interface HubLink {
   key: string
@@ -23,6 +24,21 @@ const SHUT_EVENT = 'gh-hub-shut-changed'
    wants varsity, and neither is anybody else's business. */
 const GROUP_KEY = 'gh-hub-groups-v1'
 const GROUP_EVENT = 'gh-hub-groups-changed'
+
+/* Locked once the coach has it the way he wants it: no grips, nothing moves. */
+const LOCK_KEY = 'gh-hub-locked-v1'
+const LOCK_EVENT = 'gh-hub-locked-changed'
+function readLock(): string {
+  try { return localStorage.getItem(LOCK_KEY) ?? '' } catch { return '' }
+}
+function subscribeToLock(onChange: () => void) {
+  window.addEventListener(LOCK_EVENT, onChange)
+  window.addEventListener('storage', onChange)
+  return () => {
+    window.removeEventListener(LOCK_EVENT, onChange)
+    window.removeEventListener('storage', onChange)
+  }
+}
 
 /* Opening and shutting the phone drawer from elsewhere — the walk-round needs
    it open before it can point at anything in it. */
@@ -113,8 +129,12 @@ function Rail({
   noFold: string[]
 }) {
   const pathname = usePathname()
-  const [dragKey, setDragKey] = useState<string | null>(null)
   const [drawer, setDrawer] = useState(false)
+  const locked = useSyncExternalStore(subscribeToLock, readLock, () => '') === '1'
+  function setLocked(on: boolean) {
+    try { localStorage.setItem(LOCK_KEY, on ? '1' : '') } catch {}
+    window.dispatchEvent(new Event(LOCK_EVENT))
+  }
 
   // Escape shuts it, and so does the walk-round when it asks.
   useEffect(() => {
@@ -161,24 +181,10 @@ function Rail({
     window.dispatchEvent(new Event(ORDER_EVENT))
   }
 
-  function dropOn(targetKey: string) {
-    if (!dragKey || dragKey === targetKey) return
-    const next = shown.filter((l) => l.key !== dragKey)
-    const moved = shown.find((l) => l.key === dragKey)
-    if (!moved) return
-    next.splice(next.findIndex((l) => l.key === targetKey), 0, moved)
-    persist(next)
-    setDragKey(null)
-  }
-
-  // Keyboard equivalent, so reordering isn't mouse-only.
-  function nudge(key: string, by: number) {
-    const from = shown.findIndex((l) => l.key === key)
-    const to = from + by
-    if (from < 0 || to < 0 || to >= shown.length) return
-    const next = [...shown]
-    next.splice(to, 0, next.splice(from, 1)[0])
-    persist(next)
+  /** A section's rows in their new order, the rest of the list as it was. */
+  function reorderWithin(group: string, keys: string[]) {
+    const queue = keys.map((k) => shown.find((l) => l.key === k)).filter((l): l is HubLink => !!l)
+    persist(shown.map((l) => (l.group === group ? queue.shift() ?? l : l)))
   }
 
   /* Two rows can share a path and differ only by team — the two War Rooms do —
@@ -215,12 +221,7 @@ function Rail({
     groups.push(...sorted, ...byName.values())
   }
 
-  function moveGroup(name: string, by: number) {
-    const names = groups.map((g) => g.name)
-    const from = names.indexOf(name)
-    const to = from + by
-    if (from < 0 || to < 0 || to >= names.length) return
-    names.splice(to, 0, names.splice(from, 1)[0])
+  function saveGroups(names: string[]) {
     try { localStorage.setItem(GROUP_KEY, JSON.stringify(names)) } catch {}
     window.dispatchEvent(new Event(GROUP_EVENT))
   }
@@ -270,8 +271,14 @@ function Rail({
           ${drawer ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ background: 'var(--surface, #fff)' }}
       >
-      <div className="card p-2 space-y-1">
-        {groups.map((group) => {
+      <div className="card p-2">
+        <SlideList
+          items={groups.map((g) => ({ id: g.name, ...g }))}
+          locked={locked}
+          onReorder={saveGroups}
+          label={(g) => g.name}
+          className="space-y-1"
+          renderItem={(group, groupGrip) => {
           const fixed = noFold.includes(group.name)
           const isShut = !fixed && folded.includes(group.name)
           const hasOpenPage = group.items.some((l) => isActive(l.href))
@@ -280,41 +287,20 @@ function Rail({
               {group.name}
             </span>
           )
-          const first = groups[0]?.name === group.name
-          const last = groups[groups.length - 1]?.name === group.name
-          /* Up and down on the heading itself: a whole section moves, rather
-             than dragging five rows one at a time. */
-          const nudgeGroup = (
-            <span className="ml-auto hidden group-hover/head:flex items-center">
-              <button
-                type="button"
-                aria-label={`Move ${group.name} up`}
-                disabled={first}
-                onClick={(e) => { e.stopPropagation(); moveGroup(group.name, -1) }}
-                className="px-1 text-xs text-gray-400 hover:text-gray-700 disabled:opacity-25"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                aria-label={`Move ${group.name} down`}
-                disabled={last}
-                onClick={(e) => { e.stopPropagation(); moveGroup(group.name, 1) }}
-                className="px-1 text-xs text-gray-400 hover:text-gray-700 disabled:opacity-25"
-              >
-                ↓
-              </button>
+          /* A whole section moves by the grip on its heading. */
+          const grip = groupGrip && (
+            <span
+              {...groupGrip}
+              className="ml-auto px-2 py-1.5 text-sm leading-none select-none text-gray-300 hover:text-gray-500"
+            >
+              ☰
             </span>
           )
           return (
-            <div key={group.name} className="group/head">
+            <div>
               {fixed ? (
-                <div className="flex items-center gap-1.5 px-2 py-1.5">{heading}{nudgeGroup}</div>
+                <div className="flex items-center gap-1.5 px-2 py-1.5">{heading}{grip}</div>
               ) : (
-                /* The arrows sit beside the fold button, not inside it: a
-                   button inside a button isn't allowed in HTML, so the server's
-                   page came apart in the browser and React had to redraw the
-                   whole hub on every load. */
                 <div className="flex items-center rounded-lg hover:bg-gray-50">
                 <button
                   type="button"
@@ -344,37 +330,36 @@ function Rail({
                     />
                   )}
                 </button>
-                {nudgeGroup}
+                {grip}
                 </div>
               )}
 
               {!isShut && (
-                <ul className="flex flex-col gap-0.5">
-                  {group.items.map((l) => {
+                <SlideList
+                  items={group.items.map((l) => ({ ...l, id: l.key }))}
+                  locked={locked}
+                  onReorder={(keys) => reorderWithin(group.name, keys)}
+                  label={(l) => l.label}
+                  className="flex flex-col gap-0.5"
+                  renderItem={(l, rowGrip) => {
                     const on = isActive(l.href)
                     return (
-                      <li
-                        key={l.key}
+                      <div
                         data-tour-mode={l.key}
-                        draggable
-                        onDragStart={() => setDragKey(l.key)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => dropOn(l.key)}
-                        onDragEnd={() => setDragKey(null)}
-                        className="group flex items-center gap-1 rounded-lg"
-                        style={{
-                          background: on ? 'var(--gh-green)' : 'transparent',
-                          opacity: dragKey === l.key ? 0.4 : 1,
-                        }}
+                        className="flex items-center gap-1 rounded-lg"
+                        style={{ background: on ? 'var(--gh-green)' : 'transparent' }}
                       >
-                        <span
-                          aria-hidden
-                          title="Drag to reorder"
-                          className="cursor-grab select-none px-1.5 text-sm leading-none"
-                          style={{ color: on ? 'rgba(255,255,255,0.6)' : 'var(--color-gray-300, #c7cdd3)' }}
-                        >
-                          ☰
-                        </span>
+                        {rowGrip ? (
+                          <span
+                            {...rowGrip}
+                            className="select-none px-2 py-2 text-sm leading-none"
+                            style={{ ...rowGrip.style, color: on ? 'rgba(255,255,255,0.6)' : 'var(--color-gray-300, #c7cdd3)' }}
+                          >
+                            ☰
+                          </span>
+                        ) : (
+                          <span aria-hidden className="w-2" />
+                        )}
                         <Link
                           href={l.href}
                           // Going somewhere shuts the drawer, so what you asked
@@ -386,39 +371,27 @@ function Rail({
                           <span aria-hidden>{l.icon}</span>
                           <span className="truncate">{l.label}</span>
                         </Link>
-                        <span className="hidden group-hover:flex items-center pr-1">
-                          <button
-                            type="button"
-                            aria-label={`Move ${l.label} up`}
-                            onClick={() => nudge(l.key, -1)}
-                            className="px-1 text-xs"
-                            style={{ color: on ? 'rgba(255,255,255,0.7)' : 'var(--color-gray-400, #9ca3af)' }}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Move ${l.label} down`}
-                            onClick={() => nudge(l.key, 1)}
-                            className="px-1 text-xs"
-                            style={{ color: on ? 'rgba(255,255,255,0.7)' : 'var(--color-gray-400, #9ca3af)' }}
-                          >
-                            ↓
-                          </button>
-                        </span>
-                      </li>
+                      </div>
                     )
-                  })}
-                </ul>
+                  }}
+                />
               )}
             </div>
           )
-        })}
+          }}
+        />
       </div>
       <div className="mt-2 px-1 flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-[0.7rem] text-gray-400">
-        Drag ☰ to reorder. ↑↓ on a heading moves the whole section.
-      </p>
+        <button
+          type="button"
+          onClick={() => setLocked(!locked)}
+          aria-pressed={locked}
+          className="inline-flex items-center gap-1 text-[0.7rem] font-bold text-gray-500 hover:text-gray-800"
+          title={locked ? 'Unlock to rearrange' : 'Lock the order where it is'}
+        >
+          <span aria-hidden>{locked ? '🔒' : '🔓'}</span>
+          {locked ? 'Locked' : 'Lock order'}
+        </button>
         {/* The welcome runs itself once. This is how you get it back — to see
             the home-screen directions again, or to walk a new coach round. */}
         <button
