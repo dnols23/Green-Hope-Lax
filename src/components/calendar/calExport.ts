@@ -4,7 +4,7 @@
 // the same clock the calendar on his screen uses.
 
 import type { CalItem, CalTeam } from '@/lib/calendarModel'
-import { formatRange, isAllDayish, toYmd } from '@/lib/calendarMath'
+import { isAllDayish, toYmd } from '@/lib/calendarMath'
 import { audienceBadge, isFieldTime, itemTitle, kindMeta, layerOf, teamLabel, type CalLayer } from './calShared'
 
 export interface ExportChoice {
@@ -68,16 +68,27 @@ export function toIcs(items: CalItem[], name: string): string {
 
 // ── The spreadsheet ──────────────────────────────────────────────────────────
 
-const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+/* Quoted when it has to be; and a cell starting like a formula is kept as
+   text, so a note that begins with "=" can't run in someone's spreadsheet. */
+const csvCell = (raw: string) => {
+  const v = /^[=+\-@]/.test(raw) ? `'${raw}` : raw
+  return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
+}
 
+/** Opens cleanly in Excel, Numbers and Google Sheets: one row per item, one column per fact. */
 export function toCsv(items: CalItem[]): string {
-  const head = ['Date', 'Time', 'What', 'Type', 'Team', 'Location', 'Who sees it', 'Notes']
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const clock = (d: Date) => `${d.getHours() % 12 || 12}:${pad(d.getMinutes())} ${d.getHours() < 12 ? 'AM' : 'PM'}`
+  const head = ['Date', 'Day', 'Start', 'End', 'What', 'Type', 'Team', 'Location', 'Who sees it', 'Notes']
   const rows = items.map((it) => {
     const allDay = it.allDay || isAllDayish(it)
     const s = new Date(it.startsAt)
+    const e = new Date(it.endsAt)
     return [
-      s.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
-      allDay ? 'All day' : formatRange(it.startsAt, it.endsAt, false),
+      toYmd(s),
+      s.toLocaleDateString('en-US', { weekday: 'short' }),
+      allDay ? 'All day' : clock(s),
+      allDay ? '' : clock(e),
       itemTitle(it),
       kindMeta(it).label,
       teamLabel(it.team),
@@ -86,7 +97,9 @@ export function toCsv(items: CalItem[]): string {
       it.notes ?? '',
     ]
   })
-  return [head, ...rows].map((r) => r.map((v) => csvCell(String(v))).join(',')).join('\r\n')
+  // The byte-order mark tells Excel the file is UTF-8, so a dash or an accent
+  // doesn't come out as junk.
+  return '\ufeff' + [head, ...rows].map((r) => r.map((v) => csvCell(String(v))).join(',')).join('\r\n')
 }
 
 export function download(text: string, filename: string, type: string) {
