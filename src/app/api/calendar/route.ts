@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getViewer } from '@/lib/permissions'
+import { canSee } from '@/lib/sections'
 import {
   availabilityReady,
   calendarReady,
@@ -46,6 +47,8 @@ export async function GET(request: NextRequest) {
     items,
     myAvailability: mine,
     canPost: postableTeams(viewer),
+    // Whether this coach can make a practice plan from a practice.
+    canPlan: canSee(viewer, 'planner'),
     me: { email: viewer.email, name: viewer.name, isOwner: viewer.isOwner },
     share,
   })

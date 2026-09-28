@@ -1,7 +1,9 @@
 'use client'
 
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { deleteCalEvent, saveCalEvent } from '@/lib/calendarActions'
+import { deleteCalEvent, planFromEvent, saveCalEvent } from '@/lib/calendarActions'
 import {
   CAL_AUDIENCES,
   CAL_EVENT_KINDS,
@@ -36,6 +38,8 @@ export interface EditorDraft {
   allDay: boolean
   location: string
   notes: string
+  /** A practice's plan, when one has been made from it. */
+  planHref?: string | null
 }
 
 interface Form {
@@ -150,11 +154,14 @@ function toTimes(f: Form): { startsAt: Date; endsAt: Date } | string {
 export function EventEditor({
   draft,
   canPost,
+  canPlan = false,
   onClose,
   onSaved,
 }: {
   draft: EditorDraft
   canPost: CalTeam[]
+  /** May make a practice plan from a practice. */
+  canPlan?: boolean
   onClose: () => void
   onSaved: (message: string) => void
 }) {
@@ -163,6 +170,7 @@ export function EventEditor({
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const editing = !!draft.id
+  const router = useRouter()
   const teams = canPost.includes(form.team) ? canPost : [form.team, ...canPost]
 
   function update(patch: Partial<Form>) {
@@ -187,7 +195,8 @@ export function EventEditor({
     setError(null)
   }
 
-  async function save() {
+  /** Save, and with `plan`, go on to make this practice's plan and open it. */
+  async function save(plan = false) {
     const title = form.title.trim()
     if (!title) {
       setError('Give it a name.')
@@ -215,6 +224,17 @@ export function EventEditor({
       })
       if (!res.ok) {
         setError(res.error)
+        return
+      }
+      if (plan && res.id) {
+        const made = await planFromEvent(res.id)
+        if (!made.ok) {
+          // The practice saved; only the plan didn't.
+          onSaved(editing ? 'Saved.' : 'Added to the calendar.')
+          setError(made.error)
+          return
+        }
+        router.push(made.href)
         return
       }
       onSaved(editing ? 'Saved.' : 'Added to the calendar.')
@@ -557,6 +577,16 @@ export function EventEditor({
             <button type="button" onClick={onClose} className="btn btn-ghost min-h-11 ml-auto">
               Cancel
             </button>
+            {/* A practice opens its plan, or makes one — saving the practice first. */}
+            {form.kind === 'practice' && draft.planHref ? (
+              <Link href={draft.planHref} className="btn btn-ghost min-h-11">
+                📋 Open the plan
+              </Link>
+            ) : form.kind === 'practice' && canPlan ? (
+              <button type="button" disabled={busy} onClick={() => void save(true)} className="btn btn-ghost min-h-11 disabled:opacity-50">
+                📋 Save &amp; make plan
+              </button>
+            ) : null}
             <button type="submit" disabled={busy} className="btn btn-primary min-h-11 min-w-[6.5rem] disabled:opacity-50">
               {busy ? 'Saving…' : 'Save'}
             </button>

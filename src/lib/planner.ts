@@ -311,6 +311,10 @@ export interface Plan {
   private: boolean
   /** When the author sent the draft to the head coaches; null when not sent. */
   review_requested_at: string | null
+  /** Shows on the calendar by itself (0046). */
+  on_calendar: boolean
+  /** The calendar practice this plan was made from, which carries it there (0046). */
+  calendar_event_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string

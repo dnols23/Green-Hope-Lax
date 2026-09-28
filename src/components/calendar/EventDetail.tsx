@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { deleteAvailability, deleteCalEvent } from '@/lib/calendarActions'
+import { deleteAvailability, deleteCalEvent, planFromEvent } from '@/lib/calendarActions'
 import { CAL_AUDIENCES, colorFor, type CalItem } from '@/lib/calendarModel'
 import { MONTH_NAMES, WEEKDAY_NAMES, formatRange, isAllDayish, sameDay } from '@/lib/calendarMath'
 import { AUDIENCE_TONE, isFieldTime, itemTitle, kindMeta, teamLabel, whoSees } from './calShared'
@@ -60,6 +61,7 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   if (target.type === 'out') return <OutList target={target} onClose={onClose} onOpen={onOpen} />
 
@@ -93,6 +95,25 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
       setBusy(false)
     }
   }
+
+  /** A practice plan for this practice: made here, then opened. */
+  async function makePlan() {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await planFromEvent(item.id)
+      if (!res.ok) {
+        setError(res.error)
+        return
+      }
+      router.push(res.href)
+    } catch {
+      setError('Couldn’t reach the server. Check the signal and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const practice = item.source === 'event' && item.kind === 'practice'
 
   return (
     <>
@@ -191,6 +212,16 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
                 {item.source === 'practice' ? 'Open the plan' : 'Open in Games'} &rarr;
               </Link>
             )}
+            {practice && item.planHref && (
+              <Link href={item.planHref} className="btn btn-primary min-h-10">
+                📋 Open the plan &rarr;
+              </Link>
+            )}
+            {practice && !item.planHref && item.mayPlan && (
+              <button type="button" disabled={busy} onClick={() => void makePlan()} className="btn btn-primary min-h-10 disabled:opacity-50">
+                {busy ? 'Making it…' : '📋 Make a practice plan'}
+              </button>
+            )}
             {isFieldTime(item) && onPlanHere && (
               <button type="button" onClick={() => onPlanHere(item)} className="btn btn-primary min-h-10">
                 Schedule a workout here
@@ -200,7 +231,7 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
               <button
                 type="button"
                 onClick={() => onEdit(item)}
-                className={`btn min-h-10 ${isFieldTime(item) ? 'btn-ghost' : 'btn-primary'}`}
+                className={`btn min-h-10 ${isFieldTime(item) || (practice && (item.planHref || item.mayPlan)) ? 'btn-ghost' : 'btn-primary'}`}
               >
                 Edit
               </button>

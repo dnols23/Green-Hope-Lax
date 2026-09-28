@@ -118,6 +118,18 @@ export function PlanEditor({
   const [content, setContent] = useState<NoteBlock[]>(() => readNoteBlocks(plan.content))
   const [toPlayers, setToPlayers] = useState(plan.publish_players)
   const [toCoaches, setToCoaches] = useState(plan.publish_coaches)
+  const [onCalendar, setOnCalendar] = useState(plan.on_calendar)
+  /* Putting a practice on the calendar (or taking it off) saves the plan there
+     and then, so the button does what it says. */
+  function toggleCalendar(e: React.MouseEvent<HTMLButtonElement>) {
+    const form = e.currentTarget.form
+    if (!form || !canWrite) return
+    const next = !onCalendar
+    setOnCalendar(next)
+    const data = new FormData(form)
+    data.set('on_calendar', next ? 'true' : 'false')
+    startSave(() => save(data))
+  }
   const [openId, setOpenId] = useState<string | null>(null)
   const [fieldOpen, setFieldOpen] = useState<string | null>(null)
   /**
@@ -610,6 +622,27 @@ export function PlanEditor({
             <span className="text-xs text-gray-400">
               {toPlayers ? 'Players see this plan on their page.' : 'Players can’t see this.'}
             </span>
+            {/* Made from a practice on the calendar: that practice carries it. */}
+            {plan.calendar_event_id ? (
+              <span className="text-sm font-semibold text-[var(--gh-green)] sm:ml-auto">📅 On the calendar</span>
+            ) : (
+              <>
+                <input type="hidden" name="calendar_toggle" value="1" />
+                <input type="hidden" name="on_calendar" value={onCalendar ? 'true' : 'false'} />
+                <button
+                  type="button"
+                  onClick={toggleCalendar}
+                  disabled={saving || !canWrite || (!onCalendar && !date)}
+                  aria-pressed={onCalendar}
+                  title={!onCalendar && !date ? 'Give it a date first.' : undefined}
+                  className={`sm:ml-auto min-h-9 px-3 rounded-full border text-sm font-bold inline-flex items-center gap-1.5 disabled:opacity-50 ${
+                    onCalendar ? 'bg-[var(--gh-green)] border-[var(--gh-green)] text-white' : 'border-gray-300 text-gray-700 bg-white'
+                  }`}
+                >
+                  📅 {onCalendar ? 'On the calendar ✓' : 'Add to calendar'}
+                </button>
+              </>
+            )}
           </div>
         )}
         {state.error && <p className="text-sm text-red-700 mt-2">{state.error}</p>}
