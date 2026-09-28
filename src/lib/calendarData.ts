@@ -1,9 +1,9 @@
 import { createServiceClient } from './supabase-server'
-import { canTeam, runsATeam, type Viewer } from './sections'
+import { canSee, canTeam, runsATeam, type Viewer } from './sections'
 import { listPracticePlansBetween } from './plans'
 import { DEFAULT_START, totalMinutes } from './planner'
 import { normalizeAudience as gameAudience } from './schedule'
-import { withTeam } from './teams'
+import { isTeam, withTeam } from './teams'
 import { CALENDAR_SHARE_KEY, parseCalendarShare, shares, type CalendarShare, type ShareHub, type ShareLayer } from './calendarShare'
 import { addDaysYmd, daysBetweenYmd, hmOf, ymdOf, zonedToUtc } from './zoned'
 import {
@@ -232,6 +232,23 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
       .gt('ends_at', fromIso)
       .in('audience', sees)
       .order('starts_at', { ascending: true })
+    /* The practice plans made from these practices, so a practice opens its
+       plan. Coaches only, and nobody's private draft. Before 0046 there are none. */
+    const planOf = new Map<string, { id: string; team: string }>()
+    const practiceIds = coach
+      ? ((data ?? []) as Record<string, unknown>[]).filter((r) => r.kind === 'practice').map((r) => String(r.id))
+      : []
+    if (practiceIds.length) {
+      const { data: linked } = await svc
+        .from('plans')
+        .select('id, team, calendar_event_id, private')
+        .in('calendar_event_id', practiceIds)
+      for (const p of (linked ?? []) as Record<string, unknown>[]) {
+        if (p.private === true || !p.calendar_event_id) continue
+        planOf.set(String(p.calendar_event_id), { id: String(p.id), team: String(p.team) })
+      }
+    }
+    const mayPlan = coach && canSee(q.viewer ?? null, 'planner')
     if (!error) {
       for (const row of (data ?? []) as Record<string, unknown>[]) {
         const e = readEvent(row)
@@ -252,6 +269,15 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
           kind: e.kind,
           href: null,
           editable: coach && mayPostTo(q.viewer ?? null, e.team),
+          ...(e.kind === 'practice' && coach
+            ? (() => {
+                const plan = planOf.get(e.id)
+                return {
+                  planHref: plan ? withTeam(`/admin/planner/${plan.id}`, isTeam(plan.team) ? plan.team : 'varsity') : null,
+                  mayPlan: mayPlan && (e.team === 'program' || canTeam(q.viewer ?? null, e.team)),
+                }
+              })()
+            : {}),
         })
       }
     }
@@ -311,6 +337,8 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
     for (const p of plans) {
       // A private draft is nobody's schedule.
       if (!p.plan_date || p.private) continue
+      // Off the calendar by choice, or already on it as the practice it was made from.
+      if (!p.on_calendar || p.calendar_event_id) continue
       if (!coach && !p.publish_players) continue
       if (!shared(p.team, 'practices')) continue
       const start = zonedToUtc(p.plan_date, p.start_time ?? DEFAULT_START)

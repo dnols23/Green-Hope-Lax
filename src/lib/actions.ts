@@ -1999,6 +1999,9 @@ export async function createPlan(formData: FormData) {
     const why = /kind_check|violates check/i.test(error?.message ?? '') ? 'kind' : 'save'
     redirect(withTeam(`/admin/planner?error=${why}&kind=${kind}`, team))
   }
+  /* A new practice goes on the calendar when the coach says it should, from
+     the plan. Nothing to do before 0046, where every plan is on it. */
+  if (kind === 'practice') await svc.from('plans').update({ on_calendar: false }).eq('id', (data as { id: string }).id)
   revalidatePath('/admin/planner')
   redirect(withTeam(`/admin/planner/${(data as { id: string }).id}`, team))
 }
@@ -2140,6 +2143,17 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     }
   }
 
+  // Whether a practice shows on the calendar (0046). Only the practice editor sends it.
+  if (formData.has('calendar_toggle')) {
+    const { error: calError } = await svc
+      .from('plans')
+      .update({ on_calendar: str(formData.get('on_calendar')) === 'true' })
+      .eq('id', id)
+    if (calError && /on_calendar/i.test(calError.message)) {
+      warning = 'Saved, but not the calendar switch — run supabase/migrations/0046_plan_calendar.sql in the Supabase SQL editor.'
+    }
+  }
+
   revalidatePath('/admin/planner')
   revalidatePath(`/admin/planner/${id}`)
   revalidatePath('/admin/hub')
@@ -2219,6 +2233,8 @@ export async function duplicatePlan(formData: FormData) {
     delete row[missing]
     ;({ data: copy, error } = await svc.from('plans').insert(row).select('id').single())
   }
+  // A copy goes on the calendar when somebody puts it there. Nothing to do before 0046.
+  if (copy) await svc.from('plans').update({ on_calendar: false }).eq('id', (copy as { id: string }).id)
   revalidatePath('/admin/planner')
   if (copy) redirect(withTeam(`/admin/planner/${(copy as { id: string }).id}`, team))
 }

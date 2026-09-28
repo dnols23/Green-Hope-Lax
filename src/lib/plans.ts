@@ -37,6 +37,9 @@ function shape(row: Record<string, unknown>): Plan {
     publish_coaches: row.publish_coaches !== false,
     private: row.private === true,
     review_requested_at: (row.review_requested_at as string) ?? null,
+    // Plans from before 0046 were all on the calendar.
+    on_calendar: row.on_calendar !== false,
+    calendar_event_id: (row.calendar_event_id as string) ?? null,
     created_by: (row.created_by as string) ?? null,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),

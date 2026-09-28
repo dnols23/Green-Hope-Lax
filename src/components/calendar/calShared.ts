@@ -22,6 +22,7 @@ export interface CalPayload {
   items: CalItem[]
   myAvailability: Availability[]
   canPost: CalTeam[]
+  canPlan?: boolean
   me: { email: string; name: string; isOwner: boolean }
   /** What each calendar shares with each hub — sent to the owner only. */
   share?: CalendarShare | null

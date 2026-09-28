@@ -159,6 +159,10 @@ export interface CalItem {
   homeAway?: string
   /** Game only: set once it is final. */
   result?: string | null
+  /** Practice event only, coaches only: the plan made from it. */
+  planHref?: string | null
+  /** Practice event only: whether this coach can make a plan from it. */
+  mayPlan?: boolean
 }
 
 // ── Colour ───────────────────────────────────────────────────────────────────

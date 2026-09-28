@@ -271,6 +271,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
       allDay: item.allDay,
       location: item.location ?? '',
       notes: item.notes ?? '',
+      planHref: item.planHref ?? null,
     })
   }
 
@@ -722,6 +723,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
           <EventEditor
             draft={editor}
             canPost={canPost}
+            canPlan={data?.canPlan === true}
             onClose={() => setEditor(null)}
             onSaved={(msg) => {
               say(msg)

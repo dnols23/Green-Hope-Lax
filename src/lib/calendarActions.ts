@@ -20,7 +20,11 @@ import {
   type EventWrite,
 } from './calendarData'
 import { isCalAudience, isCalEventKind, isCalTeam, type Availability } from './calendarModel'
-import { zoneParts } from './zoned'
+import { hmOf, ymdOf, zoneParts } from './zoned'
+import { revalidatePath } from 'next/cache'
+import { createServiceClient } from './supabase-server'
+import { canSee, canTeam, isSandboxed } from './sections'
+import { withTeam } from './teams'
 import { parseCalendarShare } from './calendarShare'
 
 /**
@@ -102,6 +106,7 @@ export async function saveCalEvent(input: EventInput): Promise<CalResult> {
     if (!mayPostTo(viewer, existing.team)) return { ok: false, error: 'That event isn’t yours to change.' }
     const ok = await updateEvent(existing.id, write)
     if (!ok) return { ok: false, error: 'Couldn’t save — has the calendar SQL been run?' }
+    await followPractice(existing.id, write.startsAt, write.allDay)
     return { ok: true, id: existing.id }
   }
 
@@ -120,7 +125,68 @@ export async function moveCalEvent(id: string, startsAt: string, endsAt: string)
   if (typeof times === 'string') return { ok: false, error: times }
   const ok = await updateEvent(id, { ...existing, startsAt: times.s, endsAt: times.e })
   if (!ok) return { ok: false, error: 'Couldn’t move it.' }
+  await followPractice(id, times.s, existing.allDay)
   return { ok: true, id }
+}
+
+/** A plan made from a practice moves with it. Nothing to do before 0046. */
+async function followPractice(eventId: string, startsAt: string, allDay: boolean) {
+  const at = new Date(startsAt)
+  const patch: Record<string, unknown> = { plan_date: ymdOf(at) }
+  if (!allDay) patch.start_time = hmOf(at)
+  await createServiceClient().from('plans').update(patch).eq('calendar_event_id', eventId)
+}
+
+/**
+ * A practice plan for a practice on the calendar: named, dated and timed from
+ * it, and tied to it, so the practice opens the plan and the plan moves when
+ * the practice does. One plan per practice — asking again opens it.
+ */
+export async function planFromEvent(eventId: string): Promise<{ ok: true; href: string } | { ok: false; error: string }> {
+  const viewer = await getViewer()
+  if (!viewer || !canSee(viewer, 'planner')) return { ok: false, error: 'You don’t have the planner.' }
+  const e = await getEvent(String(eventId))
+  if (!e) return { ok: false, error: 'That practice is gone.' }
+  const team = e.team === 'program' ? (canTeam(viewer, 'varsity') ? 'varsity' : 'jv') : e.team
+  if (!canTeam(viewer, team)) return { ok: false, error: 'That’s the other staff’s practice.' }
+  const sandboxed = isSandboxed(viewer)
+  const svc = createServiceClient()
+
+  const { data: had, error: lookError } = await svc
+    .from('plans')
+    .select('id, team, private, created_by')
+    .eq('calendar_event_id', e.id)
+  if (lookError) {
+    return /calendar_event_id/i.test(lookError.message)
+      ? { ok: false, error: 'Run supabase/migrations/0046_plan_calendar.sql in the Supabase SQL editor first.' }
+      : { ok: false, error: `Couldn’t check for a plan: ${lookError.message}` }
+  }
+  const mine = (p: Record<string, unknown>) => String(p.created_by ?? '').toLowerCase() === viewer.email.toLowerCase()
+  const found = ((had ?? []) as Record<string, unknown>[]).find((p) => (sandboxed ? p.private === true && mine(p) : p.private !== true))
+  if (found) return { ok: true, href: withTeam(`/admin/planner/${found.id}`, found.team === 'jv' ? 'jv' : 'varsity') }
+
+  const at = new Date(e.startsAt)
+  const row: Record<string, unknown> = {
+    kind: 'practice',
+    title: e.title || 'Practice',
+    plan_date: ymdOf(at),
+    start_time: e.allDay ? null : hmOf(at),
+    team,
+    created_by: viewer.email,
+    blocks: [],
+    calendar_event_id: e.id,
+    // The practice is what is on the calendar; the plan rides on it.
+    on_calendar: false,
+  }
+  if (sandboxed) {
+    row.private = true
+    row.publish_coaches = false
+    row.publish_players = false
+  }
+  const { data, error } = await svc.from('plans').insert(row).select('id').single()
+  if (error || !data) return { ok: false, error: `Couldn’t make the plan: ${error?.message ?? 'no reply'}` }
+  revalidatePath('/admin/planner')
+  return { ok: true, href: withTeam(`/admin/planner/${(data as { id: string }).id}`, team) }
 }
 
 export async function deleteCalEvent(id: string): Promise<CalResult> {
