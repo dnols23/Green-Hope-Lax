@@ -13,6 +13,7 @@ import {
   type CalTeam,
 } from '@/lib/calendarModel'
 import { WEEKDAY_NAMES, MONTH_SHORT, toYmd } from '@/lib/calendarMath'
+import { MAX_REPEATS, repeatDates, weekdayOf } from '@/lib/eventRepeat'
 import { teamLabel } from './calShared'
 
 /**
@@ -40,6 +41,8 @@ export interface EditorDraft {
   notes: string
   /** A practice's plan, when one has been made from it. */
   planHref?: string | null
+  /** The repeating series this is one of. */
+  seriesId?: string | null
 }
 
 interface Form {
@@ -58,7 +61,14 @@ interface Form {
   end: string
   location: string
   notes: string
+  repeat: boolean
+  /** Weekdays, 0 = Sunday. */
+  repeatDays: number[]
+  /** Last day, YYYY-MM-DD. */
+  repeatUntil: string
 }
+
+const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 /** Who ends up seeing each audience — drawn as little pills on its card. */
 const REACH: Record<CalAudience, string[]> = {
@@ -126,6 +136,9 @@ function toForm(d: EditorDraft): Form {
     end: hm(d.endsAt),
     location: d.location,
     notes: d.notes,
+    repeat: false,
+    repeatDays: [s.getDay()],
+    repeatUntil: addDaysYmd(date, 56),
   }
 }
 
@@ -169,7 +182,13 @@ export function EventEditor({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // One of a series: change just this one, or this and every later one.
+  const [scope, setScope] = useState<'one' | 'later'>('one')
   const editing = !!draft.id
+  const inSeries = !!draft.seriesId
+  const canRepeat = !inSeries && !form.multiDay
+  const repeating = canRepeat && form.repeat
+  const repeatCount = repeating && form.repeatDays.length ? repeatDates(form.date, { days: form.repeatDays, until: form.repeatUntil }).length : 0
   const router = useRouter()
   const teams = canPost.includes(form.team) ? canPost : [form.team, ...canPost]
 
@@ -207,6 +226,10 @@ export function EventEditor({
       setError(times)
       return
     }
+    if (repeating && (!form.repeatDays.length || form.repeatUntil < form.date)) {
+      setError(form.repeatDays.length ? 'The repeat has to end after it starts.' : 'Pick the days it repeats on.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -221,6 +244,8 @@ export function EventEditor({
         location: form.location.trim() || null,
         notes: form.notes.trim() || null,
         audience: form.audience,
+        repeat: repeating ? { days: form.repeatDays, until: form.repeatUntil } : null,
+        scope: inSeries ? scope : 'one',
       })
       if (!res.ok) {
         setError(res.error)
@@ -237,7 +262,15 @@ export function EventEditor({
         router.push(made.href)
         return
       }
-      onSaved(editing ? 'Saved.' : 'Added to the calendar.')
+      onSaved(
+        repeating
+          ? `Added ${repeatCount} to the calendar.`
+          : inSeries && scope === 'later'
+            ? 'Saved this one and every later one.'
+            : editing
+              ? 'Saved.'
+              : 'Added to the calendar.',
+      )
       onClose()
     } catch {
       setError('Couldn’t reach the server. Check the signal and try again.')
@@ -246,12 +279,12 @@ export function EventEditor({
     }
   }
 
-  async function remove() {
+  async function remove(which: 'one' | 'later' = 'one') {
     if (!draft.id) return
     setBusy(true)
     setError(null)
     try {
-      const res = await deleteCalEvent(draft.id)
+      const res = await deleteCalEvent(draft.id, which)
       if (!res.ok) {
         setError(res.error)
         return
@@ -506,6 +539,102 @@ export function EventEditor({
               </label>
             </div>
           )}
+          {canRepeat && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.repeat}
+                onClick={() =>
+                  update({ repeat: !form.repeat, repeatDays: form.repeat ? form.repeatDays : [weekdayOf(form.date)] })
+                }
+                className="min-h-10 inline-flex items-center gap-2 text-sm font-bold text-gray-700"
+              >
+                <span
+                  aria-hidden
+                  className="relative w-10 h-6 rounded-full transition-colors"
+                  style={{ background: form.repeat ? 'var(--gh-green)' : 'var(--color-gray-300, #d1d5db)' }}
+                >
+                  <span
+                    className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
+                    style={{ left: form.repeat ? '1.125rem' : '0.125rem' }}
+                  />
+                </span>
+                Repeat weekly
+              </button>
+              {form.repeat && (
+                <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+                  <div className="min-w-0">
+                    <span className="field-label">On</span>
+                    <div className="flex gap-1" role="group" aria-label="Days it repeats on">
+                      {WEEKDAY_LETTERS.map((l, d) => {
+                        const on = form.repeatDays.includes(d)
+                        return (
+                          <button
+                            key={d}
+                            type="button"
+                            aria-pressed={on}
+                            aria-label={WEEKDAY_NAMES[d]}
+                            onClick={() => {
+                              setForm((f) => ({
+                                ...f,
+                                repeatDays: f.repeatDays.includes(d) ? f.repeatDays.filter((x) => x !== d) : [...f.repeatDays, d].sort(),
+                              }))
+                              setError(null)
+                            }}
+                            className="w-9 h-9 rounded-full text-sm font-bold border transition-colors"
+                            style={
+                              on
+                                ? { background: 'var(--gh-green)', borderColor: 'var(--gh-green)', color: '#fff' }
+                                : { borderColor: 'var(--border)', color: 'var(--text-muted)' }
+                            }
+                          >
+                            {l}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <label className="block">
+                    <span className="field-label">Until</span>
+                    <input
+                      type="date"
+                      value={form.repeatUntil}
+                      min={form.date}
+                      onChange={(e) => update({ repeatUntil: e.target.value })}
+                      className="field !w-auto"
+                    />
+                  </label>
+                  {repeatCount > 0 && (
+                    <p className="col-span-2 text-xs text-gray-500 -mt-1">
+                      {repeatCount} {repeatCount === 1 ? 'time' : 'times'}
+                      {repeatCount >= MAX_REPEATS ? ' (the most in one go)' : ''}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {inSeries && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-gray-700">🔁 Change</span>
+              <div className="flex rounded-full border border-gray-200 bg-white p-0.5" role="radiogroup" aria-label="Which ones to change">
+                {(['one', 'later'] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    role="radio"
+                    aria-checked={scope === k}
+                    onClick={() => setScope(k)}
+                    className="min-h-8 px-3 rounded-full text-sm font-bold transition-colors"
+                    style={scope === k ? { background: 'var(--gh-green)', color: '#fff' } : { color: 'var(--color-gray-600, #4b5563)' }}
+                  >
+                    {k === 'one' ? 'This one' : 'This and later'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {form.multiDay && form.allDay && form.endDate >= form.date && (
             <p className="text-xs text-gray-500 -mt-1">
               {niceDay(form.date)} through {niceDay(form.endDate)}
@@ -557,8 +686,13 @@ export function EventEditor({
           <>
             <span className="text-sm font-bold text-gray-700 mr-auto">Delete this event?</span>
             <button type="button" disabled={busy} onClick={() => void remove()} className="btn btn-maroon min-h-11 disabled:opacity-50">
-              {busy ? 'Deleting…' : 'Delete'}
+              {busy ? 'Deleting…' : inSeries ? 'This one' : 'Delete'}
             </button>
+            {inSeries && (
+              <button type="button" disabled={busy} onClick={() => void remove('later')} className="btn btn-maroon min-h-11 disabled:opacity-50">
+                This and later
+              </button>
+            )}
             <button type="button" onClick={() => setConfirmDelete(false)} className="btn btn-ghost min-h-11">
               Keep it
             </button>

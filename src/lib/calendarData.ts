@@ -58,6 +58,7 @@ export function readEvent(row: Record<string, unknown>): CalEvent {
     notes: strOrNull(row.notes),
     audience: isCalAudience(row.audience) ? row.audience : 'coaches',
     createdBy: strOrNull(row.created_by),
+    seriesId: strOrNull(row.series_id),
   }
 }
 
@@ -269,6 +270,7 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
           kind: e.kind,
           href: null,
           editable: coach && mayPostTo(q.viewer ?? null, e.team),
+          seriesId: coach ? e.seriesId : null,
           ...(e.kind === 'practice' && coach
             ? (() => {
                 const plan = planOf.get(e.id)
@@ -443,6 +445,45 @@ export async function insertEvent(e: EventWrite, by: string | null): Promise<str
     .maybeSingle()
   if (error) console.error('[insertEvent]', error)
   return (data as { id?: string } | null)?.id ?? null
+}
+
+/** A repeating event: one row per day, sharing a series. The first row's id, or an error. */
+export async function insertSeries(
+  rows: { startsAt: string; endsAt: string }[],
+  e: EventWrite,
+  by: string | null,
+  seriesId: string,
+): Promise<{ id: string } | { error: string }> {
+  const { data, error } = await createServiceClient()
+    .from('calendar_events')
+    .insert(rows.map((r) => ({ ...eventRow({ ...e, startsAt: r.startsAt, endsAt: r.endsAt }), created_by: by, series_id: seriesId })))
+    .select('id, starts_at')
+  if (error || !data?.length) {
+    console.error('[insertSeries]', error)
+    return { error: error?.message ?? 'no rows' }
+  }
+  const first = [...(data as { id: string; starts_at: string }[])].sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0]
+  return { id: first.id }
+}
+
+/** This event and every later one in its series. */
+export async function listSeriesFrom(seriesId: string, fromIso: string): Promise<CalEvent[]> {
+  const { data } = await createServiceClient()
+    .from('calendar_events')
+    .select('*')
+    .eq('series_id', seriesId)
+    .gte('starts_at', fromIso)
+    .order('starts_at', { ascending: true })
+  return ((data ?? []) as Record<string, unknown>[]).map(readEvent)
+}
+
+export async function setSeries(ids: string[], seriesId: string): Promise<boolean> {
+  const { error } = await createServiceClient().from('calendar_events').update({ series_id: seriesId }).in('id', ids)
+  return !error
+}
+
+export async function removeEvents(ids: string[]): Promise<void> {
+  if (ids.length) await createServiceClient().from('calendar_events').delete().in('id', ids)
 }
 
 export async function updateEvent(id: string, e: EventWrite): Promise<boolean> {

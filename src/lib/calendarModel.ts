@@ -103,6 +103,8 @@ export interface CalEvent {
   notes: string | null
   audience: CalAudience
   createdBy: string | null
+  /** The repeating series this is one of (0047); null for a one-off. */
+  seriesId: string | null
 }
 
 export type AvailabilityStatus = 'available' | 'unavailable'
@@ -164,6 +166,8 @@ export interface CalItem {
   planHref?: string | null
   /** Practice event only: whether this coach can make a plan from it. */
   mayPlan?: boolean
+  /** Event only: the repeating series it is one of. */
+  seriesId?: string | null
 }
 
 // ── Colour ───────────────────────────────────────────────────────────────────

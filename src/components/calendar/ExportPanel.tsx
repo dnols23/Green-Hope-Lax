@@ -22,12 +22,18 @@ export function ExportPanel({
   view,
   teams: startTeams,
   layers: startLayers,
+  endpoint = '/api/calendar',
+  staff = true,
   onClose,
 }: {
   /** What the calendar is showing now. */
   view: { from: Date; to: Date; label: string }
   teams: CalTeam[]
   layers: CalLayer[]
+  /** Where the calendar is read from — the coaches' or a hub's. */
+  endpoint?: string
+  /** The staff can print and see who's out and open field time; a hub can't. */
+  staff?: boolean
   onClose: () => void
 }) {
   const [range, setRange] = useState<Range>('view')
@@ -56,7 +62,7 @@ export function ExportPanel({
       setError('The end date has to be after the start.')
       return null
     }
-    const res = await fetch(`/api/calendar?from=${encodeURIComponent(w.from.toISOString())}&to=${encodeURIComponent(w.to.toISOString())}`)
+    const res = await fetch(`${endpoint}${endpoint.includes('?') ? '&' : '?'}from=${encodeURIComponent(w.from.toISOString())}&to=${encodeURIComponent(w.to.toISOString())}`)
     const body = (await res.json().catch(() => null)) as { items?: CalItem[]; error?: string } | null
     if (!res.ok || !body?.items) {
       setError(body?.error ?? 'Couldn’t load the calendar.')
@@ -103,7 +109,7 @@ export function ExportPanel({
   return (
     <>
       <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-gray-100">
-        <h2 className="text-lg font-black flex-1">Export &amp; print</h2>
+        <h2 className="text-lg font-black flex-1">{staff ? 'Export & print' : 'Add to your calendar'}</h2>
         <button type="button" onClick={onClose} aria-label="Close" className="w-10 h-10 -mr-2 rounded-full text-2xl leading-none text-gray-400 hover:text-gray-800 hover:bg-gray-100">
           &times;
         </button>
@@ -151,17 +157,20 @@ export function ExportPanel({
         <section>
           <div className="field-label">Include</div>
           <div className="flex flex-wrap gap-1.5">
-            {CAL_LAYERS.map((l) => (
+            {CAL_LAYERS.filter((l) => staff || l.key !== 'availability').map((l) => (
               <button key={l.key} type="button" aria-pressed={layers.includes(l.key)} onClick={() => setLayers((x) => toggle(x, l.key))} className={chip(layers.includes(l.key))}>
                 {l.key === 'availability' ? 'Who’s out' : l.label}
               </button>
             ))}
-            <button type="button" aria-pressed={fields} onClick={() => setFields((v) => !v)} className={chip(fields)}>
-              Field Availability
-            </button>
+            {staff && (
+              <button type="button" aria-pressed={fields} onClick={() => setFields((v) => !v)} className={chip(fields)}>
+                Field Availability
+              </button>
+            )}
           </div>
         </section>
 
+        {staff && (
         <section>
           <div className="field-label">Print as</div>
           <div className="flex flex-wrap gap-1.5">
@@ -173,13 +182,16 @@ export function ExportPanel({
             </button>
           </div>
         </section>
+        )}
         {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
       </div>
 
-      <div className="px-5 py-3 border-t border-gray-100 grid grid-cols-3 gap-2">
-        <button type="button" onClick={print} className="btn btn-primary justify-center">
-          Print
-        </button>
+      <div className={`px-5 py-3 border-t border-gray-100 grid gap-2 ${staff ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        {staff && (
+          <button type="button" onClick={print} className="btn btn-primary justify-center">
+            Print
+          </button>
+        )}
         <button type="button" onClick={() => file('ics')} disabled={!!busy} className="btn btn-ghost justify-center" title="Opens in Google, Apple or Outlook calendar">
           {busy === 'ics' ? '…' : 'Calendar file'}
         </button>

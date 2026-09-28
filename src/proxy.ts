@@ -4,6 +4,11 @@ import { TEAM_COOKIE, teamCookieToken } from './lib/teamAuth'
 import { PLAYER_COOKIE } from './lib/playerAccess.edge'
 import { PARENT_COOKIE } from './lib/parentAccess.edge'
 
+const HUB_CALENDAR_ONLY = [
+  { pages: /^\/team\/(me|playbook|video|calendar)(\/|$)/, home: '/team' },
+  { pages: /^\/parents\/(s|calendar)(\/|$)/, home: '/parents' },
+]
+
 // Protects /admin/* — redirects to login when not authenticated, and away from
 // the login page when already signed in. (Next.js 16 renamed middleware → proxy.)
 export async function proxy(request: NextRequest) {
@@ -31,6 +36,14 @@ export async function proxy(request: NextRequest) {
   )
 
   const path = request.nextUrl.pathname
+
+  /* For now each hub is its calendar and nothing else. Its other pages send
+     people to it; delete a line here to open one back up. */
+  const home = HUB_CALENDAR_ONLY.find((h) => h.pages.test(path))?.home
+  if (home) {
+    const url = request.nextUrl.clone(); url.pathname = home; url.search = ''
+    return NextResponse.redirect(url)
+  }
 
   // ── Admin area (coach) — Supabase auth ──
   const isAdminRoute = path.startsWith('/admin')
