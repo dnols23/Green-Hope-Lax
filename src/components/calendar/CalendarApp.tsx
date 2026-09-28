@@ -68,7 +68,16 @@ function shortWhen(d: Date): string {
   return `${WEEKDAY_SHORT[d.getDay()]}, ${MONTH_SHORT[d.getMonth()]} ${d.getDate()}, ${timeLabel(d)}`
 }
 
-export function CalendarApp({ initialView, initialDate }: { initialView: CalView | null; initialDate: string }) {
+export function CalendarApp({
+  initialView,
+  initialDate,
+  hub,
+}: {
+  initialView: CalView | null
+  initialDate: string
+  /** The Team Hub's or the Parent Hub's copy: read-only, and only what that hub is shown. */
+  hub?: 'team' | 'parents'
+}) {
   const hydrated = useHydrated()
   const narrow = useNarrow()
   const now = useNowMinute()
@@ -92,6 +101,9 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
   // unless the link or the coach's last visit says otherwise.
   const view: CalView = picked ?? prefs.view ?? (narrow ? 'agenda' : 'week')
   const win = useMemo(() => fetchWindow(view, anchor), [view, anchor])
+  const endpoint = hub ? `/api/hub-calendar?hub=${hub}` : '/api/calendar'
+  // A hub has no staff availability and no open field time.
+  const layers = hub ? CAL_LAYERS.filter((l) => l.key !== 'availability') : CAL_LAYERS
   const key = `${win.from.toISOString()}|${win.to.toISOString()}`
 
   // ── Fetching ─────────────────────────────────────────────────────────────
@@ -99,7 +111,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
   useEffect(() => {
     const [from, to] = key.split('|')
     const ctrl = new AbortController()
-    fetch(`/api/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
+    fetch(`${endpoint}${endpoint.includes('?') ? '&' : '?'}from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
       signal: ctrl.signal,
       cache: 'no-store',
     })
@@ -131,7 +143,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
         setFailed({ key, message })
       })
     return () => ctrl.abort()
-  }, [key, tick])
+  }, [key, tick, endpoint])
 
   const refetch = () => setTick((t) => t + 1)
   const data = loaded?.data ?? null
@@ -272,6 +284,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
       location: item.location ?? '',
       notes: item.notes ?? '',
       planHref: item.planHref ?? null,
+      seriesId: item.seriesId ?? null,
     })
   }
 
@@ -427,6 +440,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
               )
             })}
           </div>
+          {!hub && (
           <button
             type="button"
             onClick={() => setAvailOpen(true)}
@@ -437,18 +451,23 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
             <span aria-hidden>🙋</span>
             <span className="hidden sm:inline">Set availability</span>
           </button>
+          )}
           <button
             type="button"
             onClick={() => setExportOpen(true)}
-            aria-label="Export or print"
-            title="Export or print the calendar"
+            aria-label={hub ? 'Export' : 'Export or print'}
+            title={hub ? 'Add it to your own calendar' : 'Export or print the calendar'}
             className="btn btn-ghost !px-2.5 !py-1.5 min-h-9"
           >
             <svg aria-hidden className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 9V3h12v6M6 18H4a1 1 0 01-1-1v-6a2 2 0 012-2h14a2 2 0 012 2v6a1 1 0 01-1 1h-2M6 14h12v7H6z" />
+              {hub ? (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9V3h12v6M6 18H4a1 1 0 01-1-1v-6a2 2 0 012-2h14a2 2 0 012 2v6a1 1 0 01-1 1h-2M6 14h12v7H6z" />
+              )}
             </svg>
           </button>
-          {data?.me.isOwner && (
+          {!hub && data?.me.isOwner && (
             <button
               type="button"
               onClick={() => setShareOpen(true)}
@@ -479,6 +498,8 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
         {/* Filters: which team, and which kinds of thing. They double as the legend. */}
         <div className="w-full -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto [scrollbar-width:none]">
           <div className="flex items-center gap-1.5 w-max sm:w-auto sm:flex-wrap">
+            {!hub && (
+            <>
             <button
               type="button"
               role="switch"
@@ -504,6 +525,8 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
               Field Availability
             </button>
             <span aria-hidden className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
+            </>
+            )}
             {CAL_TEAMS.map((t) => {
               const on = prefs.teams.includes(t.key)
               return (
@@ -525,7 +548,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
               )
             })}
             <span aria-hidden className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
-            {CAL_LAYERS.map((l) => {
+            {layers.map((l) => {
               const on = prefs.layers.includes(l.key)
               return (
                 <button
@@ -558,7 +581,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
       </div>
 
       {/* ── Banners ── */}
-      {data && !data.ready && (
+      {data && !data.ready && !hub && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-900 font-bold mb-1">The calendar isn&rsquo;t switched on yet.</p>
           <p className="text-sm text-amber-900">
@@ -594,7 +617,7 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
             onMove={moveEvent}
             onPickDay={view === 'week' ? openDay : undefined}
           />
-          {view === 'day' && (
+          {view === 'day' && !hub && (
             <aside className="hidden lg:block space-y-4">
               <div className="card p-3">
                 <MiniMonth
@@ -738,6 +761,8 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
             view={{ ...visibleRange, label: `This ${view === 'agenda' ? 'list' : view} · ${title}` }}
             teams={prefs.teams}
             layers={prefs.layers}
+            endpoint={endpoint}
+            staff={!hub}
             onClose={() => setExportOpen(false)}
           />
         </Modal>

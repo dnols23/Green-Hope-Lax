@@ -21,7 +21,7 @@ export default async function ParentJoinPage({
   if (!(await joinTokenValid(token))) notFound()
 
   return (
-    <div>
+    <div className="max-w-3xl mx-auto pt-3">
       <h1 className="text-2xl font-black mb-1">Falcons Parent Hub</h1>
       <p className="text-gray-600 mb-6">
         Sign-up sheets for game days, playdays and everything else the team needs hands for.

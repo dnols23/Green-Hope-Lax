@@ -8,6 +8,10 @@ import {
   getEvent,
   insertAvailability,
   insertEvent,
+  insertSeries,
+  listSeriesFrom,
+  removeEvents,
+  setSeries,
   listMyAvailability,
   mayEditAvailability,
   mayPostTo,
@@ -20,7 +24,9 @@ import {
   type EventWrite,
 } from './calendarData'
 import { isCalAudience, isCalEventKind, isCalTeam, type Availability } from './calendarModel'
-import { hmOf, ymdOf, zoneParts } from './zoned'
+import { addDaysYmd, daysBetweenYmd, hmOf, ymdOf, zonedToUtc, zoneParts } from './zoned'
+import { randomUUID } from 'node:crypto'
+import { readRepeat, repeatDates } from './eventRepeat'
 import { revalidatePath } from 'next/cache'
 import { createServiceClient } from './supabase-server'
 import { canSee, canTeam, isSandboxed } from './sections'
@@ -73,6 +79,23 @@ export interface EventInput {
   location?: string | null
   notes?: string | null
   audience: string
+  /** New, or a one-off being made to repeat: weekdays and a last day. */
+  repeat?: { days: number[]; until: string } | null
+  /** Editing one of a series: just this one, or this and every later one. */
+  scope?: 'one' | 'later'
+}
+
+const NEEDS_0047 = 'Repeating events need supabase/migrations/0047_event_repeats.sql run in the Supabase SQL editor.'
+
+/** When the event lands on another day: same clock time, same length, in Cary. */
+function onDay(ymd: string, w: { startsAt: string; endsAt: string; allDay: boolean }) {
+  if (w.allDay) {
+    const span = Math.max(1, daysBetweenYmd(ymdOf(w.startsAt), ymdOf(w.endsAt)))
+    return { startsAt: zonedToUtc(ymd, '00:00').toISOString(), endsAt: zonedToUtc(addDaysYmd(ymd, span), '00:00').toISOString() }
+  }
+  const s = zonedToUtc(ymd, hmOf(w.startsAt))
+  const length = Date.parse(w.endsAt) - Date.parse(w.startsAt)
+  return { startsAt: s.toISOString(), endsAt: new Date(s.getTime() + length).toISOString() }
 }
 
 export async function saveCalEvent(input: EventInput): Promise<CalResult> {
@@ -104,10 +127,48 @@ export async function saveCalEvent(input: EventInput): Promise<CalResult> {
     if (!existing) return { ok: false, error: 'That event is gone.' }
     // Moving an event to another team needs the right to both.
     if (!mayPostTo(viewer, existing.team)) return { ok: false, error: 'That event isn’t yours to change.' }
+
+    /* This one and every later one: each keeps its own day, moved by as many
+       days as this one moved, at this one's new time and length. */
+    if (existing.seriesId && input.scope === 'later') {
+      const later = await listSeriesFrom(existing.seriesId, existing.startsAt)
+      const shift = daysBetweenYmd(ymdOf(existing.startsAt), ymdOf(write.startsAt))
+      const done = await Promise.all(
+        later.map(async (ev) => {
+          const times = onDay(addDaysYmd(ymdOf(ev.startsAt), shift), write)
+          const ok = await updateEvent(ev.id, { ...write, ...times })
+          if (ok) await followPractice(ev.id, times.startsAt, write.allDay)
+          return ok
+        }),
+      )
+      if (done.some((ok) => !ok)) return { ok: false, error: 'Some of them didn’t save. Try again.' }
+      return { ok: true, id: existing.id }
+    }
+
     const ok = await updateEvent(existing.id, write)
     if (!ok) return { ok: false, error: 'Couldn’t save — has the calendar SQL been run?' }
     await followPractice(existing.id, write.startsAt, write.allDay)
+
+    // A one-off made to repeat: it becomes the first of a series.
+    const repeat = readRepeat(input.repeat)
+    if (repeat && !existing.seriesId) {
+      const days = repeatDates(ymdOf(write.startsAt), repeat).slice(1)
+      if (days.length) {
+        const seriesId = randomUUID()
+        if (!(await setSeries([existing.id], seriesId))) return { ok: false, error: NEEDS_0047 }
+        const made = await insertSeries(days.map((d) => onDay(d, write)), write, viewer.name || viewer.email, seriesId)
+        if ('error' in made) return { ok: false, error: /series_id/i.test(made.error) ? NEEDS_0047 : 'Saved this one, but not the repeats.' }
+      }
+    }
     return { ok: true, id: existing.id }
+  }
+
+  const repeat = readRepeat(input.repeat)
+  if (repeat) {
+    const days = repeatDates(ymdOf(write.startsAt), repeat)
+    const made = await insertSeries(days.map((d) => onDay(d, write)), write, viewer.name || viewer.email, randomUUID())
+    if ('error' in made) return { ok: false, error: /series_id/i.test(made.error) ? NEEDS_0047 : 'Couldn’t save them.' }
+    return { ok: true, id: made.id }
   }
 
   const id = await insertEvent(write, viewer.name || viewer.email)
@@ -189,11 +250,16 @@ export async function planFromEvent(eventId: string): Promise<{ ok: true; href: 
   return { ok: true, href: withTeam(`/admin/planner/${(data as { id: string }).id}`, team) }
 }
 
-export async function deleteCalEvent(id: string): Promise<CalResult> {
+export async function deleteCalEvent(id: string, scope: 'one' | 'later' = 'one'): Promise<CalResult> {
   const viewer = await getViewer()
   const existing = await getEvent(id)
   if (!viewer || !existing) return { ok: false, error: 'That event is gone.' }
   if (!mayPostTo(viewer, existing.team)) return { ok: false, error: 'That event isn’t yours to delete.' }
+  if (scope === 'later' && existing.seriesId) {
+    const later = await listSeriesFrom(existing.seriesId, existing.startsAt)
+    await removeEvents(later.map((e) => e.id))
+    return { ok: true }
+  }
   await removeEvent(id)
   return { ok: true }
 }

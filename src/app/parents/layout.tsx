@@ -16,7 +16,7 @@ export default async function ParentsLayout({ children }: { children: React.Reac
   return (
     <div className="app-theme min-h-screen" style={{ background: 'var(--surface-2)' }}>
       <header className="shadow-sm" style={{ background: '#004D2E' }}>
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-3">
+        <div className="max-w-screen-xl mx-auto px-4 h-16 flex items-center gap-3">
           <Link href="/parents" className="flex items-center gap-2.5">
             <FalconHead size={36} />
             <span className="flex flex-col leading-none">
@@ -36,7 +36,7 @@ export default async function ParentsLayout({ children }: { children: React.Reac
           )}
         </div>
       </header>
-      <main className="max-w-3xl mx-auto px-4 py-8">{children}</main>
+      <main className="max-w-screen-xl mx-auto px-4 py-5">{children}</main>
     </div>
   )
 }

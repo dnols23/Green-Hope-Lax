@@ -78,11 +78,11 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
     resultTone = us > them ? 'badge-win' : us < them ? 'badge-loss' : 'badge-tie'
   }
 
-  async function remove() {
+  async function remove(which: 'one' | 'later' = 'one') {
     setBusy(true)
     setError(null)
     try {
-      const res = avail ? await deleteAvailability(item.id) : await deleteCalEvent(item.id)
+      const res = avail ? await deleteAvailability(item.id) : await deleteCalEvent(item.id, which)
       if (!res.ok) {
         setError(res.error)
         return
@@ -155,6 +155,9 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
             </span>
           )}
           {result && <span className={`badge ${resultTone}`}>Final {result}</span>}
+          {item.seriesId && (
+            <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700">🔁 Repeats</span>
+          )}
         </div>
 
         {/* Who sees this — the line the head coach cares about most. */}
@@ -199,8 +202,13 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
               onClick={() => void remove()}
               className="btn btn-maroon min-h-10 disabled:opacity-50"
             >
-              {busy ? 'Deleting…' : 'Delete'}
+              {busy ? 'Deleting…' : item.seriesId ? 'This one' : 'Delete'}
             </button>
+            {item.seriesId && (
+              <button type="button" disabled={busy} onClick={() => void remove('later')} className="btn btn-maroon min-h-10 disabled:opacity-50">
+                This and later
+              </button>
+            )}
             <button type="button" onClick={() => setConfirming(false)} className="btn btn-ghost min-h-10">
               Keep it
             </button>
