@@ -65,7 +65,7 @@ const REACH: Record<CalAudience, string[]> = {
   coaches: ['Coaches'],
   team: ['Coaches', 'Players'],
   parents: ['Coaches', 'Parents'],
-  public: ['Coaches', 'Players', 'Parents', 'Public site'],
+  public: ['Coaches', 'Players', 'Parents'],
 }
 
 const AUDIENCE_ICON: Record<CalAudience, string> = {
