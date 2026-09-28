@@ -196,16 +196,12 @@ export function CalendarApp({ initialView, initialDate }: { initialView: CalView
 
   function toggleTeam(t: CalTeam) {
     const on = prefs.teams.includes(t)
-    const next = on ? prefs.teams.filter((x) => x !== t) : [...prefs.teams, t]
-    // Switching off the last one turns them all back on, rather than leaving a
-    // blank calendar with no obvious way back.
-    savePrefs({ teams: next.length ? next : CAL_TEAMS.map((x) => x.key) })
+    savePrefs({ teams: on ? prefs.teams.filter((x) => x !== t) : [...prefs.teams, t] })
   }
 
   function toggleLayer(l: CalLayer) {
     const on = prefs.layers.includes(l)
-    const next = on ? prefs.layers.filter((x) => x !== l) : [...prefs.layers, l]
-    savePrefs({ layers: next.length ? next : CAL_LAYERS.map((x) => x.key) })
+    savePrefs({ layers: on ? prefs.layers.filter((x) => x !== l) : [...prefs.layers, l] })
   }
 
   function defaultTeam(): CalTeam {

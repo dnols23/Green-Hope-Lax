@@ -105,16 +105,11 @@ function parsePrefs(raw: string): CalPrefs {
   } catch {
     o = {}
   }
-  const teams = Array.isArray(o.teams) ? o.teams.filter(isCalTeam) : []
-  const layers = Array.isArray(o.layers)
-    ? (o.layers.filter((l) => ALL_LAYERS.includes(l as CalLayer)) as CalLayer[])
-    : []
   return {
     view: isCalView(o.view) ? o.view : null,
-    // Nothing saved, or everything switched off, both read as "show it all" —
-    // an empty calendar a coach can't explain is worse than a full one.
-    teams: teams.length ? teams : ALL_TEAMS,
-    layers: layers.length ? layers : ALL_LAYERS,
+    // Nothing saved reads as "show it all"; everything switched off stays off.
+    teams: Array.isArray(o.teams) ? o.teams.filter(isCalTeam) : ALL_TEAMS,
+    layers: Array.isArray(o.layers) ? (o.layers.filter((l) => ALL_LAYERS.includes(l as CalLayer)) as CalLayer[]) : ALL_LAYERS,
     fields: o.fields !== false,
   }
 }
