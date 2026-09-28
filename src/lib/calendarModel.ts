@@ -21,7 +21,7 @@ export const CAL_AUDIENCES: { key: CalAudience; label: string; hint: string }[] 
   { key: 'coaches', label: 'Coaches only', hint: 'The staff. Nobody else sees it.' },
   { key: 'team', label: 'Coaches & players', hint: 'Shows in the Team Hub.' },
   { key: 'parents', label: 'Coaches & parents', hint: 'Shows in the Parent Hub.' },
-  { key: 'public', label: 'Everyone', hint: 'Public schedule, Team Hub and Parent Hub.' },
+  { key: 'public', label: 'Everyone', hint: 'Team Hub and Parent Hub.' },
 ]
 
 export function isCalAudience(v: unknown): v is CalAudience {
@@ -36,7 +36,8 @@ export const SURFACE_SEES: Record<CalSurface, CalAudience[]> = {
   coach: ['coaches', 'team', 'parents', 'public'],
   team: ['team', 'public'],
   parents: ['parents', 'public'],
-  public: ['public'],
+  // The calendar is the program's own. Nothing on it reaches the public site.
+  public: [],
 }
 
 export function audienceLabel(a: CalAudience): string {

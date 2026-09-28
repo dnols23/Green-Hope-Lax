@@ -223,8 +223,8 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
   const share = hub && !(coach && q.viewer?.isOwner) ? await readCalendarShare() : null
   const shared = (team: CalTeam, layer: ShareLayer) => !share || !hub || shares(share, team, hub, layer)
 
-  // Events.
-  {
+  // Events. None at all for the public site.
+  if (sees.length) {
     const { data, error } = await svc
       .from('calendar_events')
       .select('*')
