@@ -25,6 +25,7 @@ import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
 import { readBlocks, readStart, type Plan, type PlanKind } from './planner'
 import { gamePlanStarter, readGamePlan } from './gamePlan'
+import { readScout, scoutStarter } from './scout'
 import { readNoteBlocks } from './noteBlocks'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
 import {
@@ -1915,30 +1916,6 @@ export async function setRosterArchived(formData: FormData) {
 // they never reach the public site.
 
 /** The questions a scout has to answer, as a page waiting to be filled in. */
-function scoutStarter(): unknown[] {
-  const n = (i: number) => `sc${i}`
-  const heading = (i: number, text: string) => ({ id: n(i), kind: 'heading', text })
-  const list = (i: number, items: string[]) => ({
-    id: n(i),
-    kind: 'list',
-    items: items.map((text) => ({ text, done: false })),
-  })
-  return [
-    heading(1, 'Who they are'),
-    list(2, ['Record and who they have beaten', 'Their two or three best players, by number', 'Anybody we have to know by name']),
-    heading(3, 'Their offense'),
-    list(4, ['The set they start in', 'Who initiates, and from where', 'What they go to when it breaks down', 'Man-up look']),
-    heading(5, 'Their defense'),
-    list(6, ['Man or zone, and when they switch', 'How they slide — adjacent, crease, hot', 'Who their best cover is', 'Man-down look']),
-    heading(7, 'Ride and clear'),
-    list(8, ['How they ride', 'How they clear, and who carries it', 'Where they are beatable']),
-    heading(9, 'Face-off and the goalie'),
-    list(10, ['Their FOGO — hands, counters, wing play', 'Their goalie — where he is beatable, how he clears']),
-    heading(11, 'Keys to the game'),
-    list(12, ['', '', '']),
-  ]
-}
-
 export async function createPlan(formData: FormData) {
   const viewer = await requireSection('planner')
   const kindRaw = str(formData.get('kind'))
@@ -1970,10 +1947,14 @@ export async function createPlan(formData: FormData) {
     row.publish_coaches = false
     row.publish_players = false
   }
-  /* A scout opens with the headings rather than a blank page — the point is
-     that a coach sitting down to scout an opponent already knows what he is
-     being asked, and fills it in. */
-  if (kind === 'scout') row.content = scoutStarter()
+  /* A scout opens as a report with every question laid out to answer, against
+     the game it is for when it was made from one. */
+  if (kind === 'scout') {
+    row.details = scoutStarter({
+      opponent: str(formData.get('opponent')),
+      gameId: str(formData.get('game_id')) || null,
+    })
+  }
   /* A game plan opens with every decision to make laid out — the systems, the
      lineup, each coach's job and a standard game day — against the game it is
      for, when it was made from one. */
@@ -2145,15 +2126,16 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     try {
       raw = JSON.parse(str(formData.get('details')) || '{}')
     } catch {
-      return { ok: false, error: 'Saved, but the game plan could not be read back — try again.' }
+      return { ok: false, error: `Saved, but the ${existing?.kind === 'scout' ? 'scout' : 'game plan'} could not be read back — try again.` }
     }
-    const { error: detailsError } = await svc.from('plans').update({ details: readGamePlan(raw) }).eq('id', id)
+    const details = existing?.kind === 'scout' ? readScout(raw) : readGamePlan(raw)
+    const { error: detailsError } = await svc.from('plans').update({ details }).eq('id', id)
     if (detailsError) {
       return {
         ok: false,
         error: /details/i.test(detailsError.message)
-          ? 'Saved everything but the game plan itself — run supabase/migrations/0042_game_plans.sql in the Supabase SQL editor.'
-          : `Couldn\u2019t save the game plan: ${detailsError.message}`,
+          ? 'Saved everything but the report itself — run supabase/migrations/0042_game_plans.sql in the Supabase SQL editor.'
+          : `Couldn\u2019t save: ${detailsError.message}`,
       }
     }
   }
@@ -2216,6 +2198,7 @@ export async function duplicatePlan(formData: FormData) {
   }
   // A copied game plan is a starting point for another game, not a second plan for this one.
   if (o.kind === 'game' && row.details) row.details = { ...readGamePlan(row.details), gameId: null }
+  if (o.kind === 'scout' && row.details) row.details = { ...readScout(row.details), gameId: null }
   /* A sandboxed coach's copy is his draft — the way he starts from one of the
      staff's plans. A coach copying his own draft keeps it a draft. */
   const keepPrivate = isSandboxed(viewer) || (source.private && isAuthor(viewer, source))

@@ -6,6 +6,7 @@ import { createPlan } from '@/lib/actions'
 import { PLAN_KINDS, formatMinutes, totalMinutes, minutesByTag, type Plan } from '@/lib/planner'
 import { describeNote, readNoteBlocks } from '@/lib/noteBlocks'
 import { describeGamePlan, readGamePlan } from '@/lib/gamePlan'
+import { describeScout, readScout } from '@/lib/scout'
 import { formatShortDate } from '@/lib/format'
 import { teamLabel, withTeam } from '@/lib/teams'
 
@@ -50,7 +51,8 @@ export default async function PlannerPage({
     const mins = totalMinutes(p.blocks)
     // A game plan has no running clock; what shows is how much of it is decided.
     const tags = p.kind === 'game' ? [] : minutesByTag(p.blocks)
-    const gameLine = p.kind === 'game' ? describeGamePlan(readGamePlan(p.details)) : ''
+    const gameLine =
+      p.kind === 'game' ? describeGamePlan(readGamePlan(p.details)) : p.kind === 'scout' ? describeScout(readScout(p.details)) : ''
     return (
       <Link
         key={p.id}
@@ -67,7 +69,7 @@ export default async function PlannerPage({
             )}
           </div>
           <div className="text-xs text-gray-500">
-            {[p.plan_date ? formatShortDate(p.plan_date) : null, p.summary]
+            {[p.plan_date ? formatShortDate(`${p.plan_date}T12:00:00Z`) : null, p.summary]
               .filter(Boolean)
               .join(' · ') || 'No date set'}
           </div>
@@ -86,10 +88,10 @@ export default async function PlannerPage({
             {describeNote(readNoteBlocks(p.content))}
           </div>
         )}
-        {p.kind === 'game' && gameLine && (
+        {(p.kind === 'game' || p.kind === 'scout') && gameLine && (
           <div className="text-xs text-gray-400 shrink-0 text-right max-w-[45%]">{gameLine}</div>
         )}
-        {p.kind !== 'note' && p.kind !== 'game' && (
+        {(p.kind === 'practice' || !p.kind) && (
           <div className="text-right shrink-0">
             <div className="text-lg font-black" style={{ color: 'var(--gh-green)' }}>
               {formatMinutes(mins)}

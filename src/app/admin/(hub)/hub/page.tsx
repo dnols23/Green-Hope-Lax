@@ -22,6 +22,7 @@ import { WarRoomPanels, type Panel } from './WarRoomPanels'
 import { PrioritiesPanel } from './PriorityRow'
 import { GameDayPanel, MakeGamePlanButton, findGamePlan, gameDay, planDateLabel } from './GameTiles'
 import { describeGamePlan, readGamePlan } from '@/lib/gamePlan'
+import { describeScout, readScout } from '@/lib/scout'
 
 export const metadata = { title: 'War Room' }
 export const dynamic = 'force-dynamic'
@@ -214,6 +215,8 @@ export default async function WarRoom({
   const scout = nextGame
     ? plans.find((p) => p.kind === 'scout' && p.plan_date !== null && scoutDays.includes(p.plan_date)) ?? null
     : null
+  const scoutReport = scout ? readScout(scout.details) : null
+  const scoutKeys = scoutReport?.keys.filter((k) => k.trim()) ?? []
   /* The latest scouts, newest touched first rather than by date, so one
      started without a date — an opponent not on the schedule yet — still
      turns up here. */
@@ -255,7 +258,7 @@ export default async function WarRoom({
         <Link href={withTeam(`/admin/planner/${plan.id}`, team)} className="font-bold hover:underline">{plan.title}</Link>
         <div className="text-xs text-gray-500 mb-2">
           {formatMinutes(totalMinutes(plan.blocks))} · {plan.blocks.length} blocks
-          {plan.plan_date && title !== 'Today’s plan' ? ` · ${formatShortDate(plan.plan_date)}` : ''}
+          {plan.plan_date && title !== 'Today’s plan' ? ` · ${formatShortDate(`${plan.plan_date}T12:00:00Z`)}` : ''}
         </div>
         <ol className="space-y-1">
           {plan.blocks.slice(0, 8).map((b, i) => (
@@ -478,10 +481,20 @@ export default async function WarRoom({
                 {nextGame.is_conference ? ' · conference' : ''}
               </div>
               <div className="mt-2">
-                {scout ? (
-                  <Link href={withTeam(`/admin/planner/${scout.id}`, team)} className="font-semibold hover:underline">
-                    🔭 {scout.title} →
-                  </Link>
+                {scout && scoutReport ? (
+                  <>
+                    <Link href={withTeam(`/admin/planner/${scout.id}`, team)} className="font-semibold hover:underline">
+                      🔭 {scout.title} →
+                    </Link>
+                    <div className="text-xs text-gray-500">{describeScout(scoutReport)}</div>
+                    {scoutKeys.length > 0 && (
+                      <ol className="mt-1.5 space-y-0.5 list-decimal list-inside text-gray-700">
+                        {scoutKeys.map((k, i) => (
+                          <li key={i} className="break-words">{k}</li>
+                        ))}
+                      </ol>
+                    )}
+                  </>
                 ) : mayPlan ? (
                   /* No scout yet, so the button makes one already named and dated
                      for this opponent — the scouting starts on the next screen,
@@ -491,6 +504,8 @@ export default async function WarRoom({
                     <input type="hidden" name="team" value={team} />
                     <input type="hidden" name="title" value={`Scout — ${nextGame.opponent}`} />
                     <input type="hidden" name="plan_date" value={gameDay(nextGame)} />
+                    <input type="hidden" name="opponent" value={nextGame.opponent} />
+                    <input type="hidden" name="game_id" value={nextGame.id} />
                     <button type="submit" className="btn btn-primary">
                       🔭 Scout them
                     </button>
