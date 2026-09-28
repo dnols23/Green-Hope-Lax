@@ -32,6 +32,7 @@ import { imageFromClipboard, uploadImage } from '@/lib/uploadImage'
 import { NoteEditor } from './NoteEditor'
 import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
 import { GamePlanEditor, type GameOption, type PlayOption } from './GamePlanEditor'
+import { ScoutEditor } from './ScoutEditor'
 
 const EMPTY: FormState = { ok: true }
 
@@ -274,6 +275,9 @@ export function PlanEditor({
     )
   }
 
+  // A scout is a report on an opponent: a box for every question, not a checklist of them.
+  if (plan.kind === 'scout') return <ScoutEditor plan={plan} games={games} canWrite={canWrite} />
+
   /*
    * A note is a note.
    *
@@ -282,10 +286,7 @@ export function PlanEditor({
    * sentences into. None of that has anything to do with writing down what to
    * say at an interest meeting, so a note gets a title, a date and a page.
    */
-  /* A scout is a note about an opponent: the same page of headings, lists and
-     field diagrams, started from the right headings. It wants the same editor,
-     not a running clock. */
-  if (plan.kind === 'note' || plan.kind === 'scout') {
+  if (plan.kind === 'note') {
     return (
       <form onSubmit={submit}>
         <input type="hidden" name="id" value={plan.id} />

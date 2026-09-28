@@ -13,6 +13,7 @@ import { teamLabel, withTeam } from '@/lib/teams'
 import { listPlays } from '@/lib/plays'
 import { getGames } from '@/lib/queries'
 import { readGamePlan } from '@/lib/gamePlan'
+import { readScout } from '@/lib/scout'
 import { formatDate, formatTime } from '@/lib/format'
 import { hmOf, ymdOf } from '@/lib/zoned'
 import type { GameOption, PlayOption } from '@/components/planner/GamePlanEditor'
@@ -62,10 +63,14 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
      to if that has been played. */
   let plays: PlayOption[] = []
   let games: GameOption[] = []
-  if (plan.kind === 'game') {
-    const linked = readGamePlan(plan.details).gameId
+  // A scout points at a game too, and needs no plays.
+  if (plan.kind === 'game' || plan.kind === 'scout') {
+    const linked = plan.kind === 'scout' ? readScout(plan.details).gameId : readGamePlan(plan.details).gameId
     const today = ymdOf(new Date())
-    const [shelf, schedule] = await Promise.all([listPlays(), getGames(undefined, 'admin', plan.team)])
+    const [shelf, schedule] = await Promise.all([
+      plan.kind === 'game' ? listPlays() : Promise.resolve([]),
+      getGames(undefined, 'admin', plan.team),
+    ])
     plays = shelf.map((p) => ({ id: p.id, name: p.name, board: p.board }))
     games = schedule
       .filter((g) => ymdOf(g.game_date) >= today || g.id === linked)
