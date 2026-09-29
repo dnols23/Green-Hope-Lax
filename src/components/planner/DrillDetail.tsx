@@ -1,6 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import NumberField from '@/components/NumberField'
+import { saveDrillDetails } from '@/lib/actions'
 import { COMP_FORMATS, formatOf, rollComp, type BlockComp } from '@/lib/compete'
 import type { Drill } from '@/lib/drills'
 
@@ -13,7 +14,7 @@ import type { Drill } from '@/lib/drills'
  * it is for, and the video — then how it is being won, and the score.
  */
 export function DrillDetail({
-  drill,
+  drill: fromBank,
   comp,
   sides,
   seed,
@@ -29,6 +30,46 @@ export function DrillDetail({
 }) {
   // How many times he has asked for a different one.
   const [nonce, setNonce] = useState(0)
+  /* The write-up can be filled in right here and goes back to the drill bank.
+     What was just saved shows at once, before the bank catches up. */
+  const [drill, setDrill] = useState(fromBank)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState({ setup: '', description: '', context: '', link: '', linkLabel: '' })
+  const [saving, startSaving] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const empty = ![drill.setup, drill.description, drill.context, drill.link].some((v) => v?.trim())
+
+  function edit() {
+    setDraft({
+      setup: drill.setup ?? '',
+      description: drill.description ?? '',
+      context: drill.context ?? '',
+      link: drill.link ?? '',
+      linkLabel: drill.link_label ?? '',
+    })
+    setError(null)
+    setEditing(true)
+  }
+
+  function save() {
+    setError(null)
+    startSaving(async () => {
+      const res = await saveDrillDetails(drill.id, draft)
+      if (!res.ok) {
+        setError(res.error)
+        return
+      }
+      setDrill((d) => ({
+        ...d,
+        setup: draft.setup.trim() || null,
+        description: draft.description.trim() || null,
+        context: draft.context.trim() || null,
+        link: draft.link.trim() || null,
+        link_label: draft.linkLabel.trim() || null,
+      }))
+      setEditing(false)
+    })
+  }
 
   const chosen = comp?.key ? formatOf(comp.key) : null
   const suggestion = rollComp(seed, drill.category, nonce)
@@ -46,6 +87,7 @@ export function DrillDetail({
       <summary className="cursor-pointer list-none px-3 py-2 flex items-center gap-2 flex-wrap text-sm">
         <span className="caret text-xs text-gray-400">▸</span>
         <span className="font-bold text-gray-700">What this drill is</span>
+        {empty && <span className="text-xs font-semibold text-[var(--gh-maroon)]">No details yet</span>}
         {drill.link && <span className="badge badge-sched">Video</span>}
         {on && (
           <span className="badge badge-conf">
@@ -56,25 +98,71 @@ export function DrillDetail({
       </summary>
 
       <div className="px-3 pb-3 pt-1 space-y-3 border-t border-gray-200">
-        <Part label="Setup" body={drill.setup} fallback="Nobody has written the setup down yet." />
-        <Part label="How it runs" body={drill.description} fallback="No run-through written yet." />
-        <Part label="Why we run it" body={drill.context} fallback="Nobody has written down what it is for yet." />
+        {editing ? (
+          <div className="space-y-2.5 pt-2">
+            <DetailBox label="Setup" value={draft.setup} rows={2} placeholder="Two lines at X, balls at the front of each, goalie in" onChange={(v) => setDraft((d) => ({ ...d, setup: v }))} />
+            <DetailBox label="How it runs" value={draft.description} rows={3} placeholder="Step by step: who goes, where, when it ends" onChange={(v) => setDraft((d) => ({ ...d, description: v }))} />
+            <DetailBox label="Why we run it" value={draft.context} rows={2} placeholder="What good looks like; what to coach" onChange={(v) => setDraft((d) => ({ ...d, context: v }))} />
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_12rem] gap-2">
+              <label className="block">
+                <span className="section-label">Video link</span>
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={draft.link}
+                  onChange={(e) => setDraft((d) => ({ ...d, link: e.target.value }))}
+                  placeholder="https://"
+                  className="field !py-1.5 text-sm mt-1"
+                />
+              </label>
+              <label className="block">
+                <span className="section-label">Link says</span>
+                <input
+                  value={draft.linkLabel}
+                  onChange={(e) => setDraft((d) => ({ ...d, linkLabel: e.target.value }))}
+                  placeholder="Watch it"
+                  className="field !py-1.5 text-sm mt-1"
+                />
+              </label>
+            </div>
+            {error && <p className="text-sm font-semibold text-red-700" role="alert">{error}</p>}
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={save} disabled={saving} className="btn btn-primary !py-1.5 text-sm disabled:opacity-60">
+                {saving ? 'Saving…' : 'Save to the drill'}
+              </button>
+              <button type="button" onClick={() => setEditing(false)} className="btn btn-ghost !py-1.5 text-sm">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-end -mb-1 pt-1">
+              <button type="button" onClick={edit} className="btn btn-ghost !py-1 text-xs">
+                {empty ? '+ Add details' : '✎ Edit details'}
+              </button>
+            </div>
+            <Part label="Setup" body={drill.setup} fallback="Nobody has written the setup down yet." />
+            <Part label="How it runs" body={drill.description} fallback="No run-through written yet." />
+            <Part label="Why we run it" body={drill.context} fallback="Nobody has written down what it is for yet." />
 
-        <div>
-          <div className="section-label mb-1">Video</div>
-          {drill.link ? (
-            <a
-              href={drill.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-bold text-[var(--gh-green)] hover:underline break-all"
-            >
-              ▶ {drill.link_label || 'Watch it'} →
-            </a>
-          ) : (
-            <p className="text-sm text-gray-400">No video on this one yet.</p>
-          )}
-        </div>
+            <div>
+              <div className="section-label mb-1">Video</div>
+              {drill.link ? (
+                <a
+                  href={drill.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-bold text-[var(--gh-green)] hover:underline break-all"
+                >
+                  ▶ {drill.link_label || 'Watch it'} →
+                </a>
+              ) : (
+                <p className="text-sm text-gray-400">No video on this one yet.</p>
+              )}
+            </div>
+          </>
+        )}
 
         {/* ── Make it a competition ── */}
         <div className="border-t border-gray-200 pt-3">
@@ -165,6 +253,33 @@ export function DrillDetail({
         </div>
       </div>
     </details>
+  )
+}
+
+function DetailBox({
+  label,
+  value,
+  rows,
+  placeholder,
+  onChange,
+}: {
+  label: string
+  value: string
+  rows: number
+  placeholder: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <label className="block">
+      <span className="section-label">{label}</span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        placeholder={placeholder}
+        className="field !py-1.5 text-sm mt-1"
+      />
+    </label>
   )
 }
 
