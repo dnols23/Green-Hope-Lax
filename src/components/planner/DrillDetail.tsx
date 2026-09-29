@@ -276,7 +276,7 @@ export function DrillDiagram({ drill, onSaved }: { drill: Drill; onSaved?: (boar
 
   function saveBoard(drawn: Board | null) {
     // A field with nothing on it is no diagram, which is how it is stored.
-    const next = drawn && (drawn.tokens.length || drawn.paths.length || drawn.texts.length || drawn.view) ? drawn : null
+    const next = drawn && (drawn.tokens.length || drawn.paths.length || drawn.texts?.length || drawn.view) ? drawn : null
     setBoardError(null)
     startSaving(async () => {
       const res = await saveDrillBoard(drill.id, next)
