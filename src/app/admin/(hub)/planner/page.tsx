@@ -9,9 +9,11 @@ import { describeGamePlan, readGamePlan } from '@/lib/gamePlan'
 import { describeScout, readScout } from '@/lib/scout'
 import { formatShortDate } from '@/lib/format'
 import { teamLabel, withTeam } from '@/lib/teams'
-import { ContinueBuilding } from '@/components/planner/ContinueBuilding'
 
 export const metadata = { title: 'Planner' }
+
+// Notes have their own page; the planner is practices, game plans and scouts.
+const PLANNER_KINDS = PLAN_KINDS.filter((k) => k.key !== 'note')
 export const dynamic = 'force-dynamic'
 
 export default async function PlannerPage({
@@ -44,9 +46,9 @@ export default async function PlannerPage({
   /* Drafts are their author's, and the head coaches' once sent in. They sit in
      their own lists up top; the staff's plans are everything else. */
   const visible = all.filter((p) => canSeePlan(viewer, p))
-  const plans = visible.filter((p) => !p.private)
-  const myDrafts = visible.filter((p) => p.private && isAuthor(viewer, p))
-  const forReview = visible.filter((p) => p.private && !isAuthor(viewer, p))
+  const plans = visible.filter((p) => !p.private && p.kind !== 'note')
+  const myDrafts = visible.filter((p) => p.private && isAuthor(viewer, p) && p.kind !== 'note')
+  const forReview = visible.filter((p) => p.private && !isAuthor(viewer, p) && p.kind !== 'note')
 
   const renderPlan = (p: Plan, badge?: string) => {
     const mins = totalMinutes(p.blocks)
@@ -123,7 +125,7 @@ export default async function PlannerPage({
           )}
         </div>
         <p className="text-gray-500 text-sm">
-          Practices, game plans and notes for the {teamLabel(team).toLowerCase()}. Blocks carry their
+          Practices, game plans and scouts for the {teamLabel(team).toLowerCase()}. Blocks carry their
           own field diagrams, so what you drew on Tuesday is still on the plan in March.
         </p>
       </div>
@@ -150,10 +152,8 @@ export default async function PlannerPage({
         </div>
       )}
 
-      <ContinueBuilding viewer={viewer} />
-
       <div className="grid sm:grid-cols-3 gap-3">
-        {PLAN_KINDS.map((k) => (
+        {PLANNER_KINDS.map((k) => (
           <form key={k.key} action={createPlan} className="card p-4 flex flex-col">
             <input type="hidden" name="kind" value={k.key} />
             <input type="hidden" name="team" value={team} />
@@ -181,7 +181,7 @@ export default async function PlannerPage({
         </section>
       )}
 
-      {PLAN_KINDS.map(({ key, plural }) => {
+      {PLANNER_KINDS.map(({ key, plural }) => {
         const group = plans.filter((p) => p.kind === key)
         if (group.length === 0) return null
         return (

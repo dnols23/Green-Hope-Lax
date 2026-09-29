@@ -678,3 +678,8 @@ export function readClip(raw: unknown): BoardClip | null {
   if (clean.length < 2) return null
   return { frames: clean.slice(0, 600) }
 }
+
+/** Where a plan opens: notes have their own page, everything else is the planner's. */
+export function planPath(p: { id: string; kind: PlanKind }): string {
+  return p.kind === 'note' ? `/admin/notes/${p.id}` : `/admin/planner/${p.id}`
+}
