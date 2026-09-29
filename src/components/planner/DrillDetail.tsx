@@ -4,7 +4,20 @@ import NumberField from '@/components/NumberField'
 import { saveDrillBoard, saveDrillCompetitions, saveDrillDetails } from '@/lib/actions'
 import { EMPTY_BOARD, boardIsBlank, newId, type Board } from '@/lib/planner'
 import { FieldBoard } from './FieldBoard'
-import { COMP_FORMATS, formatOf, rollComp, sameComp, type BlockComp, type CompFormat, type SavedComp } from '@/lib/compete'
+import {
+  COMP_FORMATS,
+  CONSEQUENCES,
+  consequenceOf,
+  formatOf,
+  rollComp,
+  rollConsequence,
+  sameComp,
+  type BlockComp,
+  type CompFormat,
+  type Consequence,
+  type SavedComp,
+} from '@/lib/compete'
+import { addConsequence } from '@/lib/competitionActions'
 import type { Drill } from '@/lib/drills'
 
 /**
@@ -155,6 +168,7 @@ export function BlockCompetition({
   sides,
   seed,
   formats = COMP_FORMATS,
+  consequences = CONSEQUENCES,
   onComp,
 }: {
   /** The block's main drill, if it has one. */
@@ -166,6 +180,8 @@ export function BlockCompetition({
   seed: string
   /** The staff's competitions; the built-ins until they have some. */
   formats?: CompFormat[]
+  /** What the losers can be made to do: the built-ins and the staff's own. */
+  consequences?: Consequence[]
   onComp: (next: BlockComp | null) => void
 }) {
   // How many times he has asked for a different one.
@@ -190,9 +206,24 @@ export function BlockCompetition({
   }
   const keep = () => {
     if (!drill || !comp || isKept || (!comp.key && !comp.own?.trim())) return
-    writeKept([...kept, { id: newId('c'), key: comp.key, ...(comp.own?.trim() ? { own: comp.own.trim() } : {}), savedAt: new Date().toISOString() }])
+    writeKept([
+      ...kept,
+      {
+        id: newId('c'),
+        key: comp.key,
+        ...(comp.own?.trim() ? { own: comp.own.trim() } : {}),
+        ...(comp.penalty ? { penalty: comp.penalty } : {}),
+        savedAt: new Date().toISOString(),
+      },
+    ])
   }
-  const use = (k: SavedComp) => onComp({ key: k.key, ...(k.own ? { own: k.own } : {}), scores: sides.map(() => 0) })
+  const use = (k: SavedComp) =>
+    onComp({
+      key: k.key,
+      ...(k.own ? { own: k.own } : {}),
+      penalty: k.penalty ?? comp?.penalty ?? rollConsequence(seed, 0, consequences).key,
+      scores: sides.map(() => 0),
+    })
 
   const chosen = comp?.key ? formatOf(comp.key, formats) : null
   const suggestion = rollComp(seed, drill?.category, nonce, formats)
@@ -218,7 +249,9 @@ export function BlockCompetition({
           {!on ? (
             <button
               type="button"
-              onClick={() => onComp({ key: suggestion.key, scores: sides.map(() => 0) })}
+              onClick={() =>
+                onComp({ key: suggestion.key, penalty: rollConsequence(seed, 0, consequences).key, scores: sides.map(() => 0) })
+              }
               className="btn btn-ghost !py-1 text-xs"
             >
               Make it a competition
@@ -338,6 +371,13 @@ export function BlockCompetition({
               </div>
             </div>
 
+            <LosersPicker
+              list={consequences}
+              value={comp?.penalty}
+              seed={seed}
+              onChange={(penalty) => onComp({ ...comp!, penalty })}
+            />
+
             {drill && (
             <button
               type="button"
@@ -366,6 +406,9 @@ export function BlockCompetition({
                     <div className="flex-1 min-w-0 text-sm">
                       <span className="font-bold text-gray-700">{f?.label ?? 'Our own'}.</span>{' '}
                       <span className="text-gray-600">{k.own ?? (f?.summary || f?.how)}</span>
+                      {k.penalty && consequenceOf(k.penalty, consequences) && (
+                        <span className="block text-xs text-gray-500">Losers: {consequenceOf(k.penalty, consequences)?.label}</span>
+                      )}
                     </div>
                     {current ? (
                       <span className="shrink-0 text-xs font-bold text-[var(--gh-green)] self-center">In use</span>
@@ -390,6 +433,161 @@ export function BlockCompetition({
           </div>
         )}
         {keepError && <p className="text-sm font-semibold text-red-700 mt-2" role="alert">{keepError}</p>}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * What the losing side does. Picked for the competition, changeable, or none;
+ * a new one can be added to everybody's list right from here.
+ */
+function LosersPicker({
+  list: given,
+  value,
+  seed,
+  onChange,
+}: {
+  list: Consequence[]
+  value?: string
+  seed: string
+  onChange: (key: string | undefined) => void
+}) {
+  const [added, setAdded] = useState<Consequence[]>([])
+  const list = [...given, ...added.filter((a) => !given.some((g) => g.key === a.key))]
+  const [open, setOpen] = useState(false)
+  const [nonce, setNonce] = useState(1)
+  const [adding, setAdding] = useState(false)
+  const [label, setLabel] = useState('')
+  const [summary, setSummary] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saving, startSaving] = useTransition()
+  const current = consequenceOf(value, list)
+
+  function add() {
+    setError(null)
+    startSaving(async () => {
+      const res = await addConsequence(label, summary)
+      if (!res.ok) {
+        setError(res.error)
+        return
+      }
+      setAdded((a) => [...a, res.item])
+      onChange(res.item.key)
+      setLabel('')
+      setSummary('')
+      setAdding(false)
+      setOpen(false)
+    })
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <div className="text-[0.6rem] font-black uppercase tracking-wider text-gray-400">Losers</div>
+        {current && (
+          <button
+            type="button"
+            onClick={() => {
+              onChange(rollConsequence(seed, nonce, list).key)
+              setNonce((n) => n + 1)
+            }}
+            className="text-xs font-bold text-gray-500 hover:text-gray-800"
+          >
+            ↻ Another
+          </button>
+        )}
+      </div>
+      <div className="rounded-lg border border-gray-200 bg-white">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="w-full text-left px-3 py-2 flex items-start gap-2"
+        >
+          <span className="flex-1 min-w-0 text-sm">
+            {current ? (
+              <>
+                <span className="font-bold text-gray-800">{current.label}</span>
+                {current.summary && <span className="text-gray-600"> — {current.summary}</span>}
+              </>
+            ) : (
+              <span className="text-gray-500">No consequence</span>
+            )}
+          </span>
+          <span className="text-xs font-bold text-[var(--gh-green)] shrink-0 mt-0.5">{open ? 'Close' : 'Change'}</span>
+        </button>
+        {open && (
+          <div className="border-t border-gray-100">
+            <ul className="max-h-64 overflow-y-auto" role="listbox" aria-label="Consequence">
+              {list.map((c) => (
+                <li key={c.key}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={c.key === value}
+                    onClick={() => {
+                      onChange(c.key)
+                      setOpen(false)
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${c.key === value ? 'bg-[#e6f2ec]' : ''}`}
+                  >
+                    <span className="font-bold text-gray-800">{c.label}</span>
+                    {!c.builtIn && <span className="ml-1.5 text-[0.6rem] font-black uppercase tracking-wide text-gray-400">Ours</span>}
+                    <span className="block text-gray-600">{c.summary}</span>
+                  </button>
+                </li>
+              ))}
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(undefined)
+                    setOpen(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 border-t border-gray-100"
+                >
+                  No consequence
+                </button>
+              </li>
+            </ul>
+            <div className="border-t border-gray-100 px-3 py-2">
+              {adding ? (
+                <div className="space-y-2">
+                  <input
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    maxLength={60}
+                    placeholder="Name — e.g. Pinnie pickup"
+                    aria-label="Name"
+                    className="field !py-1.5 text-sm"
+                  />
+                  <input
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    maxLength={200}
+                    placeholder="What the losers do, in a sentence"
+                    aria-label="What the losers do"
+                    className="field !py-1.5 text-sm"
+                  />
+                  {error && <p className="text-xs font-semibold text-red-700" role="alert">{error}</p>}
+                  <div className="flex gap-2">
+                    <button type="button" onClick={add} disabled={saving || !label.trim()} className="btn btn-primary !py-1 text-xs disabled:opacity-60">
+                      {saving ? 'Adding…' : 'Add to the list'}
+                    </button>
+                    <button type="button" onClick={() => setAdding(false)} className="btn btn-ghost !py-1 text-xs">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setAdding(true)} className="text-sm font-bold text-[var(--gh-green)]">
+                  + New consequence
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -23,7 +23,7 @@ import {
 } from '@/lib/planner'
 import { DRILL_CATEGORIES, categoryFor, type Drill } from '@/lib/drills'
 import { BlockCompetition, DrillDetail } from './DrillDetail'
-import { leaderOf, readSides, tally, type BlockComp, type CompFormat } from '@/lib/compete'
+import { leaderOf, readSides, tally, type BlockComp, type CompFormat, type Consequence } from '@/lib/compete'
 import { FieldBoard } from './FieldBoard'
 import { ClipPlayer } from './ClipPlayer'
 import { LibraryPicker } from './LibraryPicker'
@@ -67,6 +67,7 @@ export function PlanEditor({
   coaches,
   drills,
   competitions,
+  consequences,
   plays = [],
   games = [],
   canWrite = true,
@@ -79,6 +80,8 @@ export function PlanEditor({
   drills: Drill[]
   /** The staff's competitions (built-ins as changed, and their own). */
   competitions?: CompFormat[]
+  /** What the losing side can be made to do. */
+  consequences?: Consequence[]
   /** The Library's plays, for a game plan's systems to point at. */
   plays?: PlayOption[]
   /** Games off the schedule, for a game plan to be linked to. */
@@ -867,6 +870,7 @@ export function PlanEditor({
                         sides={sides}
                         seed={`${b.id}:${drill?.id ?? ''}`}
                         formats={competitions}
+                        consequences={consequences}
                         onComp={(next: BlockComp | null) => patch(b.id, { comp: next })}
                       />
                     )
