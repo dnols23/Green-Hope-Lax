@@ -2280,6 +2280,7 @@ export async function upsertDrill(formData: FormData) {
     setting: primarySetting(places),
     description: str(formData.get('description')) || null,
     link: str(formData.get('link')) || null,
+    ...(formData.has('link_label') ? { link_label: str(formData.get('link_label')).slice(0, 80) || null } : {}),
     equipment: str(formData.get('equipment')) || null,
     // The staff's favourites are the staff's call.
     is_favorite: !isSandboxed(viewer) && str(formData.get('is_favorite')) === 'true',
