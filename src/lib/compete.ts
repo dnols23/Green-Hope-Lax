@@ -9,8 +9,21 @@
 export interface CompFormat {
   key: string
   label: string
-  /** One line, said the way a coach says it on the field. */
+  /** One sentence: what it is. Shown wherever one is being picked. */
+  summary: string
+  /** How it runs, said the way a coach says it on the field. */
   how: string
+  /** What it needs set up — cones, stations, a clock. */
+  setup?: string | null
+  /** Why we run it and what good looks like. */
+  why?: string | null
+  link?: string | null
+  link_label?: string | null
+  board?: import('./planner').Board | null
+  /** Shipped with the site (and maybe changed by the staff), or one of their own. */
+  builtIn?: boolean
+  /** A built-in the staff has changed. */
+  edited?: boolean
   /**
    * The drill categories it suits. A format listed here is offered for those
    * drills first; anything marked 'any' fits whatever is on the plan.
@@ -19,43 +32,47 @@ export interface CompFormat {
 }
 
 export const COMP_FORMATS: CompFormat[] = [
-  { key: 'first-to', label: 'First to ten', fits: ['shooting', 'groundballs', 'faceoff', 'dodging'],
+  { key: 'first-to', summary: 'A race to ten points between the two sides.', label: 'First to ten', fits: ['shooting', 'groundballs', 'faceoff', 'dodging'],
     how: 'First side to ten takes it. Call it out loud every time it changes.' },
-  { key: 'win-rep', label: 'Win the rep', fits: 'any',
+  { key: 'win-rep', summary: 'Every rep is worth a point; most points wins.', label: 'Win the rep', fits: 'any',
     how: 'A point for every rep won. Most points when the clock goes is the winner.' },
-  { key: 'streak', label: 'Three in a row', fits: ['stickwork', 'shooting', 'groundballs'],
+  { key: 'streak', summary: 'Three clean reps in a row wins, and a miss resets you.', label: 'Three in a row', fits: ['stickwork', 'shooting', 'groundballs'],
     how: 'Three clean in a row wins it. One miss and that side is back to zero.' },
-  { key: 'one-life', label: 'One life', fits: ['stickwork', 'shooting', 'footwork'],
+  { key: 'one-life', summary: 'One mistake and you are out until one player is left.', label: 'One life', fits: ['stickwork', 'shooting', 'footwork'],
     how: 'A miss and you are out. Last man standing scores for his side.' },
-  { key: 'beat-clock', label: 'Beat the clock', fits: ['stickwork', 'footwork', 'conditioning', 'transition'],
+  { key: 'beat-clock', summary: 'Both sides race the same set against the clock.', label: 'Beat the clock', fits: ['stickwork', 'footwork', 'conditioning', 'transition'],
     how: 'Whichever side finishes the set first takes it. Time them both.' },
-  { key: 'loser-runs', label: 'Loser runs', fits: 'any',
+  { key: 'loser-runs', summary: 'Any drill, with the losing side paying for it.', label: 'Loser runs', fits: 'any',
     how: 'Losing side runs the width at the whistle. Winner gets the water break first.' },
-  { key: 'goalie-game', label: "Goalie's game", fits: ['shooting', 'offense', 'sixes', 'goalie', 'specialoffense'],
+  { key: 'goalie-game', summary: 'Offense scores on goals, defense scores on saves.', label: "Goalie's game", fits: ['shooting', 'offense', 'sixes', 'goalie', 'specialoffense'],
     how: 'Every save is a point for the defense, every goal a point for the offense.' },
-  { key: 'golden', label: 'Golden goal', fits: ['offense', 'defense', 'sixes', 'transition', 'mandown'],
+  { key: 'golden', summary: 'Tied at the end means next goal wins.', label: 'Golden goal', fits: ['offense', 'defense', 'sixes', 'transition', 'mandown'],
     how: 'Play it level, then the next one wins it. Nobody leaves on a tie.' },
-  { key: 'tax', label: 'Drop tax', fits: ['stickwork', 'groundballs', 'transition', 'ridecrear'],
+  { key: 'tax', summary: 'Drops cost points, so clean hands win.', label: 'Drop tax', fits: ['stickwork', 'groundballs', 'transition', 'ridecrear'],
     how: 'Every drop costs that side a point. You can finish on a negative.' },
-  { key: 'ladder', label: 'Ladder', fits: ['dodging', 'individualdefense', 'faceoff', 'groundballs'],
+  { key: 'ladder', summary: 'Winners move up a station and losers move down.', label: 'Ladder', fits: ['dodging', 'individualdefense', 'faceoff', 'groundballs'],
     how: 'Winner moves up a station, loser moves down. Top station at the end takes it.' },
-  { key: 'stops', label: 'Three stops', fits: ['defense', 'individualdefense', 'dmid', 'mandown', 'ridecrear'],
+  { key: 'stops', summary: 'The defense has to get three stops in a row.', label: 'Three stops', fits: ['defense', 'individualdefense', 'dmid', 'mandown', 'ridecrear'],
     how: 'Three stops in a row and the defense wins the round. A goal resets it.' },
-  { key: 'clear-count', label: 'Clear it or lose it', fits: ['ridecrear', 'transition', 'goalie'],
+  { key: 'clear-count', summary: 'Clears against the ride, point for point.', label: 'Clear it or lose it', fits: ['ridecrear', 'transition', 'goalie'],
     how: 'A point for every clear that gets over the line, one to the ride for every one that does not.' },
-  { key: 'weak-hand', label: 'Weak hand only', fits: ['stickwork', 'shooting', 'dodging', 'groundballs'],
+  { key: 'weak-hand', summary: 'Weak-hand reps count double.', label: 'Weak hand only', fits: ['stickwork', 'shooting', 'dodging', 'groundballs'],
     how: 'Weak hand counts double. Strong hand counts one. Announce it before the first rep.' },
-  { key: 'call-it', label: 'Call your shot', fits: ['shooting', 'specialoffense'],
+  { key: 'call-it', summary: 'Call your corner first and it counts double.', label: 'Call your shot', fits: ['shooting', 'specialoffense'],
     how: 'Call the corner before you shoot. Called and made is two, made without calling is one.' },
-  { key: 'timed-ladder', label: 'Sixty seconds', fits: ['conditioning', 'strength', 'footwork', 'groundballs'],
+  { key: 'timed-ladder', summary: 'Most reps in sixty seconds wins.', label: 'Sixty seconds', fits: ['conditioning', 'strength', 'footwork', 'groundballs'],
     how: 'Sixty seconds a side, count the reps, highest number wins.' },
-  { key: 'silent', label: 'Silent rep', fits: ['offense', 'sixes', 'transition', 'defense'],
+  { key: 'silent', summary: 'Offense plays without talking, then the defense has to talk twice as much.', label: 'Silent rep', fits: ['offense', 'sixes', 'transition', 'defense'],
     how: 'No talking on offense. Every finished possession without a word is a point — then swap it, and the defense has to talk twice as loud.' },
 ]
 
-export function formatOf(key: string | null | undefined): CompFormat | null {
-  return COMP_FORMATS.find((f) => f.key === key) ?? null
+/** A format by key, from the staff's list when given, else the built-ins. */
+export function formatOf(key: string | null | undefined, list: CompFormat[] = COMP_FORMATS): CompFormat | null {
+  return list.find((f) => f.key === key) ?? null
 }
+
+/** A key for a competition the staff adds: letters, numbers and dashes. */
+export const isCompKey = (v: unknown): v is string => typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,39}$/.test(v)
 
 /**
  * A small, stable hash. Same seed, same number, every time and everywhere —
@@ -78,11 +95,16 @@ function hash(seed: string): number {
  * stays in the hat, because the same competition at every practice stops being
  * a competition.
  */
-export function rollComp(seed: string, category: string | null | undefined, nonce = 0): CompFormat {
+export function rollComp(
+  seed: string,
+  category: string | null | undefined,
+  nonce = 0,
+  list: CompFormat[] = COMP_FORMATS,
+): CompFormat {
   const cat = category ?? ''
-  const suited = COMP_FORMATS.filter((f) => f.fits !== 'any' && f.fits.includes(cat))
-  const general = COMP_FORMATS.filter((f) => f.fits === 'any')
-  const pool = suited.length ? [...suited, ...general] : COMP_FORMATS
+  const suited = list.filter((f) => f.fits !== 'any' && f.fits.includes(cat))
+  const general = list.filter((f) => f.fits === 'any')
+  const pool = suited.length ? [...suited, ...general] : list.length ? list : COMP_FORMATS
   return pool[hash(`${seed}:${nonce}`) % pool.length]
 }
 
@@ -132,7 +154,7 @@ export function readSavedComps(raw: unknown): SavedComp[] {
   for (const [i, r] of list.entries()) {
     if (!r || typeof r !== 'object') continue
     const o = r as Record<string, unknown>
-    const key = typeof o.key === 'string' && formatOf(o.key) ? o.key : ''
+    const key = isCompKey(o.key) ? o.key : ''
     const own = typeof o.own === 'string' && o.own.trim() ? o.own.trim().slice(0, 200) : undefined
     if (!key && !own) continue
     out.push({
