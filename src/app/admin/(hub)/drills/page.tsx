@@ -1,7 +1,7 @@
 import { requireSection } from '@/lib/permissions'
 import { drillsReady, listDrills } from '@/lib/drillsData'
 import { upsertDrill, deleteDrill, toggleDrillFavorite } from '@/lib/actions'
-import { DRILL_CATEGORIES, SETTING_LABELS, isHomework } from '@/lib/drills'
+import { DRILL_CATEGORIES, DRILL_SETTINGS, SETTING_LABELS, isHomework, type DrillSetting } from '@/lib/drills'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
@@ -64,28 +64,12 @@ export default async function DrillBankPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="field-label">Minutes</label>
-            <input type="number" name="minutes" min={0} max={240} defaultValue={10} className="field" />
+          <div className="sm:col-span-6">
+            <PlacePicker chosen={['team']} />
           </div>
-          <div className="sm:col-span-2">
-            <label className="field-label">Where it can be done</label>
-            <select name="setting" defaultValue="team" className="field">
-              {Object.entries(SETTING_LABELS).map(([k, label]) => (
-                <option key={k} value={k}>{label}</option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Only wall, on your own and with a friend can be sent to a player as homework.
-            </p>
-          </div>
-          <div className="sm:col-span-4">
+          <div className="sm:col-span-6">
             <label className="field-label">Video link</label>
             <input name="link" className="field" placeholder="https://… video, diagram, playbook page" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="field-label">Link says</label>
-            <input name="link_label" className="field" placeholder="Video" />
           </div>
           {/* Three fields, because a coach who has never seen the drill needs
               three different things: how to put it out, how to run it, and
@@ -136,7 +120,7 @@ export default async function DrillBankPage() {
                     <details
                       key={d.id}
                       className="py-2"
-                      data-drill={[d.name, cat.label, SETTING_LABELS[d.setting], d.description, d.setup, d.context, d.equipment]
+                      data-drill={[d.name, cat.label, ...d.settings.map((x) => SETTING_LABELS[x]), d.description, d.setup, d.context, d.equipment]
                         .filter(Boolean)
                         .join(' ')
                         .toLowerCase()}
@@ -145,17 +129,19 @@ export default async function DrillBankPage() {
                         <span className="caret text-xs text-gray-300">▸</span>
                         <span className="font-semibold text-sm">{d.name}</span>
                         {d.is_favorite && <span title="Favourite">⭐</span>}
-                        <span className="text-xs text-gray-400">{d.minutes}m</span>
-                        <span
-                          className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
-                          style={{
-                            background: isHomework(d.setting) ? '#DFEFE7' : 'var(--color-gray-100, #f3f4f6)',
-                            color: isHomework(d.setting) ? '#00512F' : 'var(--color-gray-500, #6b7280)',
-                          }}
-                          title={isHomework(d.setting) ? 'Can be prescribed to a player' : 'Practice or film only — never sent home'}
-                        >
-                          {SETTING_LABELS[d.setting]}
-                        </span>
+                        {d.settings.map((place) => (
+                          <span
+                            key={place}
+                            className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{
+                              background: isHomework(place) ? '#DFEFE7' : 'var(--color-gray-100, #f3f4f6)',
+                              color: isHomework(place) ? '#00512F' : 'var(--color-gray-500, #6b7280)',
+                            }}
+                            title={isHomework(place) ? 'Can be sent home to a player' : 'Practice or film only'}
+                          >
+                            {SETTING_LABELS[place]}
+                          </span>
+                        ))}
                         {d.link && <DrillLink href={d.link} label={d.link_label || 'Open link'} />}
                       </summary>
                       <div className="pl-6 pt-2 space-y-2">
@@ -177,25 +163,12 @@ export default async function DrillBankPage() {
                               ))}
                             </select>
                           </div>
-                          <div>
-                            <label className="field-label">Where</label>
-                            <select name="setting" defaultValue={d.setting} className="field !py-1.5">
-                              {Object.entries(SETTING_LABELS).map(([k, label]) => (
-                                <option key={k} value={k}>{label}</option>
-                              ))}
-                            </select>
+                          <div className="sm:col-span-6">
+                            <PlacePicker chosen={d.settings} />
                           </div>
-                          <div>
-                            <label className="field-label">Min</label>
-                            <input type="number" name="minutes" defaultValue={d.minutes} className="field !py-1.5" />
-                          </div>
-                          <div className="sm:col-span-4">
+                          <div className="sm:col-span-6">
                             <label className="field-label">Video link</label>
                             <input name="link" defaultValue={d.link ?? ''} className="field !py-1.5" />
-                          </div>
-                          <div className="sm:col-span-2">
-                            <label className="field-label">Link says</label>
-                            <input name="link_label" defaultValue={d.link_label ?? ''} className="field !py-1.5" />
                           </div>
                           <div className="sm:col-span-6">
                             <label className="field-label">Setup</label>
@@ -359,15 +332,9 @@ function CompetitionForm({ comp }: { comp?: CompFormat }) {
         <label className="field-label">Why we run it</label>
         <textarea name="why" rows={2} defaultValue={comp?.why ?? ''} className="field !py-1.5 text-sm" />
       </div>
-      <div className="grid sm:grid-cols-3 gap-2">
-        <div className="sm:col-span-2">
-          <label className="field-label">Video link</label>
-          <input name="link" type="url" defaultValue={comp?.link ?? ''} placeholder="https://" className="field !py-1.5" />
-        </div>
-        <div>
-          <label className="field-label">Link says</label>
-          <input name="link_label" maxLength={80} defaultValue={comp?.link_label ?? ''} placeholder="Watch it" className="field !py-1.5" />
-        </div>
+      <div>
+        <label className="field-label">Video link</label>
+        <input name="link" type="url" defaultValue={comp?.link ?? ''} placeholder="https://" className="field !py-1.5" />
       </div>
       <details>
         <summary className="cursor-pointer list-none text-xs font-bold text-gray-500">
@@ -446,5 +413,29 @@ function ConsequenceForm({ item }: { item?: Consequence }) {
         <button type="submit" className="btn btn-primary !py-1.5 text-sm">{item ? 'Save' : 'Add it'}</button>
       </div>
     </form>
+  )
+}
+
+/** Where a drill can be done — any of them, as many as fit. */
+function PlacePicker({ chosen }: { chosen: DrillSetting[] }) {
+  return (
+    <fieldset>
+      <legend className="field-label">Where it can be done</legend>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {DRILL_SETTINGS.map((place) => (
+          <label key={place} className="flex items-center gap-2 text-sm min-h-9 cursor-pointer">
+            <input
+              type="checkbox"
+              name="settings"
+              value={place}
+              defaultChecked={chosen.includes(place)}
+              className="w-4 h-4 accent-[var(--gh-green)]"
+            />
+            {SETTING_LABELS[place]}
+          </label>
+        ))}
+      </div>
+      <p className="text-xs text-gray-500 mt-0.5">Wall, on your own and with a friend can be sent to a player as homework.</p>
+    </fieldset>
   )
 }

@@ -5,7 +5,7 @@
 // them every time they open it.
 
 import { EVAL_CATEGORIES, readRating, type Evaluation } from './evaluations'
-import { DRILL_CATEGORIES, isHomework, type Drill } from './drills'
+import { DRILL_CATEGORIES, drillIsHomework, isHomework, type Drill } from './drills'
 import { POSITION_LABELS, positionGroup, type PositionGroup } from './positions'
 
 // Re-exported so the screens that already ask prescribe for these keep working.
@@ -197,7 +197,7 @@ export function buildDrillSet(
        the plan, where a coach runs them. */
     const ranked = preferred.flatMap((cat) =>
       drills
-        .filter((d) => d.category === cat && !used.has(d.id) && isHomework(d.setting))
+        .filter((d) => d.category === cat && !used.has(d.id) && drillIsHomework(d))
         .sort((a, b) => {
           const fav = Number(b.is_favorite) - Number(a.is_favorite)
           if (fav) return fav
@@ -217,7 +217,8 @@ export function buildDrillSet(
         drillId: d.id,
         name: d.name,
         category: d.category,
-        setting: d.setting,
+        // What the player is told: the take-home place.
+        setting: d.settings.find(isHomework) ?? d.setting,
         link: d.link,
         focusKey: area.key,
         focusLabel: area.label,

@@ -66,7 +66,7 @@ export function ItemDetails({
       <Box label="How it runs" value={d.run} readOnly={readOnly} placeholder="Step by step: who goes, where, when it ends" onChange={(v) => set('run', v)} />
       <Box label="Why we run it" value={d.why} readOnly={readOnly} placeholder="What good looks like; what to coach" onChange={(v) => set('why', v)} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_12rem] gap-2">
+      <div>
         <label className="block min-w-0">
           <span className="section-label">Video or link</span>
           {readOnly ? (
@@ -82,17 +82,6 @@ export function ItemDetails({
             />
           )}
         </label>
-        {!readOnly && (
-          <label className="block min-w-0">
-            <span className="section-label">Link says</span>
-            <input
-              value={d.linkLabel ?? ''}
-              onChange={(e) => set('linkLabel', e.target.value)}
-              placeholder="Watch it"
-              className="field !py-1.5 min-h-9 text-sm mt-1"
-            />
-          </label>
-        )}
       </div>
       {!readOnly && link && <DetailLink href={link} label={d.linkLabel} />}
 
