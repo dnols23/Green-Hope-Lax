@@ -1,5 +1,5 @@
 'use client'
-import { useActionState, useState, useTransition, type FormEvent } from 'react'
+import { useActionState, useRef, useState, useTransition, type FormEvent } from 'react'
 import { savePlan } from '@/lib/actions'
 import type { FormState } from '@/lib/actions'
 import { newId, type Plan } from '@/lib/planner'
@@ -14,6 +14,7 @@ import {
   type ScoutPlayer,
 } from '@/lib/scout'
 import { NoteEditor } from './NoteEditor'
+import { AutosaveNote, useAutosave } from './useAutosave'
 import type { GameOption } from './GamePlanEditor'
 
 const EMPTY: FormState = { ok: true }
@@ -40,6 +41,8 @@ export function ScoutEditor({
 }) {
   const [state, save, saving] = useActionState(savePlan, EMPTY)
   const [, startSave] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
+  const autosave = useAutosave(formRef, canWrite)
   // Saved by hand so React doesn't reset the form's fields after the action.
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -88,7 +91,7 @@ export function ScoutEditor({
   const removeBtn = 'shrink-0 w-9 h-9 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100'
 
   return (
-    <form onSubmit={submit} className="space-y-3 pb-2">
+    <form ref={formRef} onSubmit={submit} className="space-y-3 pb-2">
       {!canWrite && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-900 font-bold">
@@ -371,11 +374,14 @@ export function ScoutEditor({
               </label>
             </>
           )}
+          <span className="ml-auto">
+            <AutosaveNote state={autosave} />
+          </span>
           <button
             type="submit"
             disabled={saving || !canWrite}
             title={canWrite ? undefined : 'This is the other team’s scout.'}
-            className="btn btn-primary !py-1.5 ml-auto disabled:opacity-60"
+            className="btn btn-primary !py-1.5 disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>

@@ -1,5 +1,5 @@
 'use client'
-import { useActionState, useState, useTransition, type FormEvent } from 'react'
+import { useActionState, useRef, useState, useTransition, type FormEvent } from 'react'
 import NumberField from '@/components/NumberField'
 import { savePlan } from '@/lib/actions'
 import type { FormState } from '@/lib/actions'
@@ -30,6 +30,7 @@ import { LibraryPicker } from './LibraryPicker'
 import { ReviewPriorities } from './ReviewPriorities'
 import { imageFromClipboard, uploadImage } from '@/lib/uploadImage'
 import { NoteEditor } from './NoteEditor'
+import { AutosaveNote, useAutosave } from './useAutosave'
 import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
 import { GamePlanEditor, type GameOption, type PlayOption } from './GamePlanEditor'
 import { ScoutEditor } from './ScoutEditor'
@@ -84,6 +85,8 @@ export function PlanEditor({
 }) {
   const [state, save, saving] = useActionState(savePlan, EMPTY)
   const [, startSave] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
+  const autosave = useAutosave(formRef, canWrite)
   /* Saved by hand rather than as the form's action: React empties a form once
      its action finishes, which put every dropdown back where the page started —
      a block's type and the roster looked changed after a save. */
@@ -300,7 +303,7 @@ export function PlanEditor({
    */
   if (plan.kind === 'note') {
     return (
-      <form onSubmit={submit}>
+      <form ref={formRef} onSubmit={submit}>
         <input type="hidden" name="id" value={plan.id} />
         <input type="hidden" name="blocks" value="[]" />
         <input type="hidden" name="content" value={JSON.stringify(content)} />
@@ -331,7 +334,10 @@ export function PlanEditor({
                 className="field !py-1.5 !w-auto"
               />
             </div>
-            <button type="submit" disabled={saving} className="btn btn-primary !py-1.5 ml-auto disabled:opacity-60">
+            <span className="ml-auto">
+              <AutosaveNote state={autosave} />
+            </span>
+            <button type="submit" disabled={saving} className="btn btn-primary !py-1.5 disabled:opacity-60">
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
@@ -345,7 +351,7 @@ export function PlanEditor({
   }
 
   return (
-    <form onSubmit={submit}>
+    <form ref={formRef} onSubmit={submit}>
       {/* The other team's plan. Read it, take what you want off it — but it is
           theirs, and the save is refused on the server as well as here. */}
       {!canWrite && (
@@ -581,6 +587,7 @@ export function PlanEditor({
           {/* The whole point of writing something down on a sideline is that it
               is in front of you when the plan is being made. */}
           <ReviewPriorities team={plan.team} />
+          <AutosaveNote state={autosave} />
           <button
             type="submit"
             disabled={saving || !canWrite}

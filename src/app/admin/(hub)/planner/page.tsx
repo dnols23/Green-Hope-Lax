@@ -9,6 +9,7 @@ import { describeGamePlan, readGamePlan } from '@/lib/gamePlan'
 import { describeScout, readScout } from '@/lib/scout'
 import { formatShortDate } from '@/lib/format'
 import { teamLabel, withTeam } from '@/lib/teams'
+import { ContinueBuilding } from '@/components/planner/ContinueBuilding'
 
 export const metadata = { title: 'Planner' }
 export const dynamic = 'force-dynamic'
@@ -148,6 +149,8 @@ export default async function PlannerPage({
           )}
         </div>
       )}
+
+      <ContinueBuilding viewer={viewer} />
 
       <div className="grid sm:grid-cols-3 gap-3">
         {PLAN_KINDS.map((k) => (

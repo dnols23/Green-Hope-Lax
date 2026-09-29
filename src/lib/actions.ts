@@ -26,6 +26,7 @@ import { normalizeAudience } from './schedule'
 import { readBlocks, readStart, type Plan, type PlanKind } from './planner'
 import { gamePlanStarter, readGamePlan } from './gamePlan'
 import { readScout, scoutStarter } from './scout'
+import { dropBuilding, noteBuilding } from './building'
 import { readNoteBlocks } from './noteBlocks'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
 import {
@@ -2002,6 +2003,7 @@ export async function createPlan(formData: FormData) {
   /* A new practice goes on the calendar when the coach says it should, from
      the plan. Nothing to do before 0046, where every plan is on it. */
   if (kind === 'practice') await svc.from('plans').update({ on_calendar: false }).eq('id', (data as { id: string }).id)
+  if (viewer) await noteBuilding(viewer.email, (data as { id: string }).id).catch(() => {})
   revalidatePath('/admin/planner')
   redirect(withTeam(`/admin/planner/${(data as { id: string }).id}`, team))
 }
@@ -2143,6 +2145,9 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     }
   }
 
+  // On his "Continue building" list until he calls it done.
+  if (viewer) await noteBuilding(viewer.email, id).catch(() => {})
+
   // Whether a practice shows on the calendar (0046). Only the practice editor sends it.
   if (formData.has('calendar_toggle')) {
     const { error: calError } = await svc
@@ -2160,6 +2165,15 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   revalidatePath('/team/me')
   if (warning) return { ok: false, error: warning }
   return { ok: true, message: 'Saved.' }
+}
+
+/** Off his "Continue building" list — the plan is done for now. */
+export async function doneBuilding(formData: FormData) {
+  const viewer = await requireSection('planner')
+  const id = str(formData.get('id'))
+  if (id) await dropBuilding(viewer.email, id)
+  revalidatePath('/admin/planner')
+  revalidatePath('/admin/hub')
 }
 
 export async function deletePlan(id: string) {
