@@ -7,6 +7,10 @@ import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
 import { DrillSearch } from './DrillSearch'
 import { DrillDiagram } from '@/components/planner/DrillDetail'
+import { CompetitionDiagram } from './CompetitionDiagram'
+import { listCompetitionTypes } from '@/lib/competitionsData'
+import { removeCompetitionType, saveCompetitionType } from '@/lib/competitionActions'
+import type { CompFormat } from '@/lib/compete'
 
 export const metadata = { title: 'Drill Bank' }
 export const dynamic = 'force-dynamic'
@@ -29,7 +33,7 @@ export default async function DrillBankPage() {
     )
   }
 
-  const drills = await listDrills()
+  const [drills, comps] = await Promise.all([listDrills(), listCompetitionTypes()])
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -232,8 +236,152 @@ export default async function DrillBankPage() {
               </details>
             )
           })}
+          <CompetitionsGroup comps={comps.list} ready={comps.ready} drills={drills} />
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * The ways to compete, kept like the drills: what each one is, how it's set
+ * up and run, why, a video and a diagram — and the drills it has been saved
+ * to, which says what kind of drill it works for.
+ */
+function CompetitionsGroup({
+  comps,
+  ready,
+  drills,
+}: {
+  comps: CompFormat[]
+  ready: boolean
+  drills: Awaited<ReturnType<typeof listDrills>>
+}) {
+  const savedTo = (key: string) => drills.filter((d) => d.competitions.some((c) => c.key === key))
+  return (
+    <details className="card p-4" data-drill-group>
+      <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
+        <span className="caret text-sm">▸</span> 🏆 Competitions
+        <span className="font-normal text-xs text-gray-400">{comps.length}</span>
+      </summary>
+      {!ready && (
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          To change these or add your own, run <code>supabase/migrations/0050_competition_types.sql</code> in the Supabase SQL editor.
+        </p>
+      )}
+      <div className="mt-3 pt-3 border-t border-gray-100 divide-y divide-gray-100">
+        {comps.map((c) => {
+          const used = savedTo(c.key)
+          return (
+            <details
+              key={c.key}
+              className="py-2"
+              data-drill={[c.label, c.summary, c.how, c.setup, c.why, 'competition', ...used.map((d) => d.name)].filter(Boolean).join(' ').toLowerCase()}
+            >
+              <summary className="cursor-pointer list-none flex items-center gap-2 flex-wrap">
+                <span className="caret text-xs text-gray-300">▸</span>
+                <span className="font-semibold text-sm">{c.label}</span>
+                {!c.builtIn && <span className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">Ours</span>}
+                {used.length > 0 && (
+                  <span className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#DFEFE7', color: '#00512F' }}>
+                    ★ {used.length} {used.length === 1 ? 'drill' : 'drills'}
+                  </span>
+                )}
+                <span className="basis-full pl-5 text-xs text-gray-500">{c.summary}</span>
+              </summary>
+              <div className="pl-6 pt-2 space-y-3">
+                <div>
+                  <div className="section-label mb-1">Saved for</div>
+                  {used.length === 0 ? (
+                    <p className="text-sm text-gray-400">Not saved to a drill yet. Save it from a practice when it works.</p>
+                  ) : (
+                    <ul className="flex flex-wrap gap-1.5">
+                      {used.map((d) => (
+                        <li key={d.id} className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+                          {DRILL_CATEGORIES.find((x) => x.key === d.category)?.icon} {d.name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {ready && <CompetitionDiagram compKey={c.key} board={c.board} title={c.label} />}
+                {ready && <CompetitionForm comp={c} />}
+                {ready && (c.edited || !c.builtIn) && (
+                  <form action={removeCompetitionType}>
+                    <input type="hidden" name="key" value={c.key} />
+                    <button type="submit" className="text-xs font-bold text-gray-400 hover:text-red-700">
+                      {c.builtIn ? 'Put it back the way it came' : 'Delete this competition'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </details>
+          )
+        })}
+      </div>
+      {ready && (
+        <details className="mt-3 pt-3 border-t border-gray-100">
+          <summary className="cursor-pointer list-none text-sm font-bold text-[var(--gh-green)]">+ Add a competition</summary>
+          <div className="pt-2">
+            <CompetitionForm />
+          </div>
+        </details>
+      )}
+    </details>
+  )
+}
+
+function CompetitionForm({ comp }: { comp?: CompFormat }) {
+  const fits = comp && comp.fits !== 'any' ? comp.fits : []
+  return (
+    <form action={saveCompetitionType} className="space-y-2">
+      {comp && <input type="hidden" name="key" value={comp.key} />}
+      <div className="grid sm:grid-cols-3 gap-2">
+        <div>
+          <label className="field-label">Name</label>
+          <input name="label" required maxLength={60} defaultValue={comp?.label ?? ''} className="field !py-1.5" />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="field-label">What it is, in a sentence</label>
+          <input name="summary" maxLength={200} defaultValue={comp?.summary ?? ''} placeholder="A race to ten points between the two sides." className="field !py-1.5" />
+        </div>
+      </div>
+      <div>
+        <label className="field-label">Setup</label>
+        <textarea name="setup" rows={2} defaultValue={comp?.setup ?? ''} className="field !py-1.5 text-sm" />
+      </div>
+      <div>
+        <label className="field-label">How it runs</label>
+        <textarea name="how" rows={2} defaultValue={comp?.how ?? ''} className="field !py-1.5 text-sm" />
+      </div>
+      <div>
+        <label className="field-label">Why we run it</label>
+        <textarea name="why" rows={2} defaultValue={comp?.why ?? ''} className="field !py-1.5 text-sm" />
+      </div>
+      <div className="grid sm:grid-cols-3 gap-2">
+        <div className="sm:col-span-2">
+          <label className="field-label">Video link</label>
+          <input name="link" type="url" defaultValue={comp?.link ?? ''} placeholder="https://" className="field !py-1.5" />
+        </div>
+        <div>
+          <label className="field-label">Link says</label>
+          <input name="link_label" maxLength={80} defaultValue={comp?.link_label ?? ''} placeholder="Watch it" className="field !py-1.5" />
+        </div>
+      </div>
+      <details>
+        <summary className="cursor-pointer list-none text-xs font-bold text-gray-500">
+          Suggest it for {fits.length ? `(${fits.length})` : '(any drill)'}
+        </summary>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-2">
+          {DRILL_CATEGORIES.map((cat) => (
+            <label key={cat.key} className="flex items-center gap-1.5 text-xs min-h-8">
+              <input type="checkbox" name="fits" value={cat.key} defaultChecked={fits.includes(cat.key)} className="w-4 h-4 accent-[var(--gh-green)]" />
+              {cat.icon} {cat.label}
+            </label>
+          ))}
+        </div>
+      </details>
+      <button type="submit" className="btn btn-primary !py-1.5 text-sm">{comp ? 'Save' : 'Add it'}</button>
+    </form>
   )
 }

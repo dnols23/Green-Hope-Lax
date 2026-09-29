@@ -4,7 +4,7 @@ import NumberField from '@/components/NumberField'
 import { saveDrillBoard, saveDrillCompetitions, saveDrillDetails } from '@/lib/actions'
 import { EMPTY_BOARD, newId, type Board } from '@/lib/planner'
 import { FieldBoard } from './FieldBoard'
-import { COMP_FORMATS, formatOf, rollComp, sameComp, type BlockComp, type SavedComp } from '@/lib/compete'
+import { COMP_FORMATS, formatOf, rollComp, sameComp, type BlockComp, type CompFormat, type SavedComp } from '@/lib/compete'
 import type { Drill } from '@/lib/drills'
 
 /**
@@ -20,6 +20,7 @@ export function DrillDetail({
   comp,
   sides,
   seed,
+  formats = COMP_FORMATS,
   onComp,
 }: {
   drill: Drill
@@ -28,6 +29,8 @@ export function DrillDetail({
   sides: string[]
   /** Keeps the rolled competition the same from one day to the next. */
   seed: string
+  /** The staff's competitions; the built-ins until they have some. */
+  formats?: CompFormat[]
   onComp: (next: BlockComp | null) => void
 }) {
   // How many times he has asked for a different one.
@@ -96,8 +99,12 @@ export function DrillDetail({
     })
   }
 
-  const chosen = comp?.key ? formatOf(comp.key) : null
-  const suggestion = rollComp(seed, drill.category, nonce)
+  const chosen = comp?.key ? formatOf(comp.key, formats) : null
+  const suggestion = rollComp(seed, drill.category, nonce, formats)
+  // The ones that suit this drill first, then the rest.
+  const suits = (f: CompFormat) => f.fits !== 'any' && f.fits.includes(drill.category)
+  const ordered = [...formats.filter(suits), ...formats.filter((f) => !suits(f))]
+  const [picking, setPicking] = useState(false)
   const shown = chosen ?? suggestion
   const on = !!comp
 
@@ -211,7 +218,7 @@ export function DrillDetail({
                 <button
                   type="button"
                   onClick={() => {
-                    const next = rollComp(seed, drill.category, nonce + 1)
+                    const next = rollComp(seed, drill.category, nonce + 1, formats)
                     setNonce(nonce + 1)
                     onComp({ ...comp!, key: next.key, own: undefined })
                   }}
@@ -232,20 +239,62 @@ export function DrillDetail({
 
           {!on ? (
             <p className="text-sm text-gray-500">
-              <span className="font-bold text-gray-700">{suggestion.label}.</span> {suggestion.how}
+              <span className="font-bold text-gray-700">{suggestion.label}.</span> {suggestion.summary || suggestion.how}
             </p>
           ) : (
             <div className="space-y-2">
-              <select
-                value={comp?.own ? '' : comp?.key ?? ''}
-                onChange={(e) => onComp({ ...comp!, key: e.target.value, own: e.target.value ? undefined : comp?.own })}
-                className="field !py-1.5 text-sm"
-              >
-                <option value="">Something I&rsquo;ll write myself</option>
-                {COMP_FORMATS.map((f) => (
-                  <option key={f.key} value={f.key}>{f.label}</option>
-                ))}
-              </select>
+              {/* What it is, in a sentence, and every other choice a tap away. */}
+              <div className="rounded-lg border border-gray-200 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setPicking((v) => !v)}
+                  aria-expanded={picking}
+                  className="w-full text-left px-3 py-2 flex items-start gap-2"
+                >
+                  <span className="flex-1 min-w-0 text-sm">
+                    <span className="font-bold text-gray-800">{comp?.key ? shown.label : 'Our own'}</span>
+                    {comp?.key && shown.summary && <span className="text-gray-600"> — {shown.summary}</span>}
+                  </span>
+                  <span className="text-xs font-bold text-[var(--gh-green)] shrink-0 mt-0.5">{picking ? 'Close' : 'Change'}</span>
+                </button>
+                {picking && (
+                  <ul className="border-t border-gray-100 max-h-72 overflow-y-auto" role="listbox" aria-label="Competition">
+                    {ordered.map((f) => {
+                      const current = comp?.key === f.key && !comp?.own
+                      return (
+                        <li key={f.key}>
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={current}
+                            onClick={() => {
+                              onComp({ ...comp!, key: f.key, own: undefined })
+                              setPicking(false)
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${current ? 'bg-[#e6f2ec]' : ''}`}
+                          >
+                            <span className="font-bold text-gray-800">{f.label}</span>
+                            {suits(f) && <span className="ml-1.5 text-[0.6rem] font-black uppercase tracking-wide text-[var(--gh-green)]">Suits this drill</span>}
+                            <span className="block text-gray-600">{f.summary || f.how}</span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onComp({ ...comp!, key: '', own: comp?.own ?? '' })
+                          setPicking(false)
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-t border-gray-100"
+                      >
+                        <span className="font-bold text-gray-800">Something I&rsquo;ll write myself</span>
+                      </button>
+                    </li>
+                  </ul>
+                )}
+              </div>
 
               {comp?.key ? (
                 <p className="text-sm text-gray-600">{shown.how}</p>
@@ -298,13 +347,13 @@ export function DrillDetail({
               </div>
               <ul className="space-y-1.5">
                 {kept.map((k) => {
-                  const f = formatOf(k.key)
+                  const f = formatOf(k.key, formats)
                   const current = !!comp && sameComp(k, comp)
                   return (
                     <li key={k.id} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2">
                       <div className="flex-1 min-w-0 text-sm">
                         <span className="font-bold text-gray-700">{f?.label ?? 'Our own'}.</span>{' '}
-                        <span className="text-gray-600">{k.own ?? f?.how}</span>
+                        <span className="text-gray-600">{k.own ?? (f?.summary || f?.how)}</span>
                       </div>
                       {current ? (
                         <span className="shrink-0 text-xs font-bold text-[var(--gh-green)] self-center">In use</span>
@@ -340,7 +389,30 @@ export function DrillDetail({
  * practice or in the bank — and saved to the drill, so every plan has it.
  */
 export function DrillDiagram({ drill, onSaved }: { drill: Drill; onSaved?: (board: Board | null) => void }) {
-  const [board, setBoard] = useState(drill.board)
+  return (
+    <DiagramField
+      board={drill.board}
+      title={drill.name}
+      save={async (next) => {
+        const res = await saveDrillBoard(drill.id, next)
+        if (res.ok) onSaved?.(next)
+        return res
+      }}
+    />
+  )
+}
+
+/** A field diagram that belongs to something — a drill, a competition — and saves to it. */
+export function DiagramField({
+  board: initial,
+  title,
+  save,
+}: {
+  board: Board | null | undefined
+  title: string
+  save: (next: Board | null) => Promise<{ ok: true } | { ok: false; error: string }>
+}) {
+  const [board, setBoard] = useState(initial ?? null)
   const [drawing, setDrawing] = useState(false)
   const [sketch, setSketch] = useState<Board>(EMPTY_BOARD)
   const [boardError, setBoardError] = useState<string | null>(null)
@@ -351,13 +423,12 @@ export function DrillDiagram({ drill, onSaved }: { drill: Drill; onSaved?: (boar
     const next = drawn && (drawn.tokens.length || drawn.paths.length || drawn.texts?.length || drawn.view) ? drawn : null
     setBoardError(null)
     startSaving(async () => {
-      const res = await saveDrillBoard(drill.id, next)
+      const res = await save(next)
       if (!res.ok) {
         setBoardError(res.error)
         return
       }
       setBoard(next)
-      onSaved?.(next)
       setDrawing(false)
     })
   }
@@ -382,7 +453,7 @@ export function DrillDiagram({ drill, onSaved }: { drill: Drill; onSaved?: (boar
       </div>
       {drawing ? (
         <div className="space-y-2">
-          <FieldBoard board={sketch} onChange={setSketch} title={drill.name} />
+          <FieldBoard board={sketch} onChange={setSketch} title={title} />
           {boardError && <p className="text-sm font-semibold text-red-700" role="alert">{boardError}</p>}
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => saveBoard(sketch)} disabled={saving} className="btn btn-primary !py-1.5 text-sm disabled:opacity-60">
@@ -404,7 +475,7 @@ export function DrillDiagram({ drill, onSaved }: { drill: Drill; onSaved?: (boar
           </div>
         </div>
       ) : board ? (
-        <FieldBoard board={board} readOnly title={drill.name} />
+        <FieldBoard board={board} readOnly title={title} />
       ) : (
         <p className="text-sm text-gray-400">Not drawn yet.</p>
       )}
