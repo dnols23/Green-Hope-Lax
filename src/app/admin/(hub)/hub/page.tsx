@@ -254,26 +254,54 @@ export default async function WarRoom({
       )
     }
     const clock = runningClock(plan.blocks)
+    const startsAt = plan.start_time ?? DEFAULT_START
+    /* Where it is: the calendar practice it was made from, or else a practice
+       on the calendar that day at the same time. */
+    const event =
+      calendar.find((i) => i.source === 'event' && i.id === plan.calendar_event_id) ??
+      calendar.find(
+        (i) => i.source === 'event' && i.kind === 'practice' && ymdOf(i.startsAt) === plan.plan_date && hmOf(i.startsAt) === startsAt,
+      )
+    const when = [
+      plan.plan_date && title !== 'Today’s plan' ? formatShortDate(`${plan.plan_date}T12:00:00Z`) : null,
+      `${clockAt(startsAt, 0)} – ${clockAt(startsAt, totalMinutes(plan.blocks))}`,
+      event?.location ?? null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
     return (
       <div>
-        <Link href={withTeam(`/admin/planner/${plan.id}`, team)} className="font-bold hover:underline">{plan.title}</Link>
-        <div className="text-xs text-gray-500 mb-2">
-          {formatMinutes(totalMinutes(plan.blocks))} · {plan.blocks.length} blocks
-          {plan.plan_date && title !== 'Today’s plan' ? ` · ${formatShortDate(`${plan.plan_date}T12:00:00Z`)}` : ''}
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="font-bold leading-snug">{plan.title}</div>
+            <div className="text-sm text-gray-500">{when}</div>
+          </div>
+          <Link
+            href={withTeam(`/admin/planner/${plan.id}`, team)}
+            className="btn btn-ghost !py-1 !px-3 text-sm shrink-0"
+          >
+            Details
+          </Link>
         </div>
-        <ol className="space-y-1">
-          {plan.blocks.slice(0, 8).map((b, i) => (
-            <li key={b.id} className="flex items-center gap-2 text-sm">
-              <span className="w-14 shrink-0 text-xs font-black tabular-nums" style={{ color: tagFor(b.tag).color }}>
-                {clockAt(plan.start_time ?? DEFAULT_START, clock[i])}
-              </span>
-              <span className="truncate flex-1">{b.title || 'Untitled'}</span>
-              <span className="text-xs text-gray-400 tabular-nums shrink-0">{b.minutes}m</span>
-            </li>
-          ))}
-        </ol>
-        {plan.blocks.length > 8 && (
-          <p className="text-xs text-gray-400 mt-1">+{plan.blocks.length - 8} more</p>
+        {plan.blocks.length > 0 && (
+          /* The running order, folded away until it's wanted. */
+          <details className="group mt-2">
+            <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 min-h-9 text-sm font-semibold text-[var(--gh-green)]">
+              <span className="text-xs transition-transform group-open:rotate-90">▸</span>
+              {plan.blocks.length} blocks · {formatMinutes(totalMinutes(plan.blocks))}
+            </summary>
+            <ol className="space-y-1 mt-1">
+              {plan.blocks.map((b, i) => (
+                <li key={b.id} className="flex items-center gap-2 text-sm">
+                  <span className="w-14 shrink-0 text-xs font-black tabular-nums" style={{ color: tagFor(b.tag).color }}>
+                    {clockAt(startsAt, clock[i])}
+                  </span>
+                  <span className="truncate flex-1">{b.title || 'Untitled'}</span>
+                  <span className="text-xs text-gray-400 tabular-nums shrink-0">{b.minutes}m</span>
+                </li>
+              ))}
+            </ol>
+          </details>
         )}
       </div>
     )
