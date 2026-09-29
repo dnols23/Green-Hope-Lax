@@ -13,28 +13,10 @@ import type { Drill } from '@/lib/drills'
  * A practice plan is a list of names and minutes, which is enough for the coach
  * who wrote it and nothing at all for the one running it for the first time.
  * Open this and the drill explains itself: how it goes out, how it runs, what
- * it is for, and the video — then how it is being won, and the score.
+ * it is for, the video and the diagram. How the block is being won is its own
+ * section (BlockCompetition), outside the drill.
  */
-export function DrillDetail({
-  drill: fromBank,
-  comp,
-  sides,
-  seed,
-  formats = COMP_FORMATS,
-  onComp,
-}: {
-  drill: Drill
-  comp: BlockComp | null | undefined
-  /** The squads this practice is split into. */
-  sides: string[]
-  /** Keeps the rolled competition the same from one day to the next. */
-  seed: string
-  /** The staff's competitions; the built-ins until they have some. */
-  formats?: CompFormat[]
-  onComp: (next: BlockComp | null) => void
-}) {
-  // How many times he has asked for a different one.
-  const [nonce, setNonce] = useState(0)
+export function DrillDetail({ drill: fromBank }: { drill: Drill }) {
   /* The write-up can be filled in right here and goes back to the drill bank.
      What was just saved shows at once, before the bank catches up. */
   const [drill, setDrill] = useState(fromBank)
@@ -57,28 +39,6 @@ export function DrillDetail({
     setEditing(true)
   }
 
-  // Competitions kept on the drill because they worked.
-  const kept = drill.competitions ?? []
-  const [keepError, setKeepError] = useState<string | null>(null)
-  const isKept = !!comp && kept.some((k) => sameComp(k, comp))
-
-  function writeKept(next: SavedComp[]) {
-    setKeepError(null)
-    startSaving(async () => {
-      const res = await saveDrillCompetitions(drill.id, next)
-      if (!res.ok) {
-        setKeepError(res.error)
-        return
-      }
-      setDrill((d) => ({ ...d, competitions: next }))
-    })
-  }
-  const keep = () => {
-    if (!comp || isKept || (!comp.key && !comp.own?.trim())) return
-    writeKept([...kept, { id: newId('c'), key: comp.key, ...(comp.own?.trim() ? { own: comp.own.trim() } : {}), savedAt: new Date().toISOString() }])
-  }
-  const use = (k: SavedComp) => onComp({ key: k.key, ...(k.own ? { own: k.own } : {}), scores: sides.map(() => 0) })
-
   function save() {
     setError(null)
     startSaving(async () => {
@@ -99,21 +59,6 @@ export function DrillDetail({
     })
   }
 
-  const chosen = comp?.key ? formatOf(comp.key, formats) : null
-  const suggestion = rollComp(seed, drill.category, nonce, formats)
-  // The ones that suit this drill first, then the rest.
-  const suits = (f: CompFormat) => f.fits !== 'any' && f.fits.includes(drill.category)
-  const ordered = [...formats.filter(suits), ...formats.filter((f) => !suits(f))]
-  const [picking, setPicking] = useState(false)
-  const shown = chosen ?? suggestion
-  const on = !!comp
-
-  const setScore = (i: number, n: number) => {
-    if (!comp) return
-    const scores = sides.map((_, k) => (k === i ? n : comp.scores[k] ?? 0))
-    onComp({ ...comp, scores })
-  }
-
   return (
     <details className="mt-2 rounded-lg border border-gray-200 bg-gray-50">
       <summary className="cursor-pointer list-none px-3 py-2 flex items-center gap-2 flex-wrap text-sm">
@@ -122,12 +67,6 @@ export function DrillDetail({
         {empty && <span className="text-xs font-semibold text-[var(--gh-maroon)]">No details yet</span>}
         {drill.board && <span className="badge badge-sched">Diagram</span>}
         {drill.link && <span className="badge badge-sched">Video</span>}
-        {kept.length > 0 && <span className="badge badge-sched">★ {kept.length} saved</span>}
-        {on && (
-          <span className="badge badge-conf">
-            {comp?.own ? 'Competition' : shown.label}
-          </span>
-        )}
         <span className="ml-auto text-xs text-gray-400">{drill.name}</span>
       </summary>
 
@@ -200,187 +139,259 @@ export function DrillDetail({
 
         {/* ── The drill on the field ── */}
         <DrillDiagram drill={drill} onSaved={(board) => setDrill((d) => ({ ...d, board }))} />
-
-        {/* ── Make it a competition ── */}
-        <div className="border-t border-gray-200 pt-3">
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <div className="section-label">Competition</div>
-            {!on ? (
-              <button
-                type="button"
-                onClick={() => onComp({ key: suggestion.key, scores: sides.map(() => 0) })}
-                className="btn btn-ghost !py-1 text-xs"
-              >
-                Make it a competition
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = rollComp(seed, drill.category, nonce + 1, formats)
-                    setNonce(nonce + 1)
-                    onComp({ ...comp!, key: next.key, own: undefined })
-                  }}
-                  className="btn btn-ghost !py-1 text-xs"
-                >
-                  ↻ Another one
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onComp(null)}
-                  className="text-xs font-bold text-gray-400 hover:text-gray-700"
-                >
-                  Not this one
-                </button>
-              </>
-            )}
-          </div>
-
-          {!on ? (
-            <p className="text-sm text-gray-500">
-              <span className="font-bold text-gray-700">{suggestion.label}.</span> {suggestion.summary || suggestion.how}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {/* What it is, in a sentence, and every other choice a tap away. */}
-              <div className="rounded-lg border border-gray-200 bg-white">
-                <button
-                  type="button"
-                  onClick={() => setPicking((v) => !v)}
-                  aria-expanded={picking}
-                  className="w-full text-left px-3 py-2 flex items-start gap-2"
-                >
-                  <span className="flex-1 min-w-0 text-sm">
-                    <span className="font-bold text-gray-800">{comp?.key ? shown.label : 'Our own'}</span>
-                    {comp?.key && shown.summary && <span className="text-gray-600"> — {shown.summary}</span>}
-                  </span>
-                  <span className="text-xs font-bold text-[var(--gh-green)] shrink-0 mt-0.5">{picking ? 'Close' : 'Change'}</span>
-                </button>
-                {picking && (
-                  <ul className="border-t border-gray-100 max-h-72 overflow-y-auto" role="listbox" aria-label="Competition">
-                    {ordered.map((f) => {
-                      const current = comp?.key === f.key && !comp?.own
-                      return (
-                        <li key={f.key}>
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={current}
-                            onClick={() => {
-                              onComp({ ...comp!, key: f.key, own: undefined })
-                              setPicking(false)
-                            }}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${current ? 'bg-[#e6f2ec]' : ''}`}
-                          >
-                            <span className="font-bold text-gray-800">{f.label}</span>
-                            {suits(f) && <span className="ml-1.5 text-[0.6rem] font-black uppercase tracking-wide text-[var(--gh-green)]">Suits this drill</span>}
-                            <span className="block text-gray-600">{f.summary || f.how}</span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onComp({ ...comp!, key: '', own: comp?.own ?? '' })
-                          setPicking(false)
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-t border-gray-100"
-                      >
-                        <span className="font-bold text-gray-800">Something I&rsquo;ll write myself</span>
-                      </button>
-                    </li>
-                  </ul>
-                )}
-              </div>
-
-              {comp?.key ? (
-                <p className="text-sm text-gray-600">{shown.how}</p>
-              ) : (
-                <input
-                  value={comp?.own ?? ''}
-                  onChange={(e) => onComp({ ...comp!, own: e.target.value })}
-                  placeholder="How this one is won"
-                  className="field !py-1.5 text-sm"
-                />
-              )}
-
-              <div>
-                <div className="text-[0.6rem] font-black uppercase tracking-wider text-gray-400 mb-1">
-                  Score
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {sides.map((side, i) => (
-                    <label key={side} className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-gray-600">{side}</span>
-                      <NumberField
-                        integer
-                        min={0}
-                        value={comp?.scores[i] ?? 0}
-                        onValue={(n) => setScore(i, n)}
-                        className="field !py-1 !w-16 text-sm tabular-nums"
-                        aria-label={`${side} score for ${drill.name}`}
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={keep}
-                disabled={isKept || saving || (!comp?.key && !comp?.own?.trim())}
-                className="btn btn-ghost !py-1 text-xs disabled:opacity-60"
-              >
-                {isKept ? '★ Saved to this drill' : '☆ Save to this drill'}
-              </button>
-            </div>
-          )}
-
-          {/* ── The ones that worked ── */}
-          {kept.length > 0 && (
-            <div className="mt-3">
-              <div className="text-[0.6rem] font-black uppercase tracking-wider text-gray-400 mb-1">
-                Saved for this drill
-              </div>
-              <ul className="space-y-1.5">
-                {kept.map((k) => {
-                  const f = formatOf(k.key, formats)
-                  const current = !!comp && sameComp(k, comp)
-                  return (
-                    <li key={k.id} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2">
-                      <div className="flex-1 min-w-0 text-sm">
-                        <span className="font-bold text-gray-700">{f?.label ?? 'Our own'}.</span>{' '}
-                        <span className="text-gray-600">{k.own ?? (f?.summary || f?.how)}</span>
-                      </div>
-                      {current ? (
-                        <span className="shrink-0 text-xs font-bold text-[var(--gh-green)] self-center">In use</span>
-                      ) : (
-                        <button type="button" onClick={() => use(k)} className="btn btn-ghost !py-0.5 !px-2.5 text-xs shrink-0">
-                          Use
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => writeKept(kept.filter((x) => x.id !== k.id))}
-                        disabled={saving}
-                        className="shrink-0 w-7 h-7 -my-0.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                        aria-label="Take it off this drill"
-                      >
-                        ×
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          )}
-          {keepError && <p className="text-sm font-semibold text-red-700 mt-2" role="alert">{keepError}</p>}
-        </div>
       </div>
     </details>
+  )
+}
+
+/**
+ * How a block is being won, and the score — its own section, outside the
+ * drill. With a drill picked, what worked can be saved to the drill and its
+ * saved competitions come first.
+ */
+export function BlockCompetition({
+  drill,
+  comp,
+  sides,
+  seed,
+  formats = COMP_FORMATS,
+  onComp,
+}: {
+  /** The block's main drill, if it has one. */
+  drill: Drill | null
+  comp: BlockComp | null | undefined
+  /** The squads this practice is split into. */
+  sides: string[]
+  /** Keeps the rolled competition the same from one day to the next. */
+  seed: string
+  /** The staff's competitions; the built-ins until they have some. */
+  formats?: CompFormat[]
+  onComp: (next: BlockComp | null) => void
+}) {
+  // How many times he has asked for a different one.
+  const [nonce, setNonce] = useState(0)
+  const [saving, startSaving] = useTransition()
+  // Competitions kept on the drill because they worked.
+  const [kept, setKept] = useState<SavedComp[]>(drill?.competitions ?? [])
+  const [keepError, setKeepError] = useState<string | null>(null)
+  const isKept = !!comp && kept.some((k) => sameComp(k, comp))
+
+  function writeKept(next: SavedComp[]) {
+    setKeepError(null)
+    startSaving(async () => {
+      if (!drill) return
+      const res = await saveDrillCompetitions(drill.id, next)
+      if (!res.ok) {
+        setKeepError(res.error)
+        return
+      }
+      setKept(next)
+    })
+  }
+  const keep = () => {
+    if (!drill || !comp || isKept || (!comp.key && !comp.own?.trim())) return
+    writeKept([...kept, { id: newId('c'), key: comp.key, ...(comp.own?.trim() ? { own: comp.own.trim() } : {}), savedAt: new Date().toISOString() }])
+  }
+  const use = (k: SavedComp) => onComp({ key: k.key, ...(k.own ? { own: k.own } : {}), scores: sides.map(() => 0) })
+
+  const chosen = comp?.key ? formatOf(comp.key, formats) : null
+  const suggestion = rollComp(seed, drill?.category, nonce, formats)
+  // The ones that suit this drill first, then the rest.
+  const suits = (f: CompFormat) => f.fits !== 'any' && !!drill && f.fits.includes(drill.category)
+  const ordered = [...formats.filter(suits), ...formats.filter((f) => !suits(f))]
+  const [picking, setPicking] = useState(false)
+  const shown = chosen ?? suggestion
+  const on = !!comp
+
+  const setScore = (i: number, n: number) => {
+    if (!comp) return
+    const scores = sides.map((_, k) => (k === i ? n : comp.scores[k] ?? 0))
+    onComp({ ...comp, scores })
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+      {/* ── Make it a competition ── */}
+      <div>
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <div className="section-label">Competition</div>
+          {!on ? (
+            <button
+              type="button"
+              onClick={() => onComp({ key: suggestion.key, scores: sides.map(() => 0) })}
+              className="btn btn-ghost !py-1 text-xs"
+            >
+              Make it a competition
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = rollComp(seed, drill?.category, nonce + 1, formats)
+                  setNonce(nonce + 1)
+                  onComp({ ...comp!, key: next.key, own: undefined })
+                }}
+                className="btn btn-ghost !py-1 text-xs"
+              >
+                ↻ Another one
+              </button>
+              <button
+                type="button"
+                onClick={() => onComp(null)}
+                className="text-xs font-bold text-gray-400 hover:text-gray-700"
+              >
+                Not this one
+              </button>
+            </>
+          )}
+        </div>
+
+        {!on ? (
+          <p className="text-sm text-gray-500">
+            <span className="font-bold text-gray-700">{suggestion.label}.</span> {suggestion.summary || suggestion.how}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {/* What it is, in a sentence, and every other choice a tap away. */}
+            <div className="rounded-lg border border-gray-200 bg-white">
+              <button
+                type="button"
+                onClick={() => setPicking((v) => !v)}
+                aria-expanded={picking}
+                className="w-full text-left px-3 py-2 flex items-start gap-2"
+              >
+                <span className="flex-1 min-w-0 text-sm">
+                  <span className="font-bold text-gray-800">{comp?.key ? shown.label : 'Our own'}</span>
+                  {comp?.key && shown.summary && <span className="text-gray-600"> — {shown.summary}</span>}
+                </span>
+                <span className="text-xs font-bold text-[var(--gh-green)] shrink-0 mt-0.5">{picking ? 'Close' : 'Change'}</span>
+              </button>
+              {picking && (
+                <ul className="border-t border-gray-100 max-h-72 overflow-y-auto" role="listbox" aria-label="Competition">
+                  {ordered.map((f) => {
+                    const current = comp?.key === f.key && !comp?.own
+                    return (
+                      <li key={f.key}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={current}
+                          onClick={() => {
+                            onComp({ ...comp!, key: f.key, own: undefined })
+                            setPicking(false)
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${current ? 'bg-[#e6f2ec]' : ''}`}
+                        >
+                          <span className="font-bold text-gray-800">{f.label}</span>
+                          {suits(f) && <span className="ml-1.5 text-[0.6rem] font-black uppercase tracking-wide text-[var(--gh-green)]">Suits this drill</span>}
+                          <span className="block text-gray-600">{f.summary || f.how}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onComp({ ...comp!, key: '', own: comp?.own ?? '' })
+                        setPicking(false)
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-t border-gray-100"
+                    >
+                      <span className="font-bold text-gray-800">Something I&rsquo;ll write myself</span>
+                    </button>
+                  </li>
+                </ul>
+              )}
+            </div>
+
+            {comp?.key ? (
+              <p className="text-sm text-gray-600">{shown.how}</p>
+            ) : (
+              <input
+                value={comp?.own ?? ''}
+                onChange={(e) => onComp({ ...comp!, own: e.target.value })}
+                placeholder="How this one is won"
+                className="field !py-1.5 text-sm"
+              />
+            )}
+
+            <div>
+              <div className="text-[0.6rem] font-black uppercase tracking-wider text-gray-400 mb-1">
+                Score
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {sides.map((side, i) => (
+                  <label key={side} className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-gray-600">{side}</span>
+                    <NumberField
+                      integer
+                      min={0}
+                      value={comp?.scores[i] ?? 0}
+                      onValue={(n) => setScore(i, n)}
+                      className="field !py-1 !w-16 text-sm tabular-nums"
+                      aria-label={`${side} score`}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {drill && (
+            <button
+              type="button"
+              onClick={keep}
+              disabled={isKept || saving || (!comp?.key && !comp?.own?.trim())}
+              className="btn btn-ghost !py-1 text-xs disabled:opacity-60"
+            >
+              {isKept ? '★ Saved to this drill' : '☆ Save to this drill'}
+            </button>
+            )}
+          </div>
+        )}
+
+        {/* ── The ones that worked ── */}
+        {kept.length > 0 && (
+          <div className="mt-3">
+            <div className="text-[0.6rem] font-black uppercase tracking-wider text-gray-400 mb-1">
+              Saved for this drill
+            </div>
+            <ul className="space-y-1.5">
+              {kept.map((k) => {
+                const f = formatOf(k.key, formats)
+                const current = !!comp && sameComp(k, comp)
+                return (
+                  <li key={k.id} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2">
+                    <div className="flex-1 min-w-0 text-sm">
+                      <span className="font-bold text-gray-700">{f?.label ?? 'Our own'}.</span>{' '}
+                      <span className="text-gray-600">{k.own ?? (f?.summary || f?.how)}</span>
+                    </div>
+                    {current ? (
+                      <span className="shrink-0 text-xs font-bold text-[var(--gh-green)] self-center">In use</span>
+                    ) : (
+                      <button type="button" onClick={() => use(k)} className="btn btn-ghost !py-0.5 !px-2.5 text-xs shrink-0">
+                        Use
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => writeKept(kept.filter((x) => x.id !== k.id))}
+                      disabled={saving}
+                      className="shrink-0 w-7 h-7 -my-0.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                      aria-label="Take it off this drill"
+                    >
+                      ×
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+        {keepError && <p className="text-sm font-semibold text-red-700 mt-2" role="alert">{keepError}</p>}
+      </div>
+    </div>
   )
 }
 

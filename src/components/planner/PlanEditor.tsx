@@ -22,7 +22,7 @@ import {
   type PlanBlock,
 } from '@/lib/planner'
 import { DRILL_CATEGORIES, categoryFor, type Drill } from '@/lib/drills'
-import { DrillDetail } from './DrillDetail'
+import { BlockCompetition, DrillDetail } from './DrillDetail'
 import { leaderOf, readSides, tally, type BlockComp, type CompFormat } from '@/lib/compete'
 import { FieldBoard } from './FieldBoard'
 import { ClipPlayer } from './ClipPlayer'
@@ -667,9 +667,12 @@ export function PlanEditor({
                   {/* The drill picked for this part of practice, beside its name:
                       "Stick work: Stick protection". */}
                   {(() => {
-                    const drill = b.drillId ? drills.find((d) => d.id === b.drillId) : null
-                    if (!drill || drill.name.trim().toLowerCase() === b.title.trim().toLowerCase()) return null
-                    return <span className="font-normal text-gray-500">: {drill.name}</span>
+                    const names = [b.drillId, ...(b.extraDrills ?? [])]
+                      .map((id) => (id ? drills.find((d) => d.id === id)?.name : null))
+                      .filter((n): n is string => !!n)
+                    // Named after its only drill already: nothing to add.
+                    if (!names.length || (names.length === 1 && names[0].trim().toLowerCase() === b.title.trim().toLowerCase())) return null
+                    return <span className="font-normal text-gray-500">: {names.join(' + ')}</span>
                   })()}
                 </span>
                 {b.link && (
@@ -703,132 +706,171 @@ export function PlanEditor({
 
               {open && (
                 <div className="px-2.5 pb-2.5 space-y-2 border-t border-gray-100 pt-2.5">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <div className="col-span-2 sm:col-span-4">
-                      <label className="field-label">Title</label>
-                      <input value={b.title} onChange={(e) => patch(b.id, { title: e.target.value })} className="field !py-1.5" />
-                    </div>
-                    <div className="col-span-2 sm:col-span-4">
-                      <label className="field-label">Drill</label>
-                      <select
-                        value={b.drillId ?? ''}
-                        onChange={(e) => applyDrill(b.id, e.target.value)}
-                        className="field !py-1.5"
-                      >
-                        <option value="">Not from the bank</option>
-                        {DRILL_CATEGORIES.map((c) => {
-                          const group = drills.filter((d) => d.category === c.key)
-                          if (!group.length) return null
-                          return (
-                            <optgroup key={c.key} label={`${c.icon} ${c.label}`}>
-                              {group.map((d) => (
-                                <option key={d.id} value={d.id}>{d.name}</option>
-                              ))}
-                            </optgroup>
-                          )
-                        })}
-                      </select>
-                      {/* What the drill is, folded away until somebody wants
-                          it — which for a coach running it the first time is
-                          every time. */}
-                      {(() => {
-                        const drill = drills.find((d) => d.id === b.drillId)
-                        if (!drill) return null
-                        return (
-                          <DrillDetail
-                            key={drill.id}
-                            drill={drill}
-                            comp={b.comp}
-                            sides={sides}
-                            seed={`${b.id}:${drill.id}`}
-                            formats={competitions}
-                            onComp={(next: BlockComp | null) => patch(b.id, { comp: next })}
-                          />
-                        )
-                      })()}
-                    </div>
-                    <div>
-                      <label className="field-label">Minutes</label>
-                      <NumberField
-                        integer
-                        min={0}
-                        max={240}
-                        value={b.minutes}
-                        onValue={(n) => patch(b.id, { minutes: n })}
-                        className="field !py-1.5 tabular-nums"
-                      />
-                    </div>
-                    <div>
-                      <label className="field-label">Part of</label>
-                      <select value={b.tag} onChange={(e) => patch(b.id, { tag: e.target.value })} className="field !py-1.5">
-                        {BLOCK_TAGS.map((t) => (
-                          <option key={t.key} value={t.key}>{t.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="field-label">Coach</label>
-                      <select
-                        value={b.coach ?? ''}
-                        onChange={(e) => patch(b.id, { coach: e.target.value || null })}
-                        className="field !py-1.5"
-                      >
-                        <option value="">Whole staff</option>
-                        {coaches.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="field-label">Add a player</label>
-                      <select
-                        value=""
-                        onChange={(e) => { addPlayer(b.id, e.target.value); e.target.value = '' }}
-                        className="field !py-1.5"
-                        disabled={squad.length === 0}
-                      >
-                        <option value="">{squad.length ? 'Pick a player…' : 'Choose a roster first'}</option>
-                        {squad
-                          .filter((p) => !assigned.some((a) => a.playerId === p.id))
-                          .map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.number ? `#${p.number} ` : ''}{p.name}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
+                  <div>
+                    <label className="field-label">Title</label>
+                    <input value={b.title} onChange={(e) => patch(b.id, { title: e.target.value })} className="field !py-1.5" />
                   </div>
 
-                  {assigned.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {assigned.map((a) => (
-                        <span key={a.playerId} className="inline-flex items-center gap-1 rounded-full border border-gray-200 pl-2 pr-1 py-0.5">
-                          <span className="text-xs font-semibold">{nameOf(a.playerId)}</span>
-                          <input
-                            list="gh-roles"
-                            value={a.role}
-                            onChange={(e) =>
-                              patch(b.id, {
-                                players: assigned.map((x) =>
-                                  x.playerId === a.playerId ? { ...x, role: e.target.value } : x
-                                ),
-                              })
-                            }
-                            placeholder="role"
-                            className="w-20 text-xs bg-transparent border-0 focus:outline-none text-gray-500"
+                  {/* Minutes, part of practice, coach and players — one line
+                      until it's wanted. */}
+                  <details className="group rounded-lg border border-gray-200">
+                    <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden px-2.5 py-2 min-h-9 flex items-center gap-2 text-sm">
+                      <span className="text-gray-300 transition-transform group-open:rotate-90">▸</span>
+                      <span className="text-gray-600 truncate min-w-0">
+                        {[
+                          `${b.minutes} min`,
+                          tag.label,
+                          b.coach || 'Whole staff',
+                          assigned.length ? `${assigned.length} ${assigned.length === 1 ? 'player' : 'players'}` : 'Whole squad',
+                        ].join(' · ')}
+                      </span>
+                    </summary>
+                    <div className="px-2.5 pb-2.5 space-y-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div>
+                          <label className="field-label">Minutes</label>
+                          <NumberField
+                            integer
+                            min={0}
+                            max={240}
+                            value={b.minutes}
+                            onValue={(n) => patch(b.id, { minutes: n })}
+                            className="field !py-1.5 tabular-nums"
                           />
+                        </div>
+                        <div>
+                          <label className="field-label">Part of</label>
+                          <select value={b.tag} onChange={(e) => patch(b.id, { tag: e.target.value })} className="field !py-1.5">
+                            {BLOCK_TAGS.map((t) => (
+                              <option key={t.key} value={t.key}>{t.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="field-label">Coach</label>
+                          <select
+                            value={b.coach ?? ''}
+                            onChange={(e) => patch(b.id, { coach: e.target.value || null })}
+                            className="field !py-1.5"
+                          >
+                            <option value="">Whole staff</option>
+                            {coaches.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="field-label">Add a player</label>
+                          <select
+                            value=""
+                            onChange={(e) => { addPlayer(b.id, e.target.value); e.target.value = '' }}
+                            className="field !py-1.5"
+                            disabled={squad.length === 0}
+                          >
+                            <option value="">{squad.length ? 'Pick a player…' : 'Choose a roster first'}</option>
+                            {squad
+                              .filter((p) => !assigned.some((a) => a.playerId === p.id))
+                              .map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.number ? `#${p.number} ` : ''}{p.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {assigned.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {assigned.map((a) => (
+                            <span key={a.playerId} className="inline-flex items-center gap-1 rounded-full border border-gray-200 pl-2 pr-1 py-0.5">
+                              <span className="text-xs font-semibold">{nameOf(a.playerId)}</span>
+                              <input
+                                list="gh-roles"
+                                value={a.role}
+                                onChange={(e) =>
+                                  patch(b.id, {
+                                    players: assigned.map((x) =>
+                                      x.playerId === a.playerId ? { ...x, role: e.target.value } : x
+                                    ),
+                                  })
+                                }
+                                placeholder="role"
+                                className="w-20 text-xs bg-transparent border-0 focus:outline-none text-gray-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => patch(b.id, { players: assigned.filter((x) => x.playerId !== a.playerId) })}
+                                className="text-gray-300 hover:text-red-600 px-1"
+                                aria-label={`Take ${nameOf(a.playerId)} out of this block`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+
+                  {/* The drill, and any more run in the same block, each with
+                      "What this drill is" folded under it. */}
+                  <div>
+                    <label className="field-label">Drill</label>
+                    <DrillSelect drills={drills} value={b.drillId ?? ''} onChange={(id) => applyDrill(b.id, id)} />
+                    {(() => {
+                      const drill = drills.find((d) => d.id === b.drillId)
+                      return drill ? <DrillDetail key={drill.id} drill={drill} /> : null
+                    })()}
+                  </div>
+                  {(b.extraDrills ?? []).map((extra, n) => {
+                    const drill = drills.find((d) => d.id === extra)
+                    const setExtras = (next: string[]) => patch(b.id, { extraDrills: next })
+                    return (
+                      <div key={`${n}:${extra}`}>
+                        <div className="flex items-center">
+                          <label className="field-label flex-1">Drill {n + 2}</label>
                           <button
                             type="button"
-                            onClick={() => patch(b.id, { players: assigned.filter((x) => x.playerId !== a.playerId) })}
-                            className="text-gray-300 hover:text-red-600 px-1"
-                            aria-label={`Take ${nameOf(a.playerId)} out of this block`}
+                            onClick={() => setExtras((b.extraDrills ?? []).filter((_, i) => i !== n))}
+                            className="text-xs font-bold text-gray-400 hover:text-red-700"
                           >
-                            ×
+                            Remove
                           </button>
-                        </span>
-                      ))}
-                    </div>
+                        </div>
+                        <DrillSelect
+                          drills={drills}
+                          value={extra}
+                          onChange={(id) => setExtras((b.extraDrills ?? []).map((x, i) => (i === n ? id : x)))}
+                        />
+                        {drill && <DrillDetail key={drill.id} drill={drill} />}
+                      </div>
+                    )
+                  })}
+                  {b.drillId && (b.extraDrills ?? []).length < 4 && (
+                    <button
+                      type="button"
+                      onClick={() => patch(b.id, { extraDrills: [...(b.extraDrills ?? []), ''] })}
+                      className="text-sm font-bold text-[var(--gh-green)]"
+                    >
+                      + Add another drill
+                    </button>
                   )}
+
+                  {/* How the block is won — its own section, outside the drill. */}
+                  {(() => {
+                    const drill = drills.find((d) => d.id === b.drillId) ?? null
+                    return (
+                      <BlockCompetition
+                        key={drill?.id ?? 'none'}
+                        drill={drill}
+                        comp={b.comp}
+                        sides={sides}
+                        seed={`${b.id}:${drill?.id ?? ''}`}
+                        formats={competitions}
+                        onComp={(next: BlockComp | null) => patch(b.id, { comp: next })}
+                      />
+                    )
+                  })()}
 
                   {/* A block with a drill has "What this drill is" above, so it
                       needs no second write-up. Only a block without one — or
@@ -1074,4 +1116,24 @@ function fillWithStarter(blocks: PlanBlock[], drills: Drill[]): PlanBlock[] {
   })
   const blank = (b: PlanBlock) => !b.title.trim() && !b.drillId && !b.notes?.trim() && !b.board
   return [...out, ...blocks.filter((b) => !used.has(b.id) && !blank(b))]
+}
+
+/** Picking a drill off the bank, grouped by category. */
+function DrillSelect({ drills, value, onChange }: { drills: Drill[]; value: string; onChange: (id: string) => void }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} className="field !py-1.5">
+      <option value="">Not from the bank</option>
+      {DRILL_CATEGORIES.map((c) => {
+        const group = drills.filter((d) => d.category === c.key)
+        if (!group.length) return null
+        return (
+          <optgroup key={c.key} label={`${c.icon} ${c.label}`}>
+            {group.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </optgroup>
+        )
+      })}
+    </select>
+  )
 }
