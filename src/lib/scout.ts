@@ -188,9 +188,24 @@ const OLD_PROMPTS = new Set([
 ])
 
 export function withoutOldPrompts<B extends { kind: string }>(blocks: B[]): B[] {
-  return blocks.flatMap((b) => {
-    const o = b as unknown as { kind: string; text?: string; items?: { text: string; done: boolean }[] }
+  return blocks.flatMap((b, i) => {
+    const o = b as unknown as {
+      kind: string
+      text?: string
+      done?: boolean
+      indent?: number
+      details?: unknown
+      items?: { text: string; done: boolean }[]
+    }
     if (o.kind === 'heading' && OLD_PROMPTS.has((o.text ?? '').trim())) return []
+    /* The old checklist reads back as one to-do per item now. A prompt nobody
+       ticked goes, and so does a blank one, as they did — unless something was
+       tucked under it or it was given details, which makes it a coach's. */
+    const words = (o.text ?? '').trim()
+    if (o.kind === 'todo' && !o.done && !o.details && (!words || OLD_PROMPTS.has(words))) {
+      const next = blocks[i + 1] as unknown as { indent?: number } | undefined
+      if ((next?.indent ?? 0) <= (o.indent ?? 0)) return []
+    }
     if (o.kind === 'list' && o.items) {
       const items = o.items.filter((i) => i.done || (i.text.trim() && !OLD_PROMPTS.has(i.text.trim())))
       return items.length ? [{ ...b, items } as B] : []

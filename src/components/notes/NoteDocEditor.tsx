@@ -5,7 +5,7 @@ import { savePlan } from '@/lib/actions'
 import type { FormState } from '@/lib/actions'
 import type { Plan } from '@/lib/planner'
 import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
-import { NoteEditor } from '@/components/planner/NoteEditor'
+import { NoteEditor } from './NoteEditor'
 import { AutosaveNote, useAutosave } from '@/components/planner/useAutosave'
 
 const EMPTY: FormState = { ok: true }
@@ -48,7 +48,7 @@ export function NoteDocEditor({ plan, canWrite = true }: { plan: Plan; canWrite?
           required
         />
 
-        <NoteEditor blocks={content} onChange={setContent} />
+        <NoteEditor blocks={content} onChange={setContent} readOnly={!canWrite} />
 
         <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 flex-wrap">
           <div>
