@@ -11,7 +11,10 @@ export type Box = { x: number; y: number; w: number; h: number }
 export const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y)
 
 const r2 = (n: number) => Math.round(n * 100) / 100
-const fmt = (p: Pt) => `${r2(p.x)} ${r2(p.y)}`
+/* The coach's own points go into the path exactly as stored, so a line drawn
+   before any of this draws to the pixel as it always did. Only points this
+   file makes up (a wave, a curve's handles) are rounded. */
+const fmt = (p: Pt) => `${p.x} ${p.y}`
 
 /** Turn a point about a centre, clockwise in screen terms (y runs down). */
 export function rotatePt(p: Pt, c: Pt, deg: number): Pt {
@@ -115,8 +118,8 @@ function controls(points: Pt[], i: number, closed: boolean): [Pt, Pt] {
   const p2 = at(i + 1)
   const p3 = at(i + 2)
   return [
-    { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 },
-    { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 },
+    { x: r2(p1.x + (p2.x - p0.x) / 6), y: r2(p1.y + (p2.y - p0.y) / 6) },
+    { x: r2(p2.x - (p3.x - p1.x) / 6), y: r2(p2.y - (p3.y - p1.y) / 6) },
   ]
 }
 
@@ -216,7 +219,7 @@ export function patternD(points: Pt[], curve: boolean, pattern: LinePattern, wid
     // Quarter waves for a zig-zag: 0, +1, 0, −1 — its corners.
     const phase = pattern === 'wavy' ? Math.sin((2 * Math.PI * i) / per) : [0, 1, 0, -1][i % 4]
     const off = phase * amp * ease
-    out.push({ x: p.x - (dy / len) * off, y: p.y + (dx / len) * off })
+    out.push({ x: r2(p.x - (dy / len) * off), y: r2(p.y + (dx / len) * off) })
   }
   return polyD(out)
 }
