@@ -1,4 +1,5 @@
 import type { Board } from './planner'
+import type { SavedComp } from './compete'
 
 // The drill bank.
 //
@@ -80,6 +81,8 @@ export interface Drill {
   equipment: string | null
   /** The drill drawn on the field (0048); null until someone draws it. */
   board: Board | null
+  /** Competitions kept because they worked (0049). */
+  competitions: SavedComp[]
   is_favorite: boolean
   created_by: string | null
   created_at: string
