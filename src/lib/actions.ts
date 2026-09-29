@@ -18,7 +18,7 @@ import { PLAYER_COOKIE } from './playerAccess.edge'
 import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection, canTeam } from './permissions'
 import { canSee, isSandboxed, isStaffRole, isStaffTeam, mayReview, teamForRole, type StaffRole, type StaffTeam, type Viewer } from './sections'
-import { readSides } from './compete'
+import { readSavedComps, readSides } from './compete'
 import { canSeePlan, getPlan, isAuthor } from './plans'
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
@@ -2366,6 +2366,28 @@ export async function saveDrillBoard(id: string, raw: unknown): Promise<{ ok: tr
       ok: false,
       error: /board/i.test(error.message)
         ? 'Diagrams on drills need supabase/migrations/0048_drill_board.sql run in the Supabase SQL editor.'
+        : `Couldn’t save: ${error.message}`,
+    }
+  }
+  revalidatePath('/admin/drills')
+  revalidatePath('/admin/planner', 'layout')
+  return { ok: true }
+}
+
+/** The competitions kept on a drill, as the whole list. */
+export async function saveDrillCompetitions(id: string, raw: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+  const viewer = await getViewer()
+  if (!viewer || !canSee(viewer, 'drills')) return { ok: false, error: 'You don’t have the drill bank.' }
+  if (!id || !(await ownsRow(viewer, 'drills', id))) return { ok: false, error: 'That drill isn’t yours to change.' }
+  const { error } = await createServiceClient()
+    .from('drills')
+    .update({ competitions: readSavedComps(raw), updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) {
+    return {
+      ok: false,
+      error: /competitions/i.test(error.message)
+        ? 'Saved competitions need supabase/migrations/0049_drill_competitions.sql run in the Supabase SQL editor.'
         : `Couldn’t save: ${error.message}`,
     }
   }

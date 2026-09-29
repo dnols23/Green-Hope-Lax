@@ -1,10 +1,10 @@
 'use client'
 import { useState, useTransition } from 'react'
 import NumberField from '@/components/NumberField'
-import { saveDrillBoard, saveDrillDetails } from '@/lib/actions'
-import { EMPTY_BOARD, type Board } from '@/lib/planner'
+import { saveDrillBoard, saveDrillCompetitions, saveDrillDetails } from '@/lib/actions'
+import { EMPTY_BOARD, newId, type Board } from '@/lib/planner'
 import { FieldBoard } from './FieldBoard'
-import { COMP_FORMATS, formatOf, rollComp, type BlockComp } from '@/lib/compete'
+import { COMP_FORMATS, formatOf, rollComp, sameComp, type BlockComp, type SavedComp } from '@/lib/compete'
 import type { Drill } from '@/lib/drills'
 
 /**
@@ -54,6 +54,28 @@ export function DrillDetail({
     setEditing(true)
   }
 
+  // Competitions kept on the drill because they worked.
+  const kept = drill.competitions ?? []
+  const [keepError, setKeepError] = useState<string | null>(null)
+  const isKept = !!comp && kept.some((k) => sameComp(k, comp))
+
+  function writeKept(next: SavedComp[]) {
+    setKeepError(null)
+    startSaving(async () => {
+      const res = await saveDrillCompetitions(drill.id, next)
+      if (!res.ok) {
+        setKeepError(res.error)
+        return
+      }
+      setDrill((d) => ({ ...d, competitions: next }))
+    })
+  }
+  const keep = () => {
+    if (!comp || isKept || (!comp.key && !comp.own?.trim())) return
+    writeKept([...kept, { id: newId('c'), key: comp.key, ...(comp.own?.trim() ? { own: comp.own.trim() } : {}), savedAt: new Date().toISOString() }])
+  }
+  const use = (k: SavedComp) => onComp({ key: k.key, ...(k.own ? { own: k.own } : {}), scores: sides.map(() => 0) })
+
   function save() {
     setError(null)
     startSaving(async () => {
@@ -93,6 +115,7 @@ export function DrillDetail({
         {empty && <span className="text-xs font-semibold text-[var(--gh-maroon)]">No details yet</span>}
         {drill.board && <span className="badge badge-sched">Diagram</span>}
         {drill.link && <span className="badge badge-sched">Video</span>}
+        {kept.length > 0 && <span className="badge badge-sched">★ {kept.length} saved</span>}
         {on && (
           <span className="badge badge-conf">
             {comp?.own ? 'Competition' : shown.label}
@@ -255,8 +278,57 @@ export function DrillDetail({
                   ))}
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={keep}
+                disabled={isKept || saving || (!comp?.key && !comp?.own?.trim())}
+                className="btn btn-ghost !py-1 text-xs disabled:opacity-60"
+              >
+                {isKept ? '★ Saved to this drill' : '☆ Save to this drill'}
+              </button>
             </div>
           )}
+
+          {/* ── The ones that worked ── */}
+          {kept.length > 0 && (
+            <div className="mt-3">
+              <div className="text-[0.6rem] font-black uppercase tracking-wider text-gray-400 mb-1">
+                Saved for this drill
+              </div>
+              <ul className="space-y-1.5">
+                {kept.map((k) => {
+                  const f = formatOf(k.key)
+                  const current = !!comp && sameComp(k, comp)
+                  return (
+                    <li key={k.id} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2">
+                      <div className="flex-1 min-w-0 text-sm">
+                        <span className="font-bold text-gray-700">{f?.label ?? 'Our own'}.</span>{' '}
+                        <span className="text-gray-600">{k.own ?? f?.how}</span>
+                      </div>
+                      {current ? (
+                        <span className="shrink-0 text-xs font-bold text-[var(--gh-green)] self-center">In use</span>
+                      ) : (
+                        <button type="button" onClick={() => use(k)} className="btn btn-ghost !py-0.5 !px-2.5 text-xs shrink-0">
+                          Use
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => writeKept(kept.filter((x) => x.id !== k.id))}
+                        disabled={saving}
+                        className="shrink-0 w-7 h-7 -my-0.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                        aria-label="Take it off this drill"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+          {keepError && <p className="text-sm font-semibold text-red-700 mt-2" role="alert">{keepError}</p>}
         </div>
       </div>
     </details>

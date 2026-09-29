@@ -114,6 +114,42 @@ export function readComp(raw: unknown, sideCount: number): BlockComp | null {
   return { key, own, scores }
 }
 
+/** A competition kept on a drill because it worked, to run again. */
+export interface SavedComp {
+  id: string
+  /** A key from COMP_FORMATS, or '' for one the coach wrote himself. */
+  key: string
+  own?: string
+  savedAt: string
+}
+
+export const MAX_SAVED_COMPS = 20
+
+/** What a drill has saved, cleaned: known formats or his own words, nothing else. */
+export function readSavedComps(raw: unknown): SavedComp[] {
+  const list = Array.isArray(raw) ? raw : []
+  const out: SavedComp[] = []
+  for (const [i, r] of list.entries()) {
+    if (!r || typeof r !== 'object') continue
+    const o = r as Record<string, unknown>
+    const key = typeof o.key === 'string' && formatOf(o.key) ? o.key : ''
+    const own = typeof o.own === 'string' && o.own.trim() ? o.own.trim().slice(0, 200) : undefined
+    if (!key && !own) continue
+    out.push({
+      id: typeof o.id === 'string' && o.id ? o.id.slice(0, 40) : `c${i}`,
+      key,
+      ...(own ? { own } : {}),
+      savedAt: typeof o.savedAt === 'string' ? o.savedAt.slice(0, 40) : '',
+    })
+    if (out.length >= MAX_SAVED_COMPS) break
+  }
+  return out
+}
+
+/** The same competition, whatever the score. */
+export const sameComp = (a: { key: string; own?: string }, b: { key: string; own?: string }) =>
+  a.key === b.key && (a.own ?? '').trim() === (b.own ?? '').trim()
+
 export function readSides(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [...DEFAULT_SIDES]
   const names = raw.map((s) => String(s ?? '').trim()).filter(Boolean).slice(0, 4)
