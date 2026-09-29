@@ -82,7 +82,9 @@ function placeMenu(menu: HTMLElement, root: HTMLElement, r: DOMRect) {
   const left = Math.max(8 - box.left, Math.min(r.left - box.left, window.innerWidth - 8 - width - box.left))
   const below = bottom0 - r.bottom - 12
   const above = r.top - top0 - 12
-  const up = below < 240 && above > below
+  // Its whole height if it can have it: up when that fits better above.
+  const need = Math.min(380, menu.scrollHeight || 240)
+  const up = below < need && above > below
   menu.style.maxHeight = `${Math.max(150, Math.min(380, up ? above : below))}px`
   menu.style.left = `${left}px`
   if (up) {
@@ -306,9 +308,7 @@ export function BlockMenu({
         {text && item('turn', 'Turn into', () => setPage('turn'), { more: true })}
         {item('color', 'Color', () => setPage('color'), { more: true })}
         {text &&
-          item('details', detailsOpen ? 'Hide details' : block.details ? 'Show details' : 'Add details', () => onAction({ type: 'details' }), {
-            hint: 'Setup, video, diagram',
-          })}
+          item('details', detailsOpen ? 'Hide details' : block.details ? 'Show details' : 'Add details', () => onAction({ type: 'details' }))}
         <div className="ne-sep" />
         {item('indent', 'Indent', () => onAction({ type: 'indent' }), { disabled: !can.indent, hint: 'Tab' })}
         {item('outdent', 'Outdent', () => onAction({ type: 'outdent' }), { disabled: !can.outdent, hint: '⇧Tab' })}

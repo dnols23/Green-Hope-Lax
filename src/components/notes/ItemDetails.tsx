@@ -48,12 +48,15 @@ export function ItemDetails({
 
   return (
     <div className="ne-details mt-1 mb-2 rounded-lg border border-gray-200 bg-gray-50 px-3 pb-3 pt-2 space-y-3">
-      <div className="flex items-center gap-2 -mb-1">
+      <div className="flex items-center gap-2 -mb-1 min-w-0">
         <NoteIcon name="details" size={16} className="text-gray-400" />
         <span className="section-label">Details</span>
-        {detailTags(details).map((t) => (
-          <span key={t} className="badge badge-sched">{t}</span>
-        ))}
+        {/* On a phone the pill on the line already says these. */}
+        <span className="hidden sm:inline-flex gap-1.5">
+          {detailTags(details).map((t) => (
+            <span key={t} className="badge badge-sched">{t}</span>
+          ))}
+        </span>
         <button type="button" onClick={onClose} className="ne-icon-btn ml-auto" aria-label="Close details">
           <NoteIcon name="x" size={16} />
         </button>
@@ -75,7 +78,7 @@ export function ItemDetails({
               value={d.link ?? ''}
               onChange={(e) => set('link', e.target.value)}
               placeholder="https://"
-              className="field !py-1.5 text-sm mt-1"
+              className="field !py-1.5 min-h-9 text-sm mt-1"
             />
           )}
         </label>
@@ -86,7 +89,7 @@ export function ItemDetails({
               value={d.linkLabel ?? ''}
               onChange={(e) => set('linkLabel', e.target.value)}
               placeholder="Watch it"
-              className="field !py-1.5 text-sm mt-1"
+              className="field !py-1.5 min-h-9 text-sm mt-1"
             />
           </label>
         )}

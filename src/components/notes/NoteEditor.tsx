@@ -352,8 +352,9 @@ export function NoteEditor({
     const off = getOffsets(el) ?? { start: len, end: len }
     const d = b.indent ?? 0
 
-    if (LIST_KINDS.has(b.kind) && !rich.text) {
-      // An empty item steps out a level; at the left edge it stops being a list.
+    if (!rich.text && (LIST_KINDS.has(b.kind) || (b.kind === 'text' && d > 0))) {
+      // An empty item steps out a level — out of a toggle too; at the left
+      // edge it stops being a list.
       commit(d > 0 ? outdentAt(blocks, i) : replaceAt(blocks, i, turnInto(b, 'text')))
       ask(b.id, 0)
       return
