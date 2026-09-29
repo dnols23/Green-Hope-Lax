@@ -131,6 +131,8 @@ export const SECTIONS: AdminSection[] = [
   { key: 'priorities',   label: 'Priorities',   href: '/admin/priorities',   group: 'Coaches Hub', always: true },
   // What the program needs and wants. Every coach adds; the head coach decides.
   { key: 'wishlist',     label: 'Wish List',    href: '/admin/wishlist',     group: 'Coaches Hub', always: true },
+  // Kids the staff is reaching out to about playing. Every coach adds and updates.
+  { key: 'recruits',     label: 'Recruits',     href: '/admin/recruits',     group: 'Coaches Hub', always: true },
   { key: 'rosters',      label: 'Rosters',      href: '/admin/rosters',      group: 'Coaches Hub', always: true,
     views: [{ audience: 'public', href: '/roster' }] },
   // The head coach's review of his own staff. Lives only in the hub sidebar.
