@@ -23,7 +23,7 @@ import { canSeePlan, getPlan, isAuthor } from './plans'
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
-import { readBlocks, readStart, type Plan, type PlanKind } from './planner'
+import { readBlocks, readBoard, readStart, type Plan, type PlanKind } from './planner'
 import { gamePlanStarter, readGamePlan } from './gamePlan'
 import { readScout, scoutStarter } from './scout'
 import { dropBuilding, noteBuilding } from './building'
@@ -2346,6 +2346,29 @@ export async function saveDrillDetails(
     if (!error) return { ok: false, error: 'Saved all but the setup and the why — run 0037 in the Supabase SQL editor.' }
   }
   if (error) return { ok: false, error: `Couldn’t save: ${error.message}` }
+  revalidatePath('/admin/drills')
+  revalidatePath('/admin/planner', 'layout')
+  return { ok: true }
+}
+
+/** A drill's field diagram, drawn from a practice or the bank. Null takes it off. */
+export async function saveDrillBoard(id: string, raw: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+  const viewer = await getViewer()
+  if (!viewer || !canSee(viewer, 'drills')) return { ok: false, error: 'You don’t have the drill bank.' }
+  if (!id || !(await ownsRow(viewer, 'drills', id))) return { ok: false, error: 'That drill isn’t yours to change.' }
+  const board = raw === null ? null : readBoard(raw)
+  const { error } = await createServiceClient()
+    .from('drills')
+    .update({ board, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) {
+    return {
+      ok: false,
+      error: /board/i.test(error.message)
+        ? 'Diagrams on drills need supabase/migrations/0048_drill_board.sql run in the Supabase SQL editor.'
+        : `Couldn’t save: ${error.message}`,
+    }
+  }
   revalidatePath('/admin/drills')
   revalidatePath('/admin/planner', 'layout')
   return { ok: true }

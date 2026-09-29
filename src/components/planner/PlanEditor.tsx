@@ -880,7 +880,7 @@ export function PlanEditor({
                       gets the box. */}
                   {(() => {
                     const drill = b.drillId ? drills.find((d) => d.id === b.drillId) : null
-                    const own = b.notes?.trim() && b.notes.trim() !== (drill?.description ?? '').trim()
+                    const own = !!ownNotes(b, [drill ?? undefined])
                     if (drill && !own) return null
                     return (
                       <textarea
@@ -919,15 +919,20 @@ export function PlanEditor({
                   </details>
 
                   <div className="flex items-center gap-3 flex-wrap text-xs">
-                    <button
-                      type="button"
-                      onDoubleClick={() => setFieldOpen(showField ? null : b.id)}
-                      onClick={() => setFieldOpen(showField ? null : b.id)}
-                      className="font-bold"
-                      style={{ color: 'var(--gh-green)' }}
-                    >
-                      {showField ? '▾ Hide the field' : b.board ? '▸ Field diagram' : '▸ Draw it on the field'}
-                    </button>
+                    {/* A drill's diagram lives with the drill, under "What this
+                        drill is". A block keeps its own only when it has no
+                        drill, or already had one drawn. */}
+                    {(!b.drillId || b.board) && (
+                      <button
+                        type="button"
+                        onDoubleClick={() => setFieldOpen(showField ? null : b.id)}
+                        onClick={() => setFieldOpen(showField ? null : b.id)}
+                        className="font-bold"
+                        style={{ color: 'var(--gh-green)' }}
+                      >
+                        {showField ? '▾ Hide the field' : b.board ? '▸ Field diagram' : '▸ Draw it on the field'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setPicking(picking === b.id ? null : b.id)}
@@ -1062,9 +1067,10 @@ export function PlanEditor({
 
 /** A block's notes, unless they are just a copy of a drill's write-up. */
 function ownNotes(block: PlanBlock | undefined, drills: (Drill | undefined)[]): string {
-  const notes = block?.notes?.trim() ?? ''
+  const flat = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, ' ').trim()
+  const notes = flat(block?.notes)
   if (!notes) return ''
-  return drills.some((d) => d && (d.description ?? '').trim() === notes) ? '' : block?.notes ?? ''
+  return drills.some((d) => d && flat(d.description) === notes) ? '' : block?.notes ?? ''
 }
 
 /**

@@ -1,3 +1,5 @@
+import type { Board } from './planner'
+
 // The drill bank.
 //
 // Pure: the bank screen, the planner's drill picker and the server all describe
@@ -76,6 +78,8 @@ export interface Drill {
   link: string | null
   link_label: string | null
   equipment: string | null
+  /** The drill drawn on the field (0048); null until someone draws it. */
+  board: Board | null
   is_favorite: boolean
   created_by: string | null
   created_at: string

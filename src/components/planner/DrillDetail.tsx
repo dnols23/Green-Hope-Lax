@@ -1,7 +1,9 @@
 'use client'
 import { useState, useTransition } from 'react'
 import NumberField from '@/components/NumberField'
-import { saveDrillDetails } from '@/lib/actions'
+import { saveDrillBoard, saveDrillDetails } from '@/lib/actions'
+import { EMPTY_BOARD, type Board } from '@/lib/planner'
+import { FieldBoard } from './FieldBoard'
 import { COMP_FORMATS, formatOf, rollComp, type BlockComp } from '@/lib/compete'
 import type { Drill } from '@/lib/drills'
 
@@ -37,7 +39,8 @@ export function DrillDetail({
   const [draft, setDraft] = useState({ setup: '', description: '', context: '', link: '', linkLabel: '' })
   const [saving, startSaving] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const empty = ![drill.setup, drill.description, drill.context, drill.link].some((v) => v?.trim())
+  const empty = ![drill.setup, drill.description, drill.context, drill.link].some((v) => v?.trim()) && !drill.board
+
 
   function edit() {
     setDraft({
@@ -88,6 +91,7 @@ export function DrillDetail({
         <span className="caret text-xs text-gray-400">▸</span>
         <span className="font-bold text-gray-700">What this drill is</span>
         {empty && <span className="text-xs font-semibold text-[var(--gh-maroon)]">No details yet</span>}
+        {drill.board && <span className="badge badge-sched">Diagram</span>}
         {drill.link && <span className="badge badge-sched">Video</span>}
         {on && (
           <span className="badge badge-conf">
@@ -163,6 +167,9 @@ export function DrillDetail({
             </div>
           </>
         )}
+
+        {/* ── The drill on the field ── */}
+        <DrillDiagram drill={drill} onSaved={(board) => setDrill((d) => ({ ...d, board }))} />
 
         {/* ── Make it a competition ── */}
         <div className="border-t border-gray-200 pt-3">
@@ -253,6 +260,83 @@ export function DrillDetail({
         </div>
       </div>
     </details>
+  )
+}
+
+/**
+ * A drill's field diagram, drawn where the drill is being looked at — in a
+ * practice or in the bank — and saved to the drill, so every plan has it.
+ */
+export function DrillDiagram({ drill, onSaved }: { drill: Drill; onSaved?: (board: Board | null) => void }) {
+  const [board, setBoard] = useState(drill.board)
+  const [drawing, setDrawing] = useState(false)
+  const [sketch, setSketch] = useState<Board>(EMPTY_BOARD)
+  const [boardError, setBoardError] = useState<string | null>(null)
+  const [saving, startSaving] = useTransition()
+
+  function saveBoard(drawn: Board | null) {
+    // A field with nothing on it is no diagram, which is how it is stored.
+    const next = drawn && (drawn.tokens.length || drawn.paths.length || drawn.texts?.length || drawn.view) ? drawn : null
+    setBoardError(null)
+    startSaving(async () => {
+      const res = await saveDrillBoard(drill.id, next)
+      if (!res.ok) {
+        setBoardError(res.error)
+        return
+      }
+      setBoard(next)
+      onSaved?.(next)
+      setDrawing(false)
+    })
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <div className="section-label">Field diagram</div>
+        {!drawing && (
+          <button
+            type="button"
+            onClick={() => {
+              setSketch(board ?? EMPTY_BOARD)
+              setBoardError(null)
+              setDrawing(true)
+            }}
+            className="btn btn-ghost !py-1 text-xs ml-auto"
+          >
+            {board ? '✎ Edit the diagram' : '+ Draw it'}
+          </button>
+        )}
+      </div>
+      {drawing ? (
+        <div className="space-y-2">
+          <FieldBoard board={sketch} onChange={setSketch} title={drill.name} />
+          {boardError && <p className="text-sm font-semibold text-red-700" role="alert">{boardError}</p>}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button type="button" onClick={() => saveBoard(sketch)} disabled={saving} className="btn btn-primary !py-1.5 text-sm disabled:opacity-60">
+              {saving ? 'Saving…' : 'Save to the drill'}
+            </button>
+            <button type="button" onClick={() => setDrawing(false)} className="btn btn-ghost !py-1.5 text-sm">
+              Cancel
+            </button>
+            {board && (
+              <button
+                type="button"
+                onClick={() => saveBoard(null)}
+                disabled={saving}
+                className="ml-auto text-xs font-bold text-gray-400 hover:text-red-700"
+              >
+                Take the diagram off
+              </button>
+            )}
+          </div>
+        </div>
+      ) : board ? (
+        <FieldBoard board={board} readOnly title={drill.name} />
+      ) : (
+        <p className="text-sm text-gray-400">Not drawn yet.</p>
+      )}
+    </div>
   )
 }
 

@@ -6,6 +6,7 @@ import { DeleteButton } from '@/components/admin/DeleteButton'
 import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
 import { DrillSearch } from './DrillSearch'
+import { DrillDiagram } from '@/components/planner/DrillDetail'
 
 export const metadata = { title: 'Drill Bank' }
 export const dynamic = 'force-dynamic'
@@ -156,6 +157,7 @@ export default async function DrillBankPage() {
                       <div className="pl-6 pt-2 space-y-2">
                         {d.description && <p className="text-sm text-gray-600 whitespace-pre-line">{d.description}</p>}
                         {d.equipment && <p className="text-xs text-gray-500">Needs: {d.equipment}</p>}
+                        <DrillDiagram drill={d} />
                         <form action={upsertDrill} className="grid sm:grid-cols-6 gap-2 items-end">
                           <input type="hidden" name="id" value={d.id} />
                           <input type="hidden" name="is_favorite" value={String(d.is_favorite)} />

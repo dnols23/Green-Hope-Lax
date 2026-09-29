@@ -1,5 +1,6 @@
 import { createServiceClient } from './supabase-server'
 import type { Drill, DrillSetting } from './drills'
+import { readBoard } from './planner'
 
 /** True once the drill bank table exists. */
 export async function drillsReady(): Promise<boolean> {
@@ -33,6 +34,7 @@ export async function listDrills(): Promise<Drill[]> {
     link: (row.link as string) ?? null,
     link_label: (row.link_label as string) ?? null,
     equipment: (row.equipment as string) ?? null,
+    board: readBoard(row.board),
     is_favorite: row.is_favorite === true,
     created_by: (row.created_by as string) ?? null,
     created_at: String(row.created_at ?? ''),
