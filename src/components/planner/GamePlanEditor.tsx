@@ -1,5 +1,5 @@
 'use client'
-import { useActionState, useState, useTransition, type FormEvent } from 'react'
+import { useActionState, useRef, useState, useTransition, type FormEvent } from 'react'
 import NumberField from '@/components/NumberField'
 import { savePlan } from '@/lib/actions'
 import type { FormState } from '@/lib/actions'
@@ -21,6 +21,7 @@ import {
 } from '@/lib/gamePlan'
 import { newId } from '@/lib/planner'
 import { FieldBoard } from './FieldBoard'
+import { AutosaveNote, useAutosave } from './useAutosave'
 import type { PlayerOption, RosterOption } from './PlanEditor'
 
 const EMPTY: FormState = { ok: true }
@@ -88,6 +89,8 @@ export function GamePlanEditor({
 }) {
   const [state, save, saving] = useActionState(savePlan, EMPTY)
   const [, startSave] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
+  const autosave = useAutosave(formRef, canWrite)
   /* Saved by hand rather than as the form's action: React empties a form once
      its action finishes, which put every dropdown back where the page started —
      the game, the roster and the starters all looked wiped after a save. */
@@ -230,7 +233,7 @@ export function GamePlanEditor({
   const reviewed = gp.schedule.filter((s) => s.review.trim()).length
 
   return (
-    <form onSubmit={submit} className="space-y-3 pb-2">
+    <form ref={formRef} onSubmit={submit} className="space-y-3 pb-2">
       {!canWrite && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-900 font-bold">
@@ -907,11 +910,14 @@ export function GamePlanEditor({
               </label>
             </>
           )}
+          <span className="ml-auto">
+            <AutosaveNote state={autosave} />
+          </span>
           <button
             type="submit"
             disabled={saving || !canWrite}
             title={canWrite ? undefined : 'This is the other team’s plan.'}
-            className="btn btn-primary !py-1.5 ml-auto disabled:opacity-60"
+            className="btn btn-primary !py-1.5 disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
