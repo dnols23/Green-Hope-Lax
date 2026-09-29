@@ -35,7 +35,7 @@ import {
   SIGNUP_STATUS_META,
   parseSignupStatus,
 } from './signups'
-import { parseDrillPaste } from './drills'
+import { isDrillSetting, parseDrillPaste, primarySetting, type DrillSetting } from './drills'
 import { listDrills } from './drillsData'
 import { signOut, markReturned, markOutAgain, deleteAssignment } from './equipment'
 import { savePlay, deletePlay, clearPlayClip } from './plays'
@@ -2269,16 +2269,17 @@ export async function upsertDrill(formData: FormData) {
   const id = str(formData.get('id'))
   // Anyone may add a drill; a sandboxed coach only changes his own.
   if (id && !(await ownsRow(viewer, 'drills', id))) return
+  const ticked = [...new Set([...formData.getAll('settings'), formData.get('setting')].map(String).filter(isDrillSetting))]
+  const places: DrillSetting[] = ticked.length ? ticked : ['team']
   const payload = {
     name: str(formData.get('name')),
     category: str(formData.get('category')) || 'stickwork',
-    minutes: Math.max(0, Math.min(240, Number(formData.get('minutes')) || 10)),
-    setting: ['wall', 'solo', 'partner', 'team', 'film'].includes(str(formData.get('setting')))
-      ? str(formData.get('setting'))
-      : 'team',
+    // Minutes are the practice's to set, not the drill's; kept only if a form still sends them.
+    ...(formData.has('minutes') ? { minutes: Math.max(0, Math.min(240, Number(formData.get('minutes')) || 10)) } : {}),
+    // Every place ticked; the old single column keeps the first take-home one.
+    setting: primarySetting(places),
     description: str(formData.get('description')) || null,
     link: str(formData.get('link')) || null,
-    link_label: str(formData.get('link_label')) || null,
     equipment: str(formData.get('equipment')) || null,
     // The staff's favourites are the staff's call.
     is_favorite: !isSandboxed(viewer) && str(formData.get('is_favorite')) === 'true',
@@ -2300,7 +2301,9 @@ export async function upsertDrill(formData: FormData) {
       ? await svc.from('drills').update(row).eq('id', id)
       : await svc.from('drills').insert({ ...row, created_by: viewer?.email ?? null })
 
-  const { error } = await write({ ...payload, ...detail })
+  // Newest columns first; a database a migration or two behind still saves the rest.
+  let { error } = await write({ ...payload, ...detail, settings: places })
+  if (error) ({ error } = await write({ ...payload, ...detail }))
   if (error) await write(payload)
   revalidatePath('/admin/drills')
   revalidatePath('/admin/planner')

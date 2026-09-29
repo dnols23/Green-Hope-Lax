@@ -89,7 +89,7 @@ export function DrillDetail({ drill: fromBank }: { drill: Drill }) {
             <DetailBox label="Setup" value={draft.setup} rows={2} placeholder="Two lines at X, balls at the front of each, goalie in" onChange={(v) => setDraft((d) => ({ ...d, setup: v }))} />
             <DetailBox label="How it runs" value={draft.description} rows={3} placeholder="Step by step: who goes, where, when it ends" onChange={(v) => setDraft((d) => ({ ...d, description: v }))} />
             <DetailBox label="Why we run it" value={draft.context} rows={2} placeholder="What good looks like; what to coach" onChange={(v) => setDraft((d) => ({ ...d, context: v }))} />
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_12rem] gap-2">
+            <div>
               <label className="block">
                 <span className="section-label">Video link</span>
                 <input
@@ -98,15 +98,6 @@ export function DrillDetail({ drill: fromBank }: { drill: Drill }) {
                   value={draft.link}
                   onChange={(e) => setDraft((d) => ({ ...d, link: e.target.value }))}
                   placeholder="https://"
-                  className="field !py-1.5 text-sm mt-1"
-                />
-              </label>
-              <label className="block">
-                <span className="section-label">Link says</span>
-                <input
-                  value={draft.linkLabel}
-                  onChange={(e) => setDraft((d) => ({ ...d, linkLabel: e.target.value }))}
-                  placeholder="Watch it"
                   className="field !py-1.5 text-sm mt-1"
                 />
               </label>
