@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { isPlayerKind, tokenStyle } from '@/lib/planner'
 import { Icon } from './Icon'
 import { MenuItem, MenuLabel, MenuRule, Popover } from './Popover'
 import { ArrangeItems } from './PropsBar'
@@ -39,7 +40,11 @@ export function ContextMenu({ ed, at, onClose }: { ed: Editor; at: { x: number; 
         </>
       ) : (
         <>
-          <MenuLabel>{n === 1 ? ({ token: 'Player', path: 'Line', text: 'Words', shape: 'Shape' } as const)[only!.type] : `${n} picked`}</MenuLabel>
+          <MenuLabel>
+            {only?.type === 'token'
+              ? isPlayerKind(only.it.kind) ? 'Player' : tokenStyle(only.it.kind).label
+              : only ? ({ path: 'Line', text: 'Words', shape: 'Shape' } as const)[only.type] : `${n} picked`}
+          </MenuLabel>
           {only?.type === 'text' && !only.it.locked && (
             <MenuItem icon={<Icon name="text" size={16} />} keys="Enter" onClick={() => ed.editText(only.it.id)}>
               Edit the words
