@@ -31,6 +31,7 @@ import { ReviewPriorities } from './ReviewPriorities'
 import { imageFromClipboard, uploadImage } from '@/lib/uploadImage'
 import { NoteEditor } from './NoteEditor'
 import { AutosaveNote, useAutosave } from './useAutosave'
+import { SlideList } from '@/components/admin/SlideList'
 import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
 import { GamePlanEditor, type GameOption, type PlayOption } from './GamePlanEditor'
 import { ScoutEditor } from './ScoutEditor'
@@ -195,7 +196,8 @@ export function PlanEditor({
       setPasting({ id, say: error ?? 'That picture would not save.' })
     }
   }
-  const [dragId, setDragId] = useState<string | null>(null)
+  // What the plan was before "Fill with standard practice", for one Undo.
+  const [beforeFill, setBeforeFill] = useState<PlanBlock[] | null>(null)
 
   const clock = runningClock(blocks)
   const total = totalMinutes(blocks)
@@ -230,16 +232,14 @@ export function PlanEditor({
     })
   }
 
-  function dropOn(targetId: string) {
-    if (!dragId || dragId === targetId) return
-    setBlocks((bs) => {
-      const moved = bs.find((b) => b.id === dragId)
-      if (!moved) return bs
-      const rest = bs.filter((b) => b.id !== dragId)
-      rest.splice(rest.findIndex((b) => b.id === targetId), 0, moved)
-      return rest
-    })
-    setDragId(null)
+  /** Slid into a new order. */
+  function reorder(ids: string[]) {
+    setBlocks((bs) => ids.map((id) => bs.find((b) => b.id === id)).filter((b): b is PlanBlock => !!b))
+  }
+
+  function fillStandard() {
+    setBeforeFill(blocks)
+    setBlocks(fillWithStarter(blocks, drills))
   }
 
   /** Picking a drill fills the block in — name, length, category and its link. */
@@ -656,8 +656,13 @@ export function PlanEditor({
         {state.ok && state.message && !saving && <p className="text-sm text-green-700 mt-2">{state.message}</p>}
       </div>
 
-      <div className="space-y-1.5">
-        {blocks.map((b, i) => {
+      <SlideList
+        items={blocks}
+        onReorder={reorder}
+        label={(b) => b.title || 'block'}
+        className="space-y-1.5"
+        renderItem={(b, grip, dragging) => {
+          const i = blocks.findIndex((x) => x.id === b.id)
           const tag = tagFor(b.tag)
           const at = clockAt(start, clock[i])
           const open = openId === b.id
@@ -665,22 +670,25 @@ export function PlanEditor({
           const assigned = b.players ?? []
           return (
             <div
-              key={b.id}
-              draggable={!open}
-              onDragStart={() => setDragId(b.id)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => dropOn(b.id)}
-              onDragEnd={() => setDragId(null)}
               onPaste={(e) => void pasteInto(b.id, e)}
-              className="card"
-              style={{ borderLeft: `4px solid ${tag.color}`, opacity: dragId === b.id ? 0.4 : 1 }}
+              className={`card ${dragging ? 'shadow-lg' : ''}`}
+              style={{ borderLeft: `4px solid ${tag.color}` }}
             >
               {/* The shut row: the running order, readable at a glance. */}
               <div
                 className="flex items-center gap-2 p-2.5 cursor-pointer"
                 onClick={() => setOpenId(open ? null : b.id)}
               >
-                <span className="text-gray-300 select-none" title="Drag to reorder">☰</span>
+                {grip ? (
+                  <span
+                    {...grip}
+                    onClick={(e) => e.stopPropagation()}
+                    className="-my-2 -ml-1 w-8 h-9 shrink-0 grid place-items-center rounded text-gray-300 hover:text-gray-500 select-none"
+                    title="Slide to reorder"
+                  >
+                    ☰
+                  </span>
+                ) : null}
                 <span className="text-xs font-black tabular-nums w-[4.6rem] shrink-0" style={{ color: tag.color }}>
                   {b.parallel ? (
                     <span
@@ -996,8 +1004,8 @@ export function PlanEditor({
               )}
             </div>
           )
-        })}
-      </div>
+        }}
+      />
 
       <datalist id="gh-roles">
         {ROLES.map((r) => (
@@ -1017,9 +1025,21 @@ export function PlanEditor({
         >
           + Add a block
         </button>
-        {blocks.length === 0 && (
-          <button type="button" onClick={() => setBlocks(starter())} className="btn btn-ghost">
-            Start from a standard practice
+        {/* Always here: with blocks already written, it builds the standard
+            practice around them rather than wiping them. */}
+        <button type="button" onClick={fillStandard} className="btn btn-ghost">
+          {blocks.length === 0 ? 'Start from a standard practice' : 'Fill with standard practice'}
+        </button>
+        {beforeFill && (
+          <button
+            type="button"
+            onClick={() => {
+              setBlocks(beforeFill)
+              setBeforeFill(null)
+            }}
+            className="btn btn-ghost !text-gray-500"
+          >
+            Undo fill
           </button>
         )}
       </div>
@@ -1027,24 +1047,49 @@ export function PlanEditor({
   )
 }
 
-/** A shape most practices take, as a starting point rather than a rule. */
-function starter(): PlanBlock[] {
-  const make = (title: string, minutes: number, tag: string): PlanBlock => ({
-    ...emptyBlock(),
-    id: newId('b'),
-    title,
-    minutes,
-    tag,
+/**
+ * A shape most practices take, as a starting point rather than a rule — and,
+ * for each part, the drill categories that belong in it.
+ */
+const STARTER: { title: string; minutes: number; tag: string; cats: string[] }[] = [
+  { title: 'Dynamic warm-up', minutes: 10, tag: 'warmup', cats: ['warmup'] },
+  { title: 'Stick work', minutes: 10, tag: 'individual', cats: ['stickwork', 'footwork'] },
+  { title: 'Ground balls', minutes: 10, tag: 'individual', cats: ['groundballs'] },
+  {
+    title: 'Position breakout',
+    minutes: 20,
+    tag: 'unit',
+    cats: ['dodging', 'shooting', 'individualdefense', 'dmid', 'goalie', 'faceoff'],
+  },
+  { title: 'Water', minutes: 5, tag: 'water', cats: [] },
+  { title: 'Ride and clear', minutes: 15, tag: 'team', cats: ['ridecrear', 'transition'] },
+  { title: '6v6', minutes: 20, tag: 'team', cats: ['sixes', 'offense', 'defense'] },
+  { title: 'Man-up / man-down', minutes: 10, tag: 'specials', cats: ['specialoffense', 'mandown'] },
+  { title: 'Conditioning and finish', minutes: 10, tag: 'conditioning', cats: ['conditioning', 'strength'] },
+]
+
+/**
+ * The standard practice, built around what is already written. A block already
+ * on the plan takes the part it belongs in — by its name, or by its drill's
+ * category — so a "Stick protection" drill becomes the Stick work part ("Stick
+ * work: Stick protection"). Anything that fits no part stays, after the rest;
+ * a blank block with nothing in it goes.
+ */
+function fillWithStarter(blocks: PlanBlock[], drills: Drill[]): PlanBlock[] {
+  const used = new Set<string>()
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+  const drillOf = (b: PlanBlock) => (b.drillId ? drills.find((d) => d.id === b.drillId) ?? null : null)
+  const out = STARTER.map((part) => {
+    const mine =
+      blocks.find((b) => !used.has(b.id) && same(b.title, part.title)) ??
+      blocks.find((b) => !used.has(b.id) && part.cats.includes(drillOf(b)?.category ?? ''))
+    if (!mine) return { ...emptyBlock(), id: newId('b'), title: part.title, minutes: part.minutes, tag: part.tag }
+    used.add(mine.id)
+    const drill = drillOf(mine)
+    // Named after its drill (or not named at all), it takes the part's name.
+    const title = !mine.title.trim() || (drill && same(mine.title, drill.name)) ? part.title : mine.title
+    return { ...mine, title }
   })
-  return [
-    make('Dynamic warm-up', 10, 'warmup'),
-    make('Stick work', 10, 'individual'),
-    make('Ground balls', 10, 'individual'),
-    make('Position breakout', 20, 'unit'),
-    make('Water', 5, 'water'),
-    make('Ride and clear', 15, 'team'),
-    make('6v6', 20, 'team'),
-    make('Man-up / man-down', 10, 'specials'),
-    make('Conditioning and finish', 10, 'conditioning'),
-  ]
+  const blank = (b: PlanBlock) => !b.title.trim() && !b.drillId && !b.notes?.trim() && !b.board
+  return [...out, ...blocks.filter((b) => !used.has(b.id) && !blank(b))]
 }
