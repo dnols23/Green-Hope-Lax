@@ -72,6 +72,8 @@ export interface PlanBlock {
   parallel?: boolean
   /** The drill from the bank this block is running, if any. */
   drillId?: string | null
+  /** More drills run in the same block, after the first. */
+  extraDrills?: string[]
   /** A link carried over from that drill, so the block stands on its own. */
   link?: string | null
   /** The coach running it. */
@@ -298,6 +300,9 @@ export function readBlocks(raw: unknown): PlanBlock[] {
       clip: readClip(b.clip),
       shotUrl: readShotUrl(b.shotUrl),
       drillId: typeof b.drillId === 'string' ? b.drillId : null,
+      extraDrills: Array.isArray(b.extraDrills)
+        ? b.extraDrills.filter((x): x is string => typeof x === 'string' && !!x).slice(0, 4)
+        : [],
       // Four is the most sides a practice can be split into; extra scores go.
       comp: readComp(b.comp, 4),
       link: typeof b.link === 'string' && b.link.trim() ? b.link.trim() : null,
