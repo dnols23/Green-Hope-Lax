@@ -82,6 +82,18 @@ export function ItemDetails({
             />
           )}
         </label>
+        {!readOnly && (
+          <label className="block min-w-0 mt-2">
+            <span className="section-label">Link name (optional)</span>
+            <input
+              value={d.linkLabel ?? ''}
+              onChange={(e) => set('linkLabel', e.target.value)}
+              maxLength={80}
+              placeholder="Watch it"
+              className="field !py-1.5 min-h-9 text-sm mt-1"
+            />
+          </label>
+        )}
       </div>
       {!readOnly && link && <DetailLink href={link} label={d.linkLabel} />}
 

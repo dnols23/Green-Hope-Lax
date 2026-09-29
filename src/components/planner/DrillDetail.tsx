@@ -101,6 +101,16 @@ export function DrillDetail({ drill: fromBank }: { drill: Drill }) {
                   className="field !py-1.5 text-sm mt-1"
                 />
               </label>
+              <label className="block mt-2">
+                <span className="section-label">Link name (optional)</span>
+                <input
+                  value={draft.linkLabel}
+                  onChange={(e) => setDraft((d) => ({ ...d, linkLabel: e.target.value }))}
+                  maxLength={80}
+                  placeholder="Watch it"
+                  className="field !py-1.5 text-sm mt-1"
+                />
+              </label>
             </div>
             {error && <p className="text-sm font-semibold text-red-700" role="alert">{error}</p>}
             <div className="flex items-center gap-2">

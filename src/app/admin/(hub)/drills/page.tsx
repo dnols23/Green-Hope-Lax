@@ -71,6 +71,10 @@ export default async function DrillBankPage() {
             <label className="field-label">Video link</label>
             <input name="link" className="field" placeholder="https://… video, diagram, playbook page" />
           </div>
+          <div className="sm:col-span-6">
+            <label className="field-label">Link name (optional)</label>
+            <input name="link_label" maxLength={80} className="field" placeholder="Watch it" />
+          </div>
           {/* Three fields, because a coach who has never seen the drill needs
               three different things: how to put it out, how to run it, and
               what he is actually trying to teach. */}
@@ -169,6 +173,10 @@ export default async function DrillBankPage() {
                           <div className="sm:col-span-6">
                             <label className="field-label">Video link</label>
                             <input name="link" defaultValue={d.link ?? ''} className="field !py-1.5" />
+                          </div>
+                          <div className="sm:col-span-6">
+                            <label className="field-label">Link name (optional)</label>
+                            <input name="link_label" maxLength={80} defaultValue={d.link_label ?? ''} placeholder="Watch it" className="field !py-1.5" />
                           </div>
                           <div className="sm:col-span-6">
                             <label className="field-label">Setup</label>
@@ -335,6 +343,10 @@ function CompetitionForm({ comp }: { comp?: CompFormat }) {
       <div>
         <label className="field-label">Video link</label>
         <input name="link" type="url" defaultValue={comp?.link ?? ''} placeholder="https://" className="field !py-1.5" />
+      </div>
+      <div>
+        <label className="field-label">Link name (optional)</label>
+        <input name="link_label" maxLength={80} defaultValue={comp?.link_label ?? ''} placeholder="Watch it" className="field !py-1.5" />
       </div>
       <details>
         <summary className="cursor-pointer list-none text-xs font-bold text-gray-500">
