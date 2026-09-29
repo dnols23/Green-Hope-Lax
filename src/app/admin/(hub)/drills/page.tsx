@@ -5,6 +5,7 @@ import { DRILL_CATEGORIES, SETTING_LABELS, isHomework } from '@/lib/drills'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
+import { DrillSearch } from './DrillSearch'
 
 export const metadata = { title: 'Drill Bank' }
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,8 @@ export default async function DrillBankPage() {
           nobody is hunting for the video at 3:30.
         </p>
       </div>
+
+      {drills.length > 0 && <DrillSearch listId="drill-list" />}
 
       <details className="card p-4">
         <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
@@ -113,112 +116,121 @@ export default async function DrillBankPage() {
           No drills yet. Add one above, or paste your whole list in at once.
         </div>
       ) : (
-        DRILL_CATEGORIES.map((cat) => {
-          const group = drills.filter((d) => d.category === cat.key)
-          if (group.length === 0) return null
-          return (
-            <details key={cat.key} open className="card p-4">
-              <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
-                <span className="caret text-sm">▸</span> {cat.icon} {cat.label}
-                <span className="font-normal text-xs text-gray-400">{group.length}</span>
-              </summary>
-              <div className="mt-3 pt-3 border-t border-gray-100 divide-y divide-gray-100">
-                {group.map((d) => (
-                  <details key={d.id} className="py-2">
-                    <summary className="cursor-pointer list-none flex items-center gap-2">
-                      <span className="caret text-xs text-gray-300">▸</span>
-                      <span className="font-semibold text-sm">{d.name}</span>
-                      {d.is_favorite && <span title="Favourite">⭐</span>}
-                      <span className="text-xs text-gray-400">{d.minutes}m</span>
-                      <span
-                        className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
-                        style={{
-                          background: isHomework(d.setting) ? '#DFEFE7' : 'var(--color-gray-100, #f3f4f6)',
-                          color: isHomework(d.setting) ? '#00512F' : 'var(--color-gray-500, #6b7280)',
-                        }}
-                        title={isHomework(d.setting) ? 'Can be prescribed to a player' : 'Practice or film only — never sent home'}
-                      >
-                        {SETTING_LABELS[d.setting]}
-                      </span>
-                      {d.link && <DrillLink href={d.link} label={d.link_label || 'Open link'} />}
-                    </summary>
-                    <div className="pl-6 pt-2 space-y-2">
-                      {d.description && <p className="text-sm text-gray-600 whitespace-pre-line">{d.description}</p>}
-                      {d.equipment && <p className="text-xs text-gray-500">Needs: {d.equipment}</p>}
-                      <form action={upsertDrill} className="grid sm:grid-cols-6 gap-2 items-end">
-                        <input type="hidden" name="id" value={d.id} />
-                        <input type="hidden" name="is_favorite" value={String(d.is_favorite)} />
-                        <div className="sm:col-span-2">
-                          <label className="field-label">Name</label>
-                          <input name="name" defaultValue={d.name} className="field !py-1.5" />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="field-label">Category</label>
-                          <select name="category" defaultValue={d.category} className="field !py-1.5">
-                            {DRILL_CATEGORIES.map((c) => (
-                              <option key={c.key} value={c.key}>{c.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="field-label">Where</label>
-                          <select name="setting" defaultValue={d.setting} className="field !py-1.5">
-                            {Object.entries(SETTING_LABELS).map(([k, label]) => (
-                              <option key={k} value={k}>{label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="field-label">Min</label>
-                          <input type="number" name="minutes" defaultValue={d.minutes} className="field !py-1.5" />
-                        </div>
-                        <div className="sm:col-span-4">
-                          <label className="field-label">Video link</label>
-                          <input name="link" defaultValue={d.link ?? ''} className="field !py-1.5" />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="field-label">Link says</label>
-                          <input name="link_label" defaultValue={d.link_label ?? ''} className="field !py-1.5" />
-                        </div>
-                        <div className="sm:col-span-6">
-                          <label className="field-label">Setup</label>
-                          <textarea name="setup" rows={2} defaultValue={d.setup ?? ''} className="field !py-1.5"
-                            placeholder="Cones, lines, balls, where the goalie stands" />
-                        </div>
-                        <div className="sm:col-span-6">
-                          <label className="field-label">How it runs</label>
-                          <textarea name="description" rows={2} defaultValue={d.description ?? ''} className="field !py-1.5" />
-                        </div>
-                        <div className="sm:col-span-6">
-                          <label className="field-label">Why we run it</label>
-                          <textarea name="context" rows={2} defaultValue={d.context ?? ''} className="field !py-1.5"
-                            placeholder="What it teaches, and what good looks like" />
-                        </div>
-                        <div className="sm:col-span-4">
-                          <label className="field-label">Equipment</label>
-                          <input name="equipment" defaultValue={d.equipment ?? ''} className="field !py-1.5" />
-                        </div>
-                        <div className="sm:col-span-6 flex items-center gap-3">
-                          <button type="submit" className="btn btn-primary !py-1.5 text-sm">Save</button>
-                        </div>
-                      </form>
-                      <div className="flex items-center gap-3">
-                        <form action={toggleDrillFavorite}>
+        <div id="drill-list" className="space-y-4">
+          {DRILL_CATEGORIES.map((cat) => {
+            const group = drills.filter((d) => d.category === cat.key)
+            if (group.length === 0) return null
+            return (
+              <details key={cat.key} open className="card p-4" data-drill-group>
+                <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
+                  <span className="caret text-sm">▸</span> {cat.icon} {cat.label}
+                  <span className="font-normal text-xs text-gray-400">{group.length}</span>
+                </summary>
+                <div className="mt-3 pt-3 border-t border-gray-100 divide-y divide-gray-100">
+                  {group.map((d) => (
+                    <details
+                      key={d.id}
+                      className="py-2"
+                      data-drill={[d.name, cat.label, SETTING_LABELS[d.setting], d.description, d.setup, d.context, d.equipment]
+                        .filter(Boolean)
+                        .join(' ')
+                        .toLowerCase()}
+                    >
+                      <summary className="cursor-pointer list-none flex items-center gap-2">
+                        <span className="caret text-xs text-gray-300">▸</span>
+                        <span className="font-semibold text-sm">{d.name}</span>
+                        {d.is_favorite && <span title="Favourite">⭐</span>}
+                        <span className="text-xs text-gray-400">{d.minutes}m</span>
+                        <span
+                          className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{
+                            background: isHomework(d.setting) ? '#DFEFE7' : 'var(--color-gray-100, #f3f4f6)',
+                            color: isHomework(d.setting) ? '#00512F' : 'var(--color-gray-500, #6b7280)',
+                          }}
+                          title={isHomework(d.setting) ? 'Can be prescribed to a player' : 'Practice or film only — never sent home'}
+                        >
+                          {SETTING_LABELS[d.setting]}
+                        </span>
+                        {d.link && <DrillLink href={d.link} label={d.link_label || 'Open link'} />}
+                      </summary>
+                      <div className="pl-6 pt-2 space-y-2">
+                        {d.description && <p className="text-sm text-gray-600 whitespace-pre-line">{d.description}</p>}
+                        {d.equipment && <p className="text-xs text-gray-500">Needs: {d.equipment}</p>}
+                        <form action={upsertDrill} className="grid sm:grid-cols-6 gap-2 items-end">
                           <input type="hidden" name="id" value={d.id} />
-                          <input type="hidden" name="favorite" value={String(!d.is_favorite)} />
-                          <button type="submit" className="text-xs font-bold text-gray-500 hover:text-gray-800">
-                            {d.is_favorite ? '☆ Remove from favourites' : '⭐ Favourite'}
-                          </button>
+                          <input type="hidden" name="is_favorite" value={String(d.is_favorite)} />
+                          <div className="sm:col-span-2">
+                            <label className="field-label">Name</label>
+                            <input name="name" defaultValue={d.name} className="field !py-1.5" />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="field-label">Category</label>
+                            <select name="category" defaultValue={d.category} className="field !py-1.5">
+                              {DRILL_CATEGORIES.map((c) => (
+                                <option key={c.key} value={c.key}>{c.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="field-label">Where</label>
+                            <select name="setting" defaultValue={d.setting} className="field !py-1.5">
+                              {Object.entries(SETTING_LABELS).map(([k, label]) => (
+                                <option key={k} value={k}>{label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="field-label">Min</label>
+                            <input type="number" name="minutes" defaultValue={d.minutes} className="field !py-1.5" />
+                          </div>
+                          <div className="sm:col-span-4">
+                            <label className="field-label">Video link</label>
+                            <input name="link" defaultValue={d.link ?? ''} className="field !py-1.5" />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="field-label">Link says</label>
+                            <input name="link_label" defaultValue={d.link_label ?? ''} className="field !py-1.5" />
+                          </div>
+                          <div className="sm:col-span-6">
+                            <label className="field-label">Setup</label>
+                            <textarea name="setup" rows={2} defaultValue={d.setup ?? ''} className="field !py-1.5"
+                              placeholder="Cones, lines, balls, where the goalie stands" />
+                          </div>
+                          <div className="sm:col-span-6">
+                            <label className="field-label">How it runs</label>
+                            <textarea name="description" rows={2} defaultValue={d.description ?? ''} className="field !py-1.5" />
+                          </div>
+                          <div className="sm:col-span-6">
+                            <label className="field-label">Why we run it</label>
+                            <textarea name="context" rows={2} defaultValue={d.context ?? ''} className="field !py-1.5"
+                              placeholder="What it teaches, and what good looks like" />
+                          </div>
+                          <div className="sm:col-span-4">
+                            <label className="field-label">Equipment</label>
+                            <input name="equipment" defaultValue={d.equipment ?? ''} className="field !py-1.5" />
+                          </div>
+                          <div className="sm:col-span-6 flex items-center gap-3">
+                            <button type="submit" className="btn btn-primary !py-1.5 text-sm">Save</button>
+                          </div>
                         </form>
-                        <DeleteButton id={d.id} action={deleteDrill} label="Delete drill" />
+                        <div className="flex items-center gap-3">
+                          <form action={toggleDrillFavorite}>
+                            <input type="hidden" name="id" value={d.id} />
+                            <input type="hidden" name="favorite" value={String(!d.is_favorite)} />
+                            <button type="submit" className="text-xs font-bold text-gray-500 hover:text-gray-800">
+                              {d.is_favorite ? '☆ Remove from favourites' : '⭐ Favourite'}
+                            </button>
+                          </form>
+                          <DeleteButton id={d.id} action={deleteDrill} label="Delete drill" />
+                        </div>
                       </div>
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </details>
-          )
-        })
+                    </details>
+                  ))}
+                </div>
+              </details>
+            )
+          })}
+        </div>
       )}
     </div>
   )
