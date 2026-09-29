@@ -521,3 +521,381 @@ html[data-theme='dark'] .app-theme .cal-open-dot.cal-open-weight { border-color:
 .cal-open-tag.cal-open-tag-weight { background: #f6e3e6; color: #7A1F2B; }
 html[data-theme='dark'] .app-theme .cal-open-tag { background: rgb(79 165 116 / 0.22); color: #8fd6ad; }
 html[data-theme='dark'] .app-theme .cal-open-tag.cal-open-tag-weight { background: rgb(200 90 105 / 0.22); color: #f0a7b1; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   The note editor (components/notes).
+
+   Notion's quiet page: blocks with no borders, a ⋮⋮ handle and a + in the
+   left margin that show on hover — and always, faintly, on a phone, which has
+   no hover — and a handful of text and background colours that hold up in the
+   dark theme as well as the light one. Sizes are in em so a heading's handle
+   sits on the heading's own line.
+   ════════════════════════════════════════════════════════════════════════════ */
+.ne {
+  --ne-step: 1.625rem;
+  --ne-gutter: 3.25rem;
+  position: relative;
+  padding-left: var(--ne-gutter);
+  font-size: 0.975rem;
+  line-height: 1.6;
+}
+.ne.ne-ro { --ne-gutter: 0px; }
+/* A phone: narrower steps, a slimmer margin, and 16px words so iOS does not zoom
+   in on every line tapped. */
+@media (pointer: coarse) {
+  .ne { --ne-step: 1.25rem; --ne-gutter: 1.75rem; font-size: 1rem; }
+  .ne.ne-typing { padding-bottom: 3.5rem; }
+}
+
+.ne-row { position: relative; border-radius: 4px; }
+.ne-row + .ne-row { margin-top: 1px; }
+.ne-row[data-kind='heading'] { margin-top: 0.9em; }
+.ne-row[data-level='1'] { margin-top: 1.2em; }
+.ne > .ne-row:first-child { margin-top: 0; }
+.ne-row[data-kind='divider'], .ne-row[data-kind='board'], .ne-row[data-kind='chart'],
+.ne-row[data-kind='image'], .ne-row[data-kind='table'], .ne-row[data-kind='bookmark'] { margin-top: 0.35rem; margin-bottom: 0.35rem; }
+
+.ne-line { display: flex; align-items: flex-start; gap: 0.3rem; min-width: 0; border-radius: 4px; }
+.ne-line[class*=' nt-'] { padding: 0 0.4rem; }
+
+/* The words themselves. */
+.ne-rt {
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-height: 1.6em;
+  padding: 2px 0;
+  cursor: text;
+}
+.ne-rt[data-empty]::before {
+  content: attr(data-placeholder);
+  color: var(--color-gray-400);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+.ne-rt[data-empty]:not([data-always]):not(:focus)::before,
+.ne-ro .ne-rt[data-empty]::before { content: none; }
+.ne-rt strong { font-weight: 800; }
+.ne-rt a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgb(128 128 128 / 0.6);
+  text-underline-offset: 2px;
+}
+.ne-ro .ne-rt a, .ne-rt a:hover { text-decoration-color: currentColor; }
+.ne-rt code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: rgb(135 131 120 / 0.15);
+  color: #c7254e;
+}
+html[data-theme='dark'] .app-theme .ne-rt code { background: rgb(135 131 120 / 0.28); color: #ff8a80; }
+
+.ne-h1 { font-size: 1.85em; font-weight: 900; line-height: 1.2; letter-spacing: -0.02em; }
+.ne-h2 { font-size: 1.4em; font-weight: 900; line-height: 1.3; letter-spacing: -0.01em; }
+.ne-h3 { font-size: 1.15em; font-weight: 800; line-height: 1.35; }
+.ne-done .ne-rt { text-decoration: line-through; color: var(--color-gray-400); }
+.ne-k-quote .ne-rt { border-left: 3px solid currentColor; padding-left: 0.85rem; font-size: 1.08em; }
+.ne-k-callout { padding: 0.7rem 0.85rem; gap: 0.55rem; border-radius: 6px; background: rgb(135 131 120 / 0.12); }
+.ne-line.ne-k-callout[class*=' nt-'] { padding: 0.7rem 0.85rem; }
+
+/* What sits at the start of a line: a box, a bullet, a number, a triangle. */
+.ne-marker {
+  flex: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: calc(1.6em + 4px);
+  color: inherit;
+}
+.ne-bullet { font-size: 1.3em; height: calc((1.6em + 4px) / 1.3); line-height: 1; }
+.ne-num { justify-content: flex-end; padding-right: 0.15rem; font-variant-numeric: tabular-nums; }
+.ne-box {
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 3px;
+  border: 1.5px solid var(--color-gray-400);
+  color: #fff;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+.ne-box[data-on] { background: var(--gh-green); border-color: var(--gh-green); }
+.ne-check:hover .ne-box:not([data-on]) { border-color: var(--color-gray-600); }
+.ne-tri svg { transition: transform 0.15s; color: var(--color-gray-500); }
+.ne-tri[aria-expanded='true'] svg { transform: rotate(90deg); }
+.ne-icon { font-size: 1.15em; }
+
+/* The pills at the end of a line: "▾ 2/5" and the details. */
+.ne-chip {
+  flex: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: calc((1.6em + 4px - 1.35rem) / 2);
+  min-height: 1.35rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  background: var(--color-gray-100);
+  color: var(--color-gray-500);
+  white-space: nowrap;
+}
+.ne-chip:hover { color: var(--color-gray-700); }
+.ne-chip-done { color: var(--gh-green); }
+.ne-chip-on { color: var(--gh-green); background: rgb(0 105 62 / 0.1); }
+html[data-theme='dark'] .app-theme .ne-chip-on { background: rgb(26 154 95 / 0.18); }
+.ne-chip-open { box-shadow: inset 0 0 0 1px currentColor; }
+.ne-chip-words { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; }
+.ne-add-details {
+  flex: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: calc(1.6em + 4px);
+  border-radius: 4px;
+  color: var(--color-gray-400);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.ne-row:hover .ne-add-details, .ne-row[data-active] .ne-add-details, .ne-add-details:focus-visible { opacity: 1; }
+.ne-add-details:hover { color: var(--gh-green); }
+
+/* The margin: + and ⋮⋮. */
+.ne-gutter {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  height: calc(1.6em + 4px);
+  display: flex;
+  align-items: center;
+  padding-right: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.ne-row[data-level='1'] > .ne-gutter { height: calc(1.85em * 1.2 + 4px); }
+.ne-row[data-level='2'] > .ne-gutter { height: calc(1.4em * 1.3 + 4px); }
+.ne-row[data-level='3'] > .ne-gutter { height: calc(1.15em * 1.35 + 4px); }
+.ne-row[data-kind='callout'] > .ne-gutter { top: 0.7rem; }
+.ne-row:hover > .ne-gutter, .ne-row[data-active] > .ne-gutter, .ne-gutter:focus-within { opacity: 1; }
+.ne-gbtn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 4px;
+  color: var(--color-gray-400);
+}
+.ne-gbtn:hover { background: var(--color-gray-100); color: var(--color-gray-600); }
+.ne-handle { cursor: grab; }
+.ne-handle:active { cursor: grabbing; }
+.ne-drop {
+  position: absolute;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--gh-green);
+  display: none;
+  pointer-events: none;
+  z-index: 35;
+}
+
+/* No hover on a phone: the handle is always there, faint until its line is
+   being typed on, and every small target reaches 36px with an invisible pad. */
+@media (hover: none) {
+  .ne-gutter { opacity: 0.45; }
+  .ne-row[data-active] > .ne-gutter { opacity: 1; }
+  .ne-plus { display: none; }
+  .ne-add-details { opacity: 0.5; }
+}
+@media (pointer: coarse) {
+  .ne-gutter { padding-right: 0; margin-right: -0.4rem; }
+  .ne-gbtn { width: 2rem; height: 2.25rem; }
+  .ne-gbtn::after, .ne-marker::after, .ne-chip::after, .ne-add-details::after {
+    content: '';
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: max(100%, 2.25rem);
+    height: 2.25rem;
+    transform: translate(-50%, -50%);
+  }
+  .ne-bullet::after, .ne-num::after { content: none; }
+}
+
+.ne-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0 -0.5rem;
+  padding: 0.3rem 0.55rem;
+  min-height: 2.25rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-gray-400);
+}
+.ne-add:hover { background: var(--color-gray-100); color: var(--color-gray-600); }
+.ne-tail { min-height: 2.5rem; cursor: text; }
+.ne-empty-write {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  text-align: left;
+  color: var(--color-gray-400);
+  cursor: text;
+}
+.ne-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  padding: 0.2rem 0.65rem 0.2rem 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-gray-600);
+}
+.ne-start:hover { border-color: var(--gh-green); color: var(--gh-green); }
+.ne-start .ne-tile { width: 1.75rem; height: 1.75rem; }
+
+.ne-divider { padding: 0.6rem 0; }
+.ne-divider hr { border: 0; border-top: 1px solid var(--color-gray-300); }
+.ne-table { min-width: 100%; }
+.ne-table tr + tr td { border-top: 1px solid var(--border); }
+.ne-table td + td { border-left: 1px solid var(--border); }
+.ne-link-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 0.45rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-gray-500);
+}
+.ne-link-btn:hover:not(:disabled) { background: var(--color-gray-100); color: var(--color-gray-700); }
+.ne-link-btn:disabled { opacity: 0.4; }
+.ne-icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 6px;
+  color: var(--color-gray-400);
+}
+.ne-icon-btn:hover { background: var(--color-gray-100); color: var(--color-gray-700); }
+
+/* Menus and bars. */
+.ne-menu {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgb(15 15 15 / 0.14), 0 2px 6px rgb(15 15 15 / 0.08);
+}
+html[data-theme='dark'] .app-theme .ne-menu { box-shadow: 0 14px 36px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.03); }
+.ne-slash { width: min(19rem, calc(100vw - 16px)); }
+.ne-mi {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  text-align: left;
+  color: inherit;
+}
+.ne-mi:hover:not(:disabled), .ne-mi[aria-selected='true'] { background: var(--color-gray-100); }
+.ne-mi:disabled { opacity: 0.4; }
+.ne-tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--color-gray-600);
+}
+.ne-sep { height: 1px; margin: 0.25rem; background: var(--border); }
+.ne-swatch {
+  display: grid;
+  place-items: center;
+  height: 2.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.ne-swatch-on { outline: 2px solid var(--gh-green); outline-offset: 1px; }
+.ne-tb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 6px;
+  color: var(--color-gray-600);
+}
+.ne-tb:hover:not(:disabled) { background: var(--color-gray-100); color: var(--text-primary); }
+.ne-tb[aria-pressed='true'] { color: var(--gh-green); background: var(--color-gray-100); }
+.ne-tb:disabled { opacity: 0.35; }
+.ne-tb-touch { width: 2.5rem; height: 2.5rem; }
+.ne-touchbar {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 -4px 16px rgb(0 0 0 / 0.06);
+}
+
+/* Colours, after Notion's: text, then background. */
+.ne .nc-gray { color: #787774; }
+.ne .nc-brown { color: #9f6b53; }
+.ne .nc-orange { color: #d9730d; }
+.ne .nc-yellow { color: #cb912f; }
+.ne .nc-green { color: #448361; }
+.ne .nc-blue { color: #337ea9; }
+.ne .nc-purple { color: #9065b0; }
+.ne .nc-pink { color: #c14c8a; }
+.ne .nc-red { color: #d44c47; }
+.ne .nt-gray { background: #f1f1ef; }
+.ne .nt-brown { background: #f4eeee; }
+.ne .nt-orange { background: #fbecdd; }
+.ne .nt-yellow { background: #fbf3db; }
+.ne .nt-green { background: #edf3ec; }
+.ne .nt-blue { background: #e7f3f8; }
+.ne .nt-purple { background: #f6f3f9; }
+.ne .nt-pink { background: #faf1f5; }
+.ne .nt-red { background: #fdebec; }
+html[data-theme='dark'] .app-theme .ne .nc-gray { color: #9b9b9b; }
+html[data-theme='dark'] .app-theme .ne .nc-brown { color: #ba856f; }
+html[data-theme='dark'] .app-theme .ne .nc-orange { color: #c77d48; }
+html[data-theme='dark'] .app-theme .ne .nc-yellow { color: #ca9849; }
+html[data-theme='dark'] .app-theme .ne .nc-green { color: #529e72; }
+html[data-theme='dark'] .app-theme .ne .nc-blue { color: #5e87c9; }
+html[data-theme='dark'] .app-theme .ne .nc-purple { color: #9d68d3; }
+html[data-theme='dark'] .app-theme .ne .nc-pink { color: #d15796; }
+html[data-theme='dark'] .app-theme .ne .nc-red { color: #df5452; }
+html[data-theme='dark'] .app-theme .ne .nt-gray { background: #2f2f2f; }
+html[data-theme='dark'] .app-theme .ne .nt-brown { background: #4a3228; }
+html[data-theme='dark'] .app-theme .ne .nt-orange { background: #5c3b23; }
+html[data-theme='dark'] .app-theme .ne .nt-yellow { background: #564328; }
+html[data-theme='dark'] .app-theme .ne .nt-green { background: #243d30; }
+html[data-theme='dark'] .app-theme .ne .nt-blue { background: #143a4e; }
+html[data-theme='dark'] .app-theme .ne .nt-purple { background: #3c2d49; }
+html[data-theme='dark'] .app-theme .ne .nt-pink { background: #4e2c3c; }
+html[data-theme='dark'] .app-theme .ne .nt-red { background: #522e2a; }
