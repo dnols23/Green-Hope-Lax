@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from 'react'
 import { FieldPageView, PicturePageView, WordsPageView } from '@/components/playbook/KindPages'
 import type { SlidePlay } from '@/components/playbook/BlockArt'
 import { blockId, firstOf, type PlaybookPage, type SlideBlock } from '@/lib/playbook'
-import { EMPTY_BOARD, type Board, type BoardHalf, type BoardTurn } from '@/lib/planner'
+import { EMPTY_BOARD, boardItemCount, type Board, type BoardHalf, type BoardTurn } from '@/lib/planner'
 import { savePlayAction } from '@/lib/actions'
 import { driveImageUrl, shrinkImage, uploadImage } from '@/lib/uploadImage'
 
@@ -75,7 +75,7 @@ export function FieldEditor({
   function startFrom(playId: string) {
     const play = playMap[playId]
     if (!play) return
-    const hasDrawing = board.tokens.length + board.paths.length + (board.texts?.length ?? 0) > 0
+    const hasDrawing = boardItemCount(board) > 0
     if (hasDrawing && !window.confirm(`Replace what is on this field with “${play.name}”?`)) return
     setBlocks((bs) => {
       const rest = bs.filter((b) => b.kind !== 'play')

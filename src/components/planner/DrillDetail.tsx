@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import NumberField from '@/components/NumberField'
 import { saveDrillBoard, saveDrillCompetitions, saveDrillDetails } from '@/lib/actions'
-import { EMPTY_BOARD, newId, type Board } from '@/lib/planner'
+import { EMPTY_BOARD, boardIsBlank, newId, type Board } from '@/lib/planner'
 import { FieldBoard } from './FieldBoard'
 import { COMP_FORMATS, formatOf, rollComp, sameComp, type BlockComp, type CompFormat, type SavedComp } from '@/lib/compete'
 import type { Drill } from '@/lib/drills'
@@ -420,7 +420,7 @@ export function DiagramField({
 
   function saveBoard(drawn: Board | null) {
     // A field with nothing on it is no diagram, which is how it is stored.
-    const next = drawn && (drawn.tokens.length || drawn.paths.length || drawn.texts?.length || drawn.view) ? drawn : null
+    const next = drawn && !boardIsBlank(drawn) ? drawn : null
     setBoardError(null)
     startSaving(async () => {
       const res = await save(next)

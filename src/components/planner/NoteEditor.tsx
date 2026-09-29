@@ -11,7 +11,7 @@ import {
   type NoteBlock,
   type NoteBlockKind,
 } from '@/lib/noteBlocks'
-import type { Board } from '@/lib/planner'
+import { boardItemCount, type Board } from '@/lib/planner'
 
 /**
  * A note you build rather than fill in.
@@ -234,8 +234,8 @@ export function NoteEditor({
                   onClick={() => setOpenBoard(b.id)}
                   className="w-full rounded-lg border border-dashed border-gray-300 py-6 text-sm text-gray-500 hover:border-[var(--gh-green)] hover:text-[var(--gh-green)]"
                 >
-                  {b.board.tokens.length > 0
-                    ? `${b.board.tokens.length} on the field — tap to open`
+                  {boardItemCount(b.board) > 0
+                    ? `${boardItemCount(b.board)} on the field — tap to open`
                     : 'Tap to draw the play'}
                 </button>
               )}

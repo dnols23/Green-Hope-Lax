@@ -25,6 +25,11 @@ export async function boardToPng(svg: SVGSVGElement): Promise<Blob> {
   copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   copy.setAttribute('width', String(w))
   copy.setAttribute('height', String(h))
+  // On the page the letters on the discs take the page's typeface; a picture
+  // has no page, and would draw them in Times. The family goes with the copy,
+  // ending in ones every machine has — a web font is not loaded in a picture.
+  const family = getComputedStyle(svg).fontFamily
+  copy.setAttribute('font-family', `${family ? `${family}, ` : ''}system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`)
 
   const markup = new XMLSerializer().serializeToString(copy)
   const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml;charset=utf-8' }))
