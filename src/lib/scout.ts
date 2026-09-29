@@ -199,9 +199,10 @@ export function withoutOldPrompts<B extends { kind: string }>(blocks: B[]): B[] 
     }
     if (o.kind === 'heading' && OLD_PROMPTS.has((o.text ?? '').trim())) return []
     /* The old checklist reads back as one to-do per item now. A prompt nobody
-       ticked goes, as it did — unless something was tucked under it or it was
-       given details since, which would make it something a coach wrote. */
-    if (o.kind === 'todo' && !o.done && !o.details && OLD_PROMPTS.has((o.text ?? '').trim())) {
+       ticked goes, and so does a blank one, as they did — unless something was
+       tucked under it or it was given details, which makes it a coach's. */
+    const words = (o.text ?? '').trim()
+    if (o.kind === 'todo' && !o.done && !o.details && (!words || OLD_PROMPTS.has(words))) {
       const next = blocks[i + 1] as unknown as { indent?: number } | undefined
       if ((next?.indent ?? 0) <= (o.indent ?? 0)) return []
     }
