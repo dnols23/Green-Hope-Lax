@@ -16,7 +16,7 @@ function str(v: unknown): string | null {
   return typeof v === 'string' && v.trim() ? v : null
 }
 
-function readQuote(r: Record<string, unknown>): WallQuote {
+export function readQuote(r: Record<string, unknown>): WallQuote {
   return {
     id: String(r.id),
     line: String(r.line ?? ''),
@@ -28,7 +28,7 @@ function readQuote(r: Record<string, unknown>): WallQuote {
 }
 
 /** The built-ins, for a site that hasn't run the SQL yet. */
-function builtIns(): WallQuote[] {
+export function builtIns(): WallQuote[] {
   return WALL_QUOTES.map((q, i) => ({
     id: `builtin-${i + 1}`,
     line: q.line,
