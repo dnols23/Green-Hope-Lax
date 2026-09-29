@@ -692,6 +692,13 @@ export function PlanEditor({
                 </span>
                 <span className="flex-1 min-w-0 truncate text-sm font-semibold">
                   {b.title || <span className="text-gray-400 font-normal">Untitled block</span>}
+                  {/* The drill picked for this part of practice, beside its name:
+                      "Stick work: Stick protection". */}
+                  {(() => {
+                    const drill = b.drillId ? drills.find((d) => d.id === b.drillId) : null
+                    if (!drill || drill.name.trim().toLowerCase() === b.title.trim().toLowerCase()) return null
+                    return <span className="font-normal text-gray-500">: {drill.name}</span>
+                  })()}
                 </span>
                 {b.link && (
                   <a
@@ -757,6 +764,7 @@ export function PlanEditor({
                         if (!drill) return null
                         return (
                           <DrillDetail
+                            key={drill.id}
                             drill={drill}
                             comp={b.comp}
                             sides={sides}

@@ -17,7 +17,7 @@ import { TEAM_COOKIE, hashTeamPassword, teamCookieToken } from './teamAuth'
 import { PLAYER_COOKIE } from './playerAccess.edge'
 import { encryptTeamCode } from './teamCode'
 import { requireOwner, getViewer, requireTeamScope, requireSection, canTeam } from './permissions'
-import { isSandboxed, isStaffRole, isStaffTeam, mayReview, teamForRole, type StaffRole, type StaffTeam, type Viewer } from './sections'
+import { canSee, isSandboxed, isStaffRole, isStaffTeam, mayReview, teamForRole, type StaffRole, type StaffTeam, type Viewer } from './sections'
 import { readSides } from './compete'
 import { canSeePlan, getPlan, isAuthor } from './plans'
 import { readStaff, writeStaff, deleteStaff } from './staff'
@@ -2298,6 +2298,43 @@ export async function upsertDrill(formData: FormData) {
   if (error) await write(payload)
   revalidatePath('/admin/drills')
   revalidatePath('/admin/planner')
+}
+
+/**
+ * A drill's write-up, filled in from the practice it is being used in: the
+ * setup, how it runs, why we run it and the video. Saved to the drill bank, so
+ * every plan that uses the drill has it.
+ */
+export async function saveDrillDetails(
+  id: string,
+  input: { setup: string; description: string; context: string; link: string; linkLabel: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const viewer = await getViewer()
+  if (!viewer || !canSee(viewer, 'drills')) return { ok: false, error: 'You don’t have the drill bank.' }
+  if (!id || !(await ownsRow(viewer, 'drills', id))) return { ok: false, error: 'That drill isn’t yours to change.' }
+  const clip = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max) || null
+  const link = clip(input.link, 500)
+  if (link && !/^https?:\/\//i.test(link)) return { ok: false, error: 'The video link has to start with http:// or https://' }
+  const svc = createServiceClient()
+  const base = {
+    description: clip(input.description, 4000),
+    link,
+    link_label: clip(input.linkLabel, 80),
+    updated_at: new Date().toISOString(),
+  }
+  let { error } = await svc
+    .from('drills')
+    .update({ ...base, setup: clip(input.setup, 4000), context: clip(input.context, 4000) })
+    .eq('id', id)
+  // Setup and "why" arrive with 0037; save the rest without them.
+  if (error && /setup|context/i.test(error.message)) {
+    ;({ error } = await svc.from('drills').update(base).eq('id', id))
+    if (!error) return { ok: false, error: 'Saved all but the setup and the why — run 0037 in the Supabase SQL editor.' }
+  }
+  if (error) return { ok: false, error: `Couldn’t save: ${error.message}` }
+  revalidatePath('/admin/drills')
+  revalidatePath('/admin/planner', 'layout')
+  return { ok: true }
 }
 
 export async function deleteDrill(id: string) {
