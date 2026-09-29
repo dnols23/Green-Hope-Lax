@@ -5,7 +5,7 @@ import { PLAYER_COOKIE } from './lib/playerAccess.edge'
 import { PARENT_COOKIE } from './lib/parentAccess.edge'
 
 const HUB_CALENDAR_ONLY = [
-  { pages: /^\/team\/(me|playbook|video|calendar)(\/|$)/, home: '/team' },
+  { pages: /^\/team\/(me|playbook|video)(\/|$)/, home: '/team' },
   { pages: /^\/parents\/(s|calendar)(\/|$)/, home: '/parents' },
 ]
 

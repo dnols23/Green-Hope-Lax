@@ -9,6 +9,8 @@ import { TEAM_CATEGORY_META, type TeamPost, type TeamPostCategory } from '@/lib/
 import { formatShortDate } from '@/lib/format'
 import { PasswordField } from '@/components/PasswordField'
 import { requireSection } from '@/lib/permissions'
+import { PlayerWarRoomBuilder } from '@/components/admin/PlayerWarRoomBuilder'
+import { allPriorityLists, quoteShelf, readPlayerWarRoomConfig } from '@/lib/playerWarRoomData'
 
 export const metadata = { title: 'Team Hub' }
 export const dynamic = 'force-dynamic'
@@ -83,7 +85,12 @@ function PostFields({ p }: { p?: TeamPost }) {
 
 export default async function AdminTeamPage() {
   await requireSection('team')
-  const posts = await getTeamPosts(true) // include drafts
+  const [posts, warRoom, shelf, lists] = await Promise.all([
+    getTeamPosts(true), // include drafts
+    readPlayerWarRoomConfig(),
+    quoteShelf(),
+    allPriorityLists(),
+  ])
   const live = posts.filter((p) => p.published).length
 
   // The join code, for the instructions a coach sends families. Null until the
@@ -100,72 +107,88 @@ export default async function AdminTeamPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-black mb-1">Team Hub editor</h1>
+        <h1 className="text-xl font-black mb-1">Players&rsquo; War Room</h1>
         <p className="text-gray-500 text-sm">
-          The board in your locker room. You write it here, the team reads it at{' '}
+          What the Team Hub opens on. You build it here; the players read it at{' '}
           <a href="/team" target="_blank" className="text-[var(--gh-green)] font-semibold">/team ↗</a>.
         </p>
       </div>
 
-      {/* Who can read this — the question a coach should never have to guess at. */}
-      <div className="rounded-xl border border-[var(--gh-green)]/30 bg-[var(--gh-green)]/5 p-4 text-sm">
-        <p className="font-bold text-[var(--gh-green)] mb-1">🔒 Private — not on the public site</p>
-        <p className="text-gray-600">
-          Only people who sign in with the team password, players who followed their own invite
-          link, and signed-in coaches can read these posts. Nothing here ever reaches the public
-          news feed or shows up in a search — that feed is written separately under{' '}
-          <strong>News</strong>.
-        </p>
-      </div>
+      <PlayerWarRoomBuilder
+        initial={warRoom}
+        quotes={shelf.quotes.map((q) => ({ id: q.id, line: q.line, who: q.who }))}
+        playlists={shelf.playlists.map((p) => ({ id: p.id, name: p.name, count: p.quoteIds.length }))}
+        lists={lists.map((l) => ({ id: l.id, name: l.name, team: l.team, open: l.items.length }))}
+      />
 
-      {/* Post */}
-      <section className="card p-5">
-        <h2 className="font-bold text-gray-700 mb-4">New post</h2>
-        <form action={upsertTeamPost} className="space-y-4">
-          <PostFields />
-          <button type="submit" className="btn btn-primary">Post to the team</button>
-        </form>
-      </section>
-
-      {/* The feed as the team sees it */}
-      <section>
-        <h2 className="font-bold text-gray-700 mb-1">
-          The feed <span className="font-normal text-gray-400 text-sm">
-            — {live} live{posts.length - live > 0 && `, ${posts.length - live} draft`}
-          </span>
-        </h2>
-        <p className="text-xs text-gray-400 mb-3">Tap a post to edit it.</p>
-        <div className="space-y-2">
-          {posts.length === 0 && (
-            <p className="card p-5 text-sm text-gray-500">
-              Nothing posted yet. The first thing your team sees when they sign in is whatever you
-              write above.
+      {/* The team feed isn't in the Team Hub right now; it is kept here for when it is. */}
+      <details className="card p-5">
+        <summary className="cursor-pointer font-bold text-gray-700 list-none">
+          📰 Team feed <span className="font-normal text-gray-400 text-sm">— not shown in the Team Hub right now</span>
+        </summary>
+        <div className="mt-4 space-y-6">
+          {/* Who can read this — the question a coach should never have to guess at. */}
+          <div className="rounded-xl border border-[var(--gh-green)]/30 bg-[var(--gh-green)]/5 p-4 text-sm">
+            <p className="font-bold text-[var(--gh-green)] mb-1">🔒 Private — not on the public site</p>
+            <p className="text-gray-600">
+              Only people who sign in with the team password, players who followed their own invite
+              link, and signed-in coaches can read these posts. Nothing here ever reaches the public
+              news feed or shows up in a search — that feed is written separately under{' '}
+              <strong>News</strong>.
             </p>
-          )}
-          {posts.map((p) => (
-            <details key={p.id} className="card p-4">
-              <summary className="flex items-center justify-between cursor-pointer list-none gap-3">
-                <span className="font-semibold">
-                  {p.pinned && '📌 '}
-                  {TEAM_CATEGORY_META[p.category].emoji} {p.title}
-                  <span className="ml-2 text-xs text-gray-400">
-                    {formatShortDate(p.created_at)}
-                  </span>
-                </span>
-                <span className="flex items-center gap-3">
-                  <PublishToggle entity="teampost" id={p.id} live={p.published} />
-                  <DeleteButton id={p.id} action={deleteTeamPost} />
-                </span>
-              </summary>
-              <form action={upsertTeamPost} className="mt-4 space-y-4">
-                <input type="hidden" name="id" value={p.id} />
-                <PostFields p={p} />
-                <button type="submit" className="btn btn-primary">Save changes</button>
-              </form>
-            </details>
-          ))}
+          </div>
+
+          {/* Post */}
+          <section className="card p-5">
+            <h2 className="font-bold text-gray-700 mb-4">New post</h2>
+            <form action={upsertTeamPost} className="space-y-4">
+              <PostFields />
+              <button type="submit" className="btn btn-primary">Post to the team</button>
+            </form>
+          </section>
+
+          {/* The feed as the team sees it */}
+          <section>
+            <h2 className="font-bold text-gray-700 mb-1">
+              The feed <span className="font-normal text-gray-400 text-sm">
+                — {live} live{posts.length - live > 0 && `, ${posts.length - live} draft`}
+              </span>
+            </h2>
+            <p className="text-xs text-gray-400 mb-3">Tap a post to edit it.</p>
+            <div className="space-y-2">
+              {posts.length === 0 && (
+                <p className="card p-5 text-sm text-gray-500">
+                  Nothing posted yet. The first thing your team sees when they sign in is whatever you
+                  write above.
+                </p>
+              )}
+              {posts.map((p) => (
+                <details key={p.id} className="card p-4">
+                  <summary className="flex items-center justify-between cursor-pointer list-none gap-3">
+                    <span className="font-semibold">
+                      {p.pinned && '📌 '}
+                      {TEAM_CATEGORY_META[p.category].emoji} {p.title}
+                      <span className="ml-2 text-xs text-gray-400">
+                        {formatShortDate(p.created_at)}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-3">
+                      <PublishToggle entity="teampost" id={p.id} live={p.published} />
+                      <DeleteButton id={p.id} action={deleteTeamPost} />
+                    </span>
+                  </summary>
+                  <form action={upsertTeamPost} className="mt-4 space-y-4">
+                    <input type="hidden" name="id" value={p.id} />
+                    <PostFields p={p} />
+                    <button type="submit" className="btn btn-primary">Save changes</button>
+                  </form>
+                </details>
+              ))}
+            </div>
+          </section>
+
         </div>
-      </section>
+      </details>
 
       {/* Who gets in — needed a few times a season, so it stays folded away */}
       <details className="card p-5">
