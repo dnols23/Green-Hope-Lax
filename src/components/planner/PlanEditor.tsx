@@ -256,7 +256,9 @@ export function PlanEditor({
       title: !block?.title ? drill.name : block.title,
       minutes: block?.minutes ? block.minutes : drill.minutes,
       tag: categoryFor(drill.category).tag,
-      notes: block?.notes || drill.description || '',
+      // The drill's write-up lives on the drill, under "What this drill is";
+      // only notes of the coach's own stay with the block.
+      notes: ownNotes(block, [drill, drills.find((d) => d.id === block?.drillId)]),
     })
   }
 
@@ -872,13 +874,24 @@ export function PlanEditor({
                     </div>
                   )}
 
-                  <textarea
-                    value={b.notes}
-                    onChange={(e) => patch(b.id, { notes: e.target.value })}
-                    rows={2}
-                    placeholder="Coaching points, groups, what good looks like…"
-                    className="field !py-1.5 text-sm"
-                  />
+                  {/* A block with a drill has "What this drill is" above, so it
+                      needs no second write-up. Only a block without one — or
+                      one that already has its own notes, so they aren't hidden —
+                      gets the box. */}
+                  {(() => {
+                    const drill = b.drillId ? drills.find((d) => d.id === b.drillId) : null
+                    const own = b.notes?.trim() && b.notes.trim() !== (drill?.description ?? '').trim()
+                    if (drill && !own) return null
+                    return (
+                      <textarea
+                        value={b.notes}
+                        onChange={(e) => patch(b.id, { notes: e.target.value })}
+                        rows={2}
+                        placeholder="Coaching points, groups, what good looks like…"
+                        className="field !py-1.5 text-sm"
+                      />
+                    )
+                  })()}
 
                   {/* After practice: what worked, what didn't, what to change
                       next time. Folded away so it doesn't crowd the plan while
@@ -1045,6 +1058,13 @@ export function PlanEditor({
       </div>
     </form>
   )
+}
+
+/** A block's notes, unless they are just a copy of a drill's write-up. */
+function ownNotes(block: PlanBlock | undefined, drills: (Drill | undefined)[]): string {
+  const notes = block?.notes?.trim() ?? ''
+  if (!notes) return ''
+  return drills.some((d) => d && (d.description ?? '').trim() === notes) ? '' : block?.notes ?? ''
 }
 
 /**
