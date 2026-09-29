@@ -29,10 +29,9 @@ import { ClipPlayer } from './ClipPlayer'
 import { LibraryPicker } from './LibraryPicker'
 import { ReviewPriorities } from './ReviewPriorities'
 import { imageFromClipboard, uploadImage } from '@/lib/uploadImage'
-import { NoteEditor } from './NoteEditor'
+import { NoteDocEditor } from '@/components/notes/NoteDocEditor'
 import { AutosaveNote, useAutosave } from './useAutosave'
 import { SlideList } from '@/components/admin/SlideList'
-import { readNoteBlocks, type NoteBlock } from '@/lib/noteBlocks'
 import { GamePlanEditor, type GameOption, type PlayOption } from './GamePlanEditor'
 import { ScoutEditor } from './ScoutEditor'
 
@@ -122,7 +121,6 @@ export function PlanEditor({
   const scored = blocks.filter((b) => b.comp).length
   const totals = tally(blocks.map((b) => b.comp), sides.length)
   const leader = leaderOf(totals)
-  const [content, setContent] = useState<NoteBlock[]>(() => readNoteBlocks(plan.content))
   const [toPlayers, setToPlayers] = useState(plan.publish_players)
   const [toCoaches, setToCoaches] = useState(plan.publish_coaches)
   const [onCalendar, setOnCalendar] = useState(plan.on_calendar)
@@ -306,54 +304,8 @@ export function PlanEditor({
    * sentences into. None of that has anything to do with writing down what to
    * say at an interest meeting, so a note gets a title, a date and a page.
    */
-  if (plan.kind === 'note') {
-    return (
-      <form ref={formRef} onSubmit={submit}>
-        <input type="hidden" name="id" value={plan.id} />
-        <input type="hidden" name="blocks" value="[]" />
-        <input type="hidden" name="content" value={JSON.stringify(content)} />
-        <input type="hidden" name="season" value={plan.season ?? ''} />
-        <input type="hidden" name="roster_id" value="" />
-        <input type="hidden" name="summary" value={summary} />
-
-        <div className="card p-4">
-          <input
-            name="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="field !text-lg !font-black !py-2 mb-4"
-            placeholder="What is this about?"
-            required
-          />
-
-          <NoteEditor blocks={content} onChange={setContent} />
-
-          <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 flex-wrap">
-            <div>
-              <label className="field-label">Date</label>
-              <input
-                type="date"
-                name="plan_date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="field !py-1.5 !w-auto"
-              />
-            </div>
-            <span className="ml-auto">
-              <AutosaveNote state={autosave} />
-            </span>
-            <button type="submit" disabled={saving} className="btn btn-primary !py-1.5 disabled:opacity-60">
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
-          {state.error && <p className="text-sm text-red-700 mt-2">{state.error}</p>}
-          {state.ok && state.message && !saving && (
-            <p className="text-sm text-green-700 mt-2">{state.message}</p>
-          )}
-        </div>
-      </form>
-    )
-  }
+  // Notes have their own page (/admin/notes); the planner is practices, game plans and scouts.
+  if (plan.kind === 'note') return <NoteDocEditor plan={plan} canWrite={canWrite} />
 
   return (
     <form ref={formRef} onSubmit={submit}>

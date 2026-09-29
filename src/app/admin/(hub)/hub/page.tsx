@@ -11,7 +11,6 @@ import { listRosters } from '@/lib/rosters'
 import { DEFAULT_START, formatMinutes, runningClock, tagFor, totalMinutes, clockAt } from '@/lib/planner'
 import { loadWall } from '@/lib/wallData'
 import { WallPanel } from '@/components/wall/WallPanel'
-import { ContinueBuilding } from '@/components/planner/ContinueBuilding'
 import { listPriorities, prioritiesReady } from '@/lib/priorities'
 import { canTeam, isSandboxed } from '@/lib/sections'
 import { formatDate, formatShortDate, formatTime, TEAM_TIME_ZONE } from '@/lib/format'
@@ -673,8 +672,6 @@ export default async function WarRoom({
           </p>
         </div>
       )}
-
-      {hasPlanner && <ContinueBuilding viewer={viewer} limit={3} compact />}
 
       <WarRoomPanels panels={panels} />
 

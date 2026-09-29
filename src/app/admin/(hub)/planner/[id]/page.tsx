@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { requireSection, canTeam, isSandboxed, mayReview } from '@/lib/permissions'
 import { canSeePlan, getPlan, isAuthor } from '@/lib/plans'
 import { listRosters, rosterMembers } from '@/lib/rosters'
@@ -9,7 +9,7 @@ import { listCompetitionTypes } from '@/lib/competitionsData'
 import { adoptPlan, deletePlan, duplicatePlan, sendPlanForReview } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PlanEditor } from '@/components/planner/PlanEditor'
-import { PLAN_KINDS } from '@/lib/planner'
+import { PLAN_KINDS, planPath } from '@/lib/planner'
 import { teamLabel, withTeam } from '@/lib/teams'
 import { listPlays } from '@/lib/plays'
 import { getGames } from '@/lib/queries'
@@ -27,6 +27,8 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   const plan = await getPlan(id)
   // Somebody else's draft isn't there at all, as far as this coach can tell.
   if (!plan || !canSeePlan(viewer, plan)) notFound()
+  // Notes have their own page now; an old link to one goes there.
+  if (plan.kind === 'note') redirect(withTeam(planPath(plan), plan.team))
   /* Anyone may read the other team's plan — seeing what varsity is running is
      half the point of being on the same staff. Changing it is the part that is
      checked, here and again in savePlan. */

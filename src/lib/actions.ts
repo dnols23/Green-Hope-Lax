@@ -23,10 +23,9 @@ import { canSeePlan, getPlan, isAuthor } from './plans'
 import { readStaff, writeStaff, deleteStaff } from './staff'
 import { parseRosterPaste, playersOnNoRoster } from './rosters'
 import { normalizeAudience } from './schedule'
-import { readBlocks, readBoard, readStart, type Plan, type PlanKind } from './planner'
+import { planPath, readBlocks, readBoard, readStart, type Plan, type PlanKind } from './planner'
 import { gamePlanStarter, readGamePlan } from './gamePlan'
 import { readScout, scoutStarter } from './scout'
-import { dropBuilding, noteBuilding } from './building'
 import { readNoteBlocks } from './noteBlocks'
 import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
 import {
@@ -2003,9 +2002,9 @@ export async function createPlan(formData: FormData) {
   /* A new practice goes on the calendar when the coach says it should, from
      the plan. Nothing to do before 0046, where every plan is on it. */
   if (kind === 'practice') await svc.from('plans').update({ on_calendar: false }).eq('id', (data as { id: string }).id)
-  if (viewer) await noteBuilding(viewer.email, (data as { id: string }).id).catch(() => {})
   revalidatePath('/admin/planner')
-  redirect(withTeam(`/admin/planner/${(data as { id: string }).id}`, team))
+  revalidatePath('/admin/notes')
+  redirect(withTeam(planPath({ id: (data as { id: string }).id, kind }), team))
 }
 
 /**
@@ -2145,9 +2144,6 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     }
   }
 
-  // On his "Continue building" list until he calls it done.
-  if (viewer) await noteBuilding(viewer.email, id).catch(() => {})
-
   // Whether a practice shows on the calendar (0046). Only the practice editor sends it.
   if (formData.has('calendar_toggle')) {
     const { error: calError } = await svc
@@ -2161,19 +2157,11 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
 
   revalidatePath('/admin/planner')
   revalidatePath(`/admin/planner/${id}`)
+  revalidatePath(`/admin/notes/${id}`)
   revalidatePath('/admin/hub')
   revalidatePath('/team/me')
   if (warning) return { ok: false, error: warning }
   return { ok: true, message: 'Saved.' }
-}
-
-/** Off his "Continue building" list — the plan is done for now. */
-export async function doneBuilding(formData: FormData) {
-  const viewer = await requireSection('planner')
-  const id = str(formData.get('id'))
-  if (id) await dropBuilding(viewer.email, id)
-  revalidatePath('/admin/planner')
-  revalidatePath('/admin/hub')
 }
 
 export async function deletePlan(id: string) {
@@ -2183,11 +2171,14 @@ export async function deletePlan(id: string) {
   if (!plan) redirect('/admin/planner')
   // Reading the other side's plans is fine; deleting them is not.
   const team = plan.team
-  if (!canTeam(viewer, team) || !mayEditPlan(viewer, plan)) redirect(withTeam('/admin/planner', team))
+  // A note goes back to the notes, anything else to the planner.
+  const home = plan.kind === 'note' ? '/admin/notes' : '/admin/planner'
+  if (!canTeam(viewer, team) || !mayEditPlan(viewer, plan)) redirect(withTeam(home, team))
   await svc.from('plans').delete().eq('id', id)
   revalidatePath('/admin/planner')
+  revalidatePath('/admin/notes')
   revalidatePath('/admin/hub')
-  redirect(withTeam('/admin/planner', team))
+  redirect(withTeam(home, team))
 }
 
 /** Copy a plan, blocks and all — last Tuesday's practice as today's starting point. */
@@ -2250,7 +2241,8 @@ export async function duplicatePlan(formData: FormData) {
   // A copy goes on the calendar when somebody puts it there. Nothing to do before 0046.
   if (copy) await svc.from('plans').update({ on_calendar: false }).eq('id', (copy as { id: string }).id)
   revalidatePath('/admin/planner')
-  if (copy) redirect(withTeam(`/admin/planner/${(copy as { id: string }).id}`, team))
+  revalidatePath('/admin/notes')
+  if (copy) redirect(withTeam(planPath({ id: (copy as { id: string }).id, kind: source.kind }), team))
 }
 
 // ── Which modes a coach sees in the hub ──
