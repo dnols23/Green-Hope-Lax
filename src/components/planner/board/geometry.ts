@@ -187,8 +187,8 @@ function resample(points: Pt[], step: number): { pts: Pt[]; length: number } {
 /**
  * A wave or a zig-zag laid along the line.
  *
- * It eases in over the first half wave and stops a little short of the end,
- * so the arrowhead sits on a straight bit and points where the line is going
+ * It eases in over the first half wave and out again a little short of the
+ * end, so the arrowhead sits on a straight bit and points where the line is going
  * rather than wherever the last wiggle happened to face.
  */
 export function patternD(points: Pt[], curve: boolean, pattern: LinePattern, width: number): string {
@@ -215,7 +215,8 @@ export function patternD(points: Pt[], curve: boolean, pattern: LinePattern, wid
     const dx = next.x - prev.x
     const dy = next.y - prev.y
     const len = Math.hypot(dx, dy) || 1
-    const ease = Math.min(1, s / (wave / 2))
+    // In over the first half wave, and out over the last before the tail.
+    const ease = Math.max(0, Math.min(1, s / (wave / 2), (length - tail - s) / (wave / 2)))
     // Quarter waves for a zig-zag: 0, +1, 0, −1 — its corners.
     const phase = pattern === 'wavy' ? Math.sin((2 * Math.PI * i) / per) : [0, 1, 0, -1][i % 4]
     const off = phase * amp * ease

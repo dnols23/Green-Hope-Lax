@@ -763,7 +763,15 @@ export function FieldBoard({
     wrapRef.current?.focus({ preventScroll: true })
     capture(e)
     setMenu(null)
+    // A press that starts afresh ends whatever the last one left behind — a
+    // lift the board never heard about must not leave it stuck mid-drag.
+    setMarquee(null)
+    setDraft(null)
+    setGuides([])
   }
+
+  /** A press while something is under way: a second finger belongs to that; a fresh press replaces it. */
+  const busyWith = (e: React.PointerEvent) => !!gesture && !e.isPrimary
 
   const handlers: ItemHandlers | undefined = readOnly
     ? undefined
@@ -771,7 +779,7 @@ export function FieldBoard({
         onDown: (e, item) => {
           // Only the Select arrow picks things up; with a drawing tool, the press
           // goes on to the field underneath and draws there.
-          if (tool.t !== 'select' || e.button === 2 || gesture) return
+          if (tool.t !== 'select' || e.button === 2 || busyWith(e)) return
           e.stopPropagation()
           begin(e)
           const id = item.it.id
@@ -870,7 +878,7 @@ export function FieldBoard({
       if (zoomable) doubleTap(e)
       return
     }
-    if (e.button === 2 || gesture) return
+    if (e.button === 2 || busyWith(e)) return
     begin(e)
     const at = toField(e)
     const touch = e.pointerType !== 'mouse'

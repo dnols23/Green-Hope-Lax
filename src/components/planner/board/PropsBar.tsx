@@ -241,7 +241,14 @@ export function PropsBar({ ed }: { ed: Editor }) {
               <span className="text-sm font-black px-0.5">Aa</span>
             </BarButton>
           )}
-          {showToken && <BarButton icon="players" label="Player" active={which === 'token'} onClick={toggle('token')} />}
+          {showToken && (
+            <BarButton
+              icon={tokens.some((t) => isPlayerKind(t.kind)) ? 'players' : 'zoomIn'}
+              label={tokens.some((t) => isPlayerKind(t.kind)) ? 'Player: letters, side, look, size' : 'Size'}
+              active={which === 'token'}
+              onClick={toggle('token')}
+            />
+          )}
           {sel && (
             <>
               <BarButton icon="layers" label="Arrange" active={which === 'arrange'} onClick={toggle('arrange')} />
