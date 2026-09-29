@@ -282,7 +282,10 @@ export function PageEditor({
                     </div>
                   )}
 
+                  {/* Keyed by the block, so undo on one block's field never
+                      hands it the board from the block picked before. */}
                   <FieldBoard
+                    key={active.id}
                     board={active.board}
                     onChange={(next: Board) => patch(active.id, { board: next })}
                   />
