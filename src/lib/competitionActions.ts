@@ -4,10 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { requireSection } from './permissions'
 import { isSandboxed } from './sections'
 import { createServiceClient } from './supabase-server'
-import { COMP_FORMATS, isCompKey } from './compete'
+import { COMP_FORMATS, isCompKey, readConsequences, type Consequence } from './compete'
 import { DRILL_CATEGORIES } from './drills'
 import { readBoard } from './planner'
-import { listCompetitionTypes } from './competitionsData'
+import { CONSEQUENCES_KEY, listCompetitionTypes } from './competitionsData'
 
 const NEEDS_0050 = 'Competitions in the drill bank need supabase/migrations/0050_competition_types.sql run in the Supabase SQL editor.'
 const text = (v: FormDataEntryValue | null, max: number) => String(v ?? '').trim().slice(0, max) || null
@@ -83,4 +83,58 @@ export async function saveCompetitionBoard(key: string, raw: unknown): Promise<{
   if (error) return { ok: false, error: `Couldn’t save: ${error.message}` }
   refresh()
   return { ok: true }
+}
+
+// ── Consequences ─────────────────────────────────────────────────────────────
+
+async function ownConsequences(): Promise<Consequence[]> {
+  const { data } = await createServiceClient().from('app_settings').select('value').eq('key', CONSEQUENCES_KEY).maybeSingle()
+  return readConsequences((data as { value?: unknown } | null)?.value)
+}
+
+async function writeConsequences(list: Consequence[]) {
+  const { error } = await createServiceClient()
+    .from('app_settings')
+    .upsert({ key: CONSEQUENCES_KEY, value: JSON.stringify(readConsequences(list)) }, { onConflict: 'key' })
+  return error
+}
+
+/** A new consequence, from the competition card: added and handed back to use at once. */
+export async function addConsequence(
+  label: string,
+  summary: string,
+): Promise<{ ok: true; item: Consequence } | { ok: false; error: string }> {
+  const viewer = await requireSection('drills')
+  if (isSandboxed(viewer)) return { ok: false, error: 'The consequences list is the staff’s to change.' }
+  const name = String(label ?? '').trim().slice(0, 60)
+  if (!name) return { ok: false, error: 'Give it a name.' }
+  const item: Consequence = { key: keyFor(name), label: name, summary: String(summary ?? '').trim().slice(0, 200) }
+  const error = await writeConsequences([...(await ownConsequences()), item])
+  if (error) return { ok: false, error: `Couldn’t save: ${error.message}` }
+  refresh()
+  return { ok: true, item }
+}
+
+/** Add or change one of the staff's own, from the drill bank. */
+export async function saveConsequence(formData: FormData): Promise<void> {
+  const viewer = await requireSection('drills')
+  if (isSandboxed(viewer)) return
+  const label = text(formData.get('label'), 60)
+  if (!label) return
+  const summary = text(formData.get('summary'), 200) ?? ''
+  const given = String(formData.get('key') ?? '')
+  const list = await ownConsequences()
+  const next = list.some((c) => c.key === given)
+    ? list.map((c) => (c.key === given ? { ...c, label, summary } : c))
+    : [...list, { key: keyFor(label), label, summary }]
+  await writeConsequences(next)
+  refresh()
+}
+
+export async function removeConsequence(formData: FormData): Promise<void> {
+  const viewer = await requireSection('drills')
+  if (isSandboxed(viewer)) return
+  const key = String(formData.get('key') ?? '')
+  await writeConsequences((await ownConsequences()).filter((c) => c.key !== key))
+  refresh()
 }

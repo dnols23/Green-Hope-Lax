@@ -8,9 +8,9 @@ import { DrillImport } from './DrillImport'
 import { DrillSearch } from './DrillSearch'
 import { DrillDiagram } from '@/components/planner/DrillDetail'
 import { CompetitionDiagram } from './CompetitionDiagram'
-import { listCompetitionTypes } from '@/lib/competitionsData'
-import { removeCompetitionType, saveCompetitionType } from '@/lib/competitionActions'
-import type { CompFormat } from '@/lib/compete'
+import { listCompetitionTypes, listConsequences } from '@/lib/competitionsData'
+import { removeCompetitionType, removeConsequence, saveCompetitionType, saveConsequence } from '@/lib/competitionActions'
+import type { CompFormat, Consequence } from '@/lib/compete'
 
 export const metadata = { title: 'Drill Bank' }
 export const dynamic = 'force-dynamic'
@@ -33,7 +33,7 @@ export default async function DrillBankPage() {
     )
   }
 
-  const [drills, comps] = await Promise.all([listDrills(), listCompetitionTypes()])
+  const [drills, comps, consequences] = await Promise.all([listDrills(), listCompetitionTypes(), listConsequences()])
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -237,6 +237,7 @@ export default async function DrillBankPage() {
             )
           })}
           <CompetitionsGroup comps={comps.list} ready={comps.ready} drills={drills} />
+          <ConsequencesGroup list={consequences} />
         </div>
       )}
     </div>
@@ -382,6 +383,68 @@ function CompetitionForm({ comp }: { comp?: CompFormat }) {
         </div>
       </details>
       <button type="submit" className="btn btn-primary !py-1.5 text-sm">{comp ? 'Save' : 'Add it'}</button>
+    </form>
+  )
+}
+
+/**
+ * What the losing side does. The ones the site ships with stay as they are;
+ * the staff's own can be changed or taken off, and new ones added.
+ */
+function ConsequencesGroup({ list }: { list: Consequence[] }) {
+  return (
+    <details className="card p-4" data-drill-group>
+      <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
+        <span className="caret text-sm">▸</span> 🧹 Consequences
+        <span className="font-normal text-xs text-gray-400">{list.length}</span>
+      </summary>
+      <p className="mt-2 text-xs text-gray-500">What the losing side does. Never running, never anything a parent emails about.</p>
+      <div className="mt-2 pt-2 border-t border-gray-100 divide-y divide-gray-100">
+        {list.map((c) => (
+          <details key={c.key} className="py-2" data-drill={[c.label, c.summary, 'consequence'].join(' ').toLowerCase()}>
+            <summary className="cursor-pointer list-none flex items-center gap-2 flex-wrap">
+              <span className="caret text-xs text-gray-300">▸</span>
+              <span className="font-semibold text-sm">{c.label}</span>
+              {!c.builtIn && <span className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">Ours</span>}
+              <span className="basis-full pl-5 text-xs text-gray-500">{c.summary}</span>
+            </summary>
+            {!c.builtIn && (
+              <div className="pl-6 pt-2 space-y-2">
+                <ConsequenceForm item={c} />
+                <form action={removeConsequence}>
+                  <input type="hidden" name="key" value={c.key} />
+                  <button type="submit" className="text-xs font-bold text-gray-400 hover:text-red-700">Delete this consequence</button>
+                </form>
+              </div>
+            )}
+          </details>
+        ))}
+      </div>
+      <details className="mt-3 pt-3 border-t border-gray-100">
+        <summary className="cursor-pointer list-none text-sm font-bold text-[var(--gh-green)]">+ Add a consequence</summary>
+        <div className="pt-2">
+          <ConsequenceForm />
+        </div>
+      </details>
+    </details>
+  )
+}
+
+function ConsequenceForm({ item }: { item?: Consequence }) {
+  return (
+    <form action={saveConsequence} className="grid sm:grid-cols-3 gap-2 items-end">
+      {item && <input type="hidden" name="key" value={item.key} />}
+      <div>
+        <label className="field-label">Name</label>
+        <input name="label" required maxLength={60} defaultValue={item?.label ?? ''} placeholder="Pinnie pickup" className="field !py-1.5" />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="field-label">What the losers do, in a sentence</label>
+        <input name="summary" maxLength={200} defaultValue={item?.summary ?? ''} placeholder="Losers collect and bag every pinnie." className="field !py-1.5" />
+      </div>
+      <div>
+        <button type="submit" className="btn btn-primary !py-1.5 text-sm">{item ? 'Save' : 'Add it'}</button>
+      </div>
     </form>
   )
 }

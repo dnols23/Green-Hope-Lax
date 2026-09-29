@@ -5,7 +5,7 @@ import { canSeePlan, getPlan, isAuthor } from '@/lib/plans'
 import { listRosters, rosterMembers } from '@/lib/rosters'
 import { listStaff } from '@/lib/staff'
 import { listDrills } from '@/lib/drillsData'
-import { listCompetitionTypes } from '@/lib/competitionsData'
+import { listCompetitionTypes, listConsequences } from '@/lib/competitionsData'
 import { adoptPlan, deletePlan, duplicatePlan, sendPlanForReview } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PlanEditor } from '@/components/planner/PlanEditor'
@@ -39,7 +39,13 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
     canTeam(viewer, plan.team) &&
     (sandboxed ? plan.private && mine : !plan.private || mine || reviewer)
 
-  const [live, staff, drills, comps] = await Promise.all([listRosters(), listStaff(), listDrills(), listCompetitionTypes()])
+  const [live, staff, drills, comps, consequences] = await Promise.all([
+    listRosters(),
+    listStaff(),
+    listDrills(),
+    listCompetitionTypes(),
+    listConsequences(),
+  ])
   /* A plan written last season still points at last season's roster. Offering
      only the live ones would show this plan's own roster as blank and quietly
      change it on the next save — so a plan keeps its own, archived or not. */
@@ -161,6 +167,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
         coaches={staff.map((c) => c.name).sort((a, b) => a.localeCompare(b))}
         drills={drills}
         competitions={comps.list}
+        consequences={consequences}
         plays={plays}
         games={games}
         canWrite={canWrite}

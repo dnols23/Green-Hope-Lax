@@ -120,6 +120,8 @@ export interface BlockComp {
   own?: string
   /** One number per side, in the plan's own order. */
   scores: number[]
+  /** What the losing side does: a key from the consequences list. */
+  penalty?: string
 }
 
 export function readComp(raw: unknown, sideCount: number): BlockComp | null {
@@ -133,7 +135,8 @@ export function readComp(raw: unknown, sideCount: number): BlockComp | null {
     const n = Number(raws[i])
     return Number.isFinite(n) ? Math.round(n) : 0
   })
-  return { key, own, scores }
+  const penalty = isCompKey(o.penalty) ? o.penalty : undefined
+  return { key, own, scores, ...(penalty ? { penalty } : {}) }
 }
 
 /** A competition kept on a drill because it worked, to run again. */
@@ -142,6 +145,8 @@ export interface SavedComp {
   /** A key from COMP_FORMATS, or '' for one the coach wrote himself. */
   key: string
   own?: string
+  /** The consequence that went with it, if any. */
+  penalty?: string
   savedAt: string
 }
 
@@ -161,6 +166,7 @@ export function readSavedComps(raw: unknown): SavedComp[] {
       id: typeof o.id === 'string' && o.id ? o.id.slice(0, 40) : `c${i}`,
       key,
       ...(own ? { own } : {}),
+      ...(isCompKey(o.penalty) ? { penalty: o.penalty } : {}),
       savedAt: typeof o.savedAt === 'string' ? o.savedAt.slice(0, 40) : '',
     })
     if (out.length >= MAX_SAVED_COMPS) break
@@ -196,4 +202,68 @@ export function leaderOf(totals: number[]): number | null {
   if (best <= 0) return null
   const winners = totals.filter((n) => n === best)
   return winners.length === 1 ? totals.indexOf(best) : null
+}
+
+// ── What the losing side does ────────────────────────────────────────────────
+//
+// Something nobody wants to be doing, that nobody goes home upset about: no
+// running, no push-ups, nothing a parent writes an email about. Mostly jobs the
+// team needs done anyway, and a bit of being a good sport in front of everyone.
+
+export interface Consequence {
+  key: string
+  label: string
+  /** One line: what the losers do. */
+  summary: string
+  /** Shipped with the site, or one of the staff's own. */
+  builtIn?: boolean
+}
+
+export const CONSEQUENCES: Consequence[] = [
+  { key: 'ball-duty', label: 'Ball duty', summary: 'Losers pick up every ball on the field after practice.' },
+  { key: 'cone-crew', label: 'Cone crew', summary: 'Losers pick up and stack every cone at the end of practice.' },
+  { key: 'goal-movers', label: 'Goal movers', summary: 'Losers move the cages for the next drill.' },
+  { key: 'gear-haul', label: 'Gear haul', summary: 'Losers carry the ball buckets and bags off the field.' },
+  { key: 'water-crew', label: 'Water crew', summary: 'Losers fill and bring out the water for the next break.' },
+  { key: 'back-of-line', label: 'Back of the line', summary: 'Losers go to the back of the line for the next drill.' },
+  { key: 'tunnel', label: 'Winners’ tunnel', summary: 'Losers make a tunnel and cheer the winners through it.' },
+  { key: 'hype-crew', label: 'Hype crew', summary: 'Losers are the sideline hype crew for the next drill.' },
+  { key: 'compliments', label: 'Compliment round', summary: 'Each loser tells a winner one specific thing they did well.' },
+  { key: 'scouting-report', label: 'Scouting report', summary: 'Losers explain one thing the winners did better.' },
+  { key: 'fight-song', label: 'Fight song', summary: 'Losers sing the school fight song together, loud.' },
+  { key: 'break-it-down', label: 'Break it down', summary: 'A loser leads the team breakdown at the end of practice.' },
+]
+
+export const MAX_CONSEQUENCES = 40
+
+/** The staff's own consequences, as stored: cleaned, capped, no copies of a built-in. */
+export function readConsequences(raw: unknown): Consequence[] {
+  let list: unknown = raw
+  if (typeof raw === 'string') {
+    try {
+      list = JSON.parse(raw)
+    } catch {
+      list = []
+    }
+  }
+  const out: Consequence[] = []
+  for (const r of Array.isArray(list) ? list : []) {
+    if (!r || typeof r !== 'object') continue
+    const o = r as Record<string, unknown>
+    const label = typeof o.label === 'string' ? o.label.trim().slice(0, 60) : ''
+    if (!isCompKey(o.key) || !label || CONSEQUENCES.some((c) => c.key === o.key) || out.some((c) => c.key === o.key)) continue
+    out.push({ key: o.key, label, summary: typeof o.summary === 'string' ? o.summary.trim().slice(0, 200) : '' })
+    if (out.length >= MAX_CONSEQUENCES) break
+  }
+  return out
+}
+
+export function consequenceOf(key: string | null | undefined, list: Consequence[] = CONSEQUENCES): Consequence | null {
+  return list.find((c) => c.key === key) ?? null
+}
+
+/** One to start with — the same one for the same block, like the competition. */
+export function rollConsequence(seed: string, nonce = 0, list: Consequence[] = CONSEQUENCES): Consequence {
+  const pool = list.length ? list : CONSEQUENCES
+  return pool[hash(`${seed}:penalty:${nonce}`) % pool.length]
 }

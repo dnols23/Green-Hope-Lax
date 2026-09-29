@@ -1,5 +1,5 @@
 import { createServiceClient } from './supabase-server'
-import { COMP_FORMATS, type CompFormat } from './compete'
+import { COMP_FORMATS, CONSEQUENCES, readConsequences, type CompFormat, type Consequence } from './compete'
 import { readBoard } from './planner'
 
 /**
@@ -38,4 +38,13 @@ export async function listCompetitionTypes(): Promise<{ ready: boolean; list: Co
   })
   const own = rows.filter((r) => !builtIns.some((b) => b.key === r.key)).map((r) => fromRow(r))
   return { ready: true, list: [...merged, ...own] }
+}
+
+export const CONSEQUENCES_KEY = 'comp_consequences'
+
+/** What the losers do: the ones the site ships with, then the staff's own. No SQL — app_settings. */
+export async function listConsequences(): Promise<Consequence[]> {
+  const { data } = await createServiceClient().from('app_settings').select('value').eq('key', CONSEQUENCES_KEY).maybeSingle()
+  const own = readConsequences((data as { value?: unknown } | null)?.value)
+  return [...CONSEQUENCES.map((c) => ({ ...c, builtIn: true })), ...own]
 }
