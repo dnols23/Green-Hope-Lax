@@ -1,5 +1,6 @@
 import type { Board } from './planner'
 import type { SavedComp } from './compete'
+import { boardItemCount } from './board'
 
 // The drill bank.
 //
@@ -137,4 +138,35 @@ export function parseDrillPaste(raw: string, fallbackCategory = 'stickwork'): Pa
     out.push({ name, category, minutes, link })
   }
   return out
+}
+
+// ── How the bank is laid out ────────────────────────────────────────────────
+
+/** The staff's order for the bank's groups, kept in app_settings. No SQL. */
+export const DRILL_ORDER_KEY = 'drill_category_order'
+
+/** "Recent": the drills the latest plans used. It moves with the categories. */
+export const RECENT_GROUP: DrillCategory = { key: 'recent', label: 'Recent', tag: 'individual', icon: '🕘' }
+
+/** Every group in the staff's order: the saved ones first, anything new after. */
+export function orderGroups(saved: unknown): DrillCategory[] {
+  const all = [RECENT_GROUP, ...DRILL_CATEGORIES]
+  const keys = Array.isArray(saved) ? saved.filter((k): k is string => typeof k === 'string') : []
+  const picked = [...new Set(keys)].map((k) => all.find((c) => c.key === k)).filter((c): c is DrillCategory => !!c)
+  return [...picked, ...all.filter((c) => !picked.includes(c))]
+}
+
+/** Written up: a video, a diagram, or any of setup / how it runs / why. */
+export function drillHasDetails(d: Pick<Drill, 'link' | 'description' | 'setup' | 'context' | 'board'>): boolean {
+  return !!(d.link?.trim() || d.description?.trim() || d.setup?.trim() || d.context?.trim() || (d.board && boardItemCount(d.board) > 0))
+}
+
+/** Written-up drills first, then favourites, then by name. */
+export function sortDrills<T extends Drill>(list: T[]): T[] {
+  return [...list].sort(
+    (a, b) =>
+      Number(drillHasDetails(b)) - Number(drillHasDetails(a)) ||
+      Number(b.is_favorite) - Number(a.is_favorite) ||
+      a.name.localeCompare(b.name),
+  )
 }
