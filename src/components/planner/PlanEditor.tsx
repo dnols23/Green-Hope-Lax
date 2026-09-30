@@ -129,9 +129,24 @@ export function PlanEditor({
   const [onCalendar, setOnCalendar] = useState(plan.on_calendar)
   /* Putting a practice on the calendar (or taking it off) saves the plan there
      and then, so the button does what it says. */
+  /* Asked for the calendar before the plan had a day: the date picker opens,
+     and picking one finishes the job. */
+  const [calWaiting, setCalWaiting] = useState(false)
+  const dateRef = useRef<HTMLInputElement>(null)
   function toggleCalendar(e: React.MouseEvent<HTMLButtonElement>) {
     const form = e.currentTarget.form
     if (!form || !canWrite) return
+    if (!onCalendar && !date) {
+      setCalWaiting(true)
+      const el = dateRef.current
+      el?.focus()
+      try {
+        el?.showPicker()
+      } catch {
+        // Not every browser opens it on request; the focus and the note do.
+      }
+      return
+    }
     const next = !onCalendar
     setOnCalendar(next)
     const data = new FormData(form)
@@ -340,7 +355,24 @@ export function PlanEditor({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div>
             <label className="field-label">Date</label>
-            <input type="date" name="plan_date" value={date} onChange={(e) => setDate(e.target.value)} className="field !py-1.5" />
+            <input
+              ref={dateRef}
+              type="date"
+              name="plan_date"
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value)
+                const form = e.currentTarget.form
+                if (!calWaiting || !e.target.value || !form || !canWrite) return
+                setCalWaiting(false)
+                setOnCalendar(true)
+                const data = new FormData(form)
+                data.set('plan_date', e.target.value)
+                data.set('on_calendar', 'true')
+                startSave(() => save(data))
+              }}
+              className={`field !py-1.5 ${calWaiting && !date ? '!border-[var(--gh-green)] ring-2 ring-[var(--gh-green)]/30' : ''}`}
+            />
           </div>
           <div>
             <label className="field-label">Starts</label>
@@ -599,9 +631,8 @@ export function PlanEditor({
                 <button
                   type="button"
                   onClick={toggleCalendar}
-                  disabled={saving || !canWrite || (!onCalendar && !date)}
+                  disabled={saving || !canWrite}
                   aria-pressed={onCalendar}
-                  title={!onCalendar && !date ? 'Give it a date first.' : undefined}
                   className={`sm:ml-auto min-h-9 px-3 rounded-full border text-sm font-bold inline-flex items-center gap-1.5 disabled:opacity-50 ${
                     onCalendar ? 'bg-[var(--gh-green)] border-[var(--gh-green)] text-white' : 'border-gray-300 text-gray-700 bg-white'
                   }`}
@@ -612,6 +643,7 @@ export function PlanEditor({
             )}
           </div>
         )}
+        {calWaiting && !date && <p className="text-sm font-semibold text-[var(--gh-green)] mt-2">Pick a date — it goes on the calendar.</p>}
         {state.error && <p className="text-sm text-red-700 mt-2">{state.error}</p>}
         {state.ok && state.message && !saving && <p className="text-sm text-green-700 mt-2">{state.message}</p>}
       </div>
