@@ -65,7 +65,7 @@ export default async function DrillBankPage() {
             </select>
           </div>
           <div className="sm:col-span-6">
-            <PlacePicker chosen={['team']} />
+            <PlacePicker chosen={[]} />
           </div>
           <div className="sm:col-span-6">
             <label className="field-label">Video link</label>

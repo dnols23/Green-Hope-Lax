@@ -2269,8 +2269,8 @@ export async function upsertDrill(formData: FormData) {
   const id = str(formData.get('id'))
   // Anyone may add a drill; a sandboxed coach only changes his own.
   if (id && !(await ownsRow(viewer, 'drills', id))) return
-  const ticked = [...new Set([...formData.getAll('settings'), formData.get('setting')].map(String).filter(isDrillSetting))]
-  const places: DrillSetting[] = ticked.length ? ticked : ['team']
+  // None ticked is fine: the coaches mark where a drill can be done as they go.
+  const places: DrillSetting[] = [...new Set([...formData.getAll('settings'), formData.get('setting')].map(String).filter(isDrillSetting))]
   const payload = {
     name: str(formData.get('name')),
     category: str(formData.get('category')) || 'stickwork',
