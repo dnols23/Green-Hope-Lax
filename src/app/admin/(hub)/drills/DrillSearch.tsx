@@ -20,6 +20,11 @@ export function DrillSearch({ listId }: { listId: string }) {
     const words = next.toLowerCase().split(/\s+/).filter(Boolean)
     let count = 0
     root.querySelectorAll<HTMLElement>('[data-drill-group]').forEach((group) => {
+      // Recent repeats drills from the categories: out of the way while searching.
+      if (group.dataset.drillRecent !== undefined) {
+        group.hidden = words.length > 0
+        return
+      }
       let inGroup = 0
       group.querySelectorAll<HTMLElement>('[data-drill]').forEach((row) => {
         const hit = words.every((w) => (row.dataset.drill ?? '').includes(w))

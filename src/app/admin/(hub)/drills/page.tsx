@@ -1,11 +1,13 @@
 import { requireSection } from '@/lib/permissions'
-import { drillsReady, listDrills } from '@/lib/drillsData'
+import { isSandboxed } from '@/lib/sections'
+import { drillsReady, listDrillGroups, listDrills, recentDrillIds } from '@/lib/drillsData'
 import { upsertDrill, deleteDrill, toggleDrillFavorite } from '@/lib/actions'
-import { DRILL_CATEGORIES, DRILL_SETTINGS, SETTING_LABELS, isHomework, type DrillSetting } from '@/lib/drills'
+import { DRILL_CATEGORIES, DRILL_SETTINGS, SETTING_LABELS, categoryFor, isHomework, type Drill, type DrillSetting } from '@/lib/drills'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
 import { DrillSearch } from './DrillSearch'
+import { GroupOrder } from './GroupOrder'
 import { DrillDiagram } from '@/components/planner/DrillDetail'
 import { CompetitionDiagram } from './CompetitionDiagram'
 import { listCompetitionTypes, listConsequences } from '@/lib/competitionsData'
@@ -16,7 +18,7 @@ export const metadata = { title: 'Drill Bank' }
 export const dynamic = 'force-dynamic'
 
 export default async function DrillBankPage() {
-  await requireSection('drills')
+  const viewer = await requireSection('drills')
 
   if (!(await drillsReady())) {
     return (
@@ -33,7 +35,17 @@ export default async function DrillBankPage() {
     )
   }
 
-  const [drills, comps, consequences] = await Promise.all([listDrills(), listCompetitionTypes(), listConsequences()])
+  const [drills, comps, consequences, groups, recent] = await Promise.all([
+    listDrills(),
+    listCompetitionTypes(),
+    listConsequences(),
+    listDrillGroups(),
+    recentDrillIds(),
+  ])
+  const inGroup = (key: string) =>
+    key === 'recent'
+      ? recent.map((id) => drills.find((d) => d.id === id)).filter((d): d is Drill => !!d)
+      : drills.filter((d) => d.category === key)
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -46,6 +58,9 @@ export default async function DrillBankPage() {
       </div>
 
       {drills.length > 0 && <DrillSearch listId="drill-list" />}
+      {drills.length > 0 && !isSandboxed(viewer) && (
+        <GroupOrder groups={groups.map((g) => ({ id: g.key, label: g.label, icon: g.icon }))} />
+      )}
 
       <details className="card p-4">
         <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
@@ -110,108 +125,25 @@ export default async function DrillBankPage() {
         </div>
       ) : (
         <div id="drill-list" className="space-y-4">
-          {DRILL_CATEGORIES.map((cat) => {
-            const group = drills.filter((d) => d.category === cat.key)
+          {groups.map((cat) => {
+            const group = inGroup(cat.key)
             if (group.length === 0) return null
+            const recentGroup = cat.key === 'recent'
             return (
-              <details key={cat.key} open className="card p-4" data-drill-group>
+              <details
+                key={cat.key}
+                open={!recentGroup}
+                className="card p-4"
+                data-drill-group
+                {...(recentGroup ? { 'data-drill-recent': '' } : {})}
+              >
                 <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
                   <span className="caret text-sm">▸</span> {cat.icon} {cat.label}
                   <span className="font-normal text-xs text-gray-400">{group.length}</span>
                 </summary>
                 <div className="mt-3 pt-3 border-t border-gray-100 divide-y divide-gray-100">
                   {group.map((d) => (
-                    <details
-                      key={d.id}
-                      className="py-2"
-                      data-drill={[d.name, cat.label, ...d.settings.map((x) => SETTING_LABELS[x]), d.description, d.setup, d.context, d.equipment]
-                        .filter(Boolean)
-                        .join(' ')
-                        .toLowerCase()}
-                    >
-                      <summary className="cursor-pointer list-none flex items-center gap-2">
-                        <span className="caret text-xs text-gray-300">▸</span>
-                        <span className="font-semibold text-sm">{d.name}</span>
-                        {d.is_favorite && <span title="Favourite">⭐</span>}
-                        {d.settings.map((place) => (
-                          <span
-                            key={place}
-                            className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
-                            style={{
-                              background: isHomework(place) ? '#DFEFE7' : 'var(--color-gray-100, #f3f4f6)',
-                              color: isHomework(place) ? '#00512F' : 'var(--color-gray-500, #6b7280)',
-                            }}
-                            title={isHomework(place) ? 'Can be sent home to a player' : 'Practice or film only'}
-                          >
-                            {SETTING_LABELS[place]}
-                          </span>
-                        ))}
-                        {d.link && <DrillLink href={d.link} label={d.link_label || 'Open link'} />}
-                      </summary>
-                      <div className="pl-6 pt-2 space-y-2">
-                        {d.description && <p className="text-sm text-gray-600 whitespace-pre-line">{d.description}</p>}
-                        {d.equipment && <p className="text-xs text-gray-500">Needs: {d.equipment}</p>}
-                        <DrillDiagram drill={d} />
-                        <form action={upsertDrill} className="grid sm:grid-cols-6 gap-2 items-end">
-                          <input type="hidden" name="id" value={d.id} />
-                          <input type="hidden" name="is_favorite" value={String(d.is_favorite)} />
-                          <div className="sm:col-span-2">
-                            <label className="field-label">Name</label>
-                            <input name="name" defaultValue={d.name} className="field !py-1.5" />
-                          </div>
-                          <div className="sm:col-span-2">
-                            <label className="field-label">Category</label>
-                            <select name="category" defaultValue={d.category} className="field !py-1.5">
-                              {DRILL_CATEGORIES.map((c) => (
-                                <option key={c.key} value={c.key}>{c.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="sm:col-span-6">
-                            <PlacePicker chosen={d.settings} />
-                          </div>
-                          <div className="sm:col-span-6">
-                            <label className="field-label">Video link</label>
-                            <input name="link" defaultValue={d.link ?? ''} className="field !py-1.5" />
-                          </div>
-                          <div className="sm:col-span-6">
-                            <label className="field-label">Link name (optional)</label>
-                            <input name="link_label" maxLength={80} defaultValue={d.link_label ?? ''} placeholder="Watch it" className="field !py-1.5" />
-                          </div>
-                          <div className="sm:col-span-6">
-                            <label className="field-label">Setup</label>
-                            <textarea name="setup" rows={2} defaultValue={d.setup ?? ''} className="field !py-1.5"
-                              placeholder="Cones, lines, balls, where the goalie stands" />
-                          </div>
-                          <div className="sm:col-span-6">
-                            <label className="field-label">How it runs</label>
-                            <textarea name="description" rows={2} defaultValue={d.description ?? ''} className="field !py-1.5" />
-                          </div>
-                          <div className="sm:col-span-6">
-                            <label className="field-label">Why we run it</label>
-                            <textarea name="context" rows={2} defaultValue={d.context ?? ''} className="field !py-1.5"
-                              placeholder="What it teaches, and what good looks like" />
-                          </div>
-                          <div className="sm:col-span-4">
-                            <label className="field-label">Equipment</label>
-                            <input name="equipment" defaultValue={d.equipment ?? ''} className="field !py-1.5" />
-                          </div>
-                          <div className="sm:col-span-6 flex items-center gap-3">
-                            <button type="submit" className="btn btn-primary !py-1.5 text-sm">Save</button>
-                          </div>
-                        </form>
-                        <div className="flex items-center gap-3">
-                          <form action={toggleDrillFavorite}>
-                            <input type="hidden" name="id" value={d.id} />
-                            <input type="hidden" name="favorite" value={String(!d.is_favorite)} />
-                            <button type="submit" className="text-xs font-bold text-gray-500 hover:text-gray-800">
-                              {d.is_favorite ? '☆ Remove from favourites' : '⭐ Favourite'}
-                            </button>
-                          </form>
-                          <DeleteButton id={d.id} action={deleteDrill} label="Delete drill" />
-                        </div>
-                      </div>
-                    </details>
+                    <DrillRow key={d.id} d={d} />
                   ))}
                 </div>
               </details>
@@ -222,6 +154,102 @@ export default async function DrillBankPage() {
         </div>
       )}
     </div>
+  )
+}
+
+/** One drill in the bank: its line, and under it everything about it. */
+function DrillRow({ d }: { d: Drill }) {
+  return (
+    <details
+      className="py-2"
+      data-drill={[d.name, categoryFor(d.category).label, ...d.settings.map((x) => SETTING_LABELS[x]), d.description, d.setup, d.context, d.equipment]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()}
+    >
+      <summary className="cursor-pointer list-none flex items-center gap-2">
+        <span className="caret text-xs text-gray-300">▸</span>
+        <span className="font-semibold text-sm">{d.name}</span>
+        {d.is_favorite && <span title="Favourite">⭐</span>}
+        {d.settings.map((place) => (
+          <span
+            key={place}
+            className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
+            style={{
+              background: isHomework(place) ? '#DFEFE7' : 'var(--color-gray-100, #f3f4f6)',
+              color: isHomework(place) ? '#00512F' : 'var(--color-gray-500, #6b7280)',
+            }}
+            title={isHomework(place) ? 'Can be sent home to a player' : 'Practice or film only'}
+          >
+            {SETTING_LABELS[place]}
+          </span>
+        ))}
+        {d.link && <DrillLink href={d.link} label={d.link_label || 'Open link'} />}
+      </summary>
+      <div className="pl-6 pt-2 space-y-2">
+        {d.description && <p className="text-sm text-gray-600 whitespace-pre-line">{d.description}</p>}
+        {d.equipment && <p className="text-xs text-gray-500">Needs: {d.equipment}</p>}
+        <DrillDiagram drill={d} />
+        <form action={upsertDrill} className="grid sm:grid-cols-6 gap-2 items-end">
+          <input type="hidden" name="id" value={d.id} />
+          <input type="hidden" name="is_favorite" value={String(d.is_favorite)} />
+          <div className="sm:col-span-2">
+            <label className="field-label">Name</label>
+            <input name="name" defaultValue={d.name} className="field !py-1.5" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="field-label">Category</label>
+            <select name="category" defaultValue={d.category} className="field !py-1.5">
+              {DRILL_CATEGORIES.map((c) => (
+                <option key={c.key} value={c.key}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="sm:col-span-6">
+            <PlacePicker chosen={d.settings} />
+          </div>
+          <div className="sm:col-span-6">
+            <label className="field-label">Video link</label>
+            <input name="link" defaultValue={d.link ?? ''} className="field !py-1.5" />
+          </div>
+          <div className="sm:col-span-6">
+            <label className="field-label">Link name (optional)</label>
+            <input name="link_label" maxLength={80} defaultValue={d.link_label ?? ''} placeholder="Watch it" className="field !py-1.5" />
+          </div>
+          <div className="sm:col-span-6">
+            <label className="field-label">Setup</label>
+            <textarea name="setup" rows={2} defaultValue={d.setup ?? ''} className="field !py-1.5"
+              placeholder="Cones, lines, balls, where the goalie stands" />
+          </div>
+          <div className="sm:col-span-6">
+            <label className="field-label">How it runs</label>
+            <textarea name="description" rows={2} defaultValue={d.description ?? ''} className="field !py-1.5" />
+          </div>
+          <div className="sm:col-span-6">
+            <label className="field-label">Why we run it</label>
+            <textarea name="context" rows={2} defaultValue={d.context ?? ''} className="field !py-1.5"
+              placeholder="What it teaches, and what good looks like" />
+          </div>
+          <div className="sm:col-span-4">
+            <label className="field-label">Equipment</label>
+            <input name="equipment" defaultValue={d.equipment ?? ''} className="field !py-1.5" />
+          </div>
+          <div className="sm:col-span-6 flex items-center gap-3">
+            <button type="submit" className="btn btn-primary !py-1.5 text-sm">Save</button>
+          </div>
+        </form>
+        <div className="flex items-center gap-3">
+          <form action={toggleDrillFavorite}>
+            <input type="hidden" name="id" value={d.id} />
+            <input type="hidden" name="favorite" value={String(!d.is_favorite)} />
+            <button type="submit" className="text-xs font-bold text-gray-500 hover:text-gray-800">
+              {d.is_favorite ? '☆ Remove from favourites' : '⭐ Favourite'}
+            </button>
+          </form>
+          <DeleteButton id={d.id} action={deleteDrill} label="Delete drill" />
+        </div>
+      </div>
+    </details>
   )
 }
 

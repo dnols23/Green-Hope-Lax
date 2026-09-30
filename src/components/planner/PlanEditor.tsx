@@ -21,7 +21,8 @@ import {
   type Plan,
   type PlanBlock,
 } from '@/lib/planner'
-import { DRILL_CATEGORIES, categoryFor, type Drill } from '@/lib/drills'
+import { DRILL_CATEGORIES, categoryFor, sortDrills, type Drill, type DrillCategory } from '@/lib/drills'
+import { quickAddDrill } from '@/lib/drillActions'
 import { BlockCompetition, DrillDetail } from './DrillDetail'
 import { leaderOf, readSides, tally, type BlockComp, type CompFormat, type Consequence } from '@/lib/compete'
 import { FieldBoard } from './FieldBoard'
@@ -65,7 +66,9 @@ export function PlanEditor({
   rosters,
   playersByRoster,
   coaches,
-  drills,
+  drills: drillsIn,
+  drillGroups = DRILL_CATEGORIES,
+  recentDrills = [],
   competitions,
   consequences,
   plays = [],
@@ -78,6 +81,10 @@ export function PlanEditor({
   playersByRoster: Record<string, PlayerOption[]>
   coaches: string[]
   drills: Drill[]
+  /** The bank's groups in the staff's order, Recent among them. */
+  drillGroups?: DrillCategory[]
+  /** The drills the latest plans used, newest first. */
+  recentDrills?: string[]
   /** The staff's competitions (built-ins as changed, and their own). */
   competitions?: CompFormat[]
   /** What the losing side can be made to do. */
@@ -90,6 +97,9 @@ export function PlanEditor({
   canWrite?: boolean
 }) {
   const [state, save, saving] = useActionState(savePlan, EMPTY)
+  // The bank, plus any drill made from here while planning.
+  const [drills, setDrills] = useState(drillsIn)
+  const addToBank = (d: Drill) => setDrills((list) => sortDrills([...list.filter((x) => x.id !== d.id), d]))
   const [, startSave] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
   const autosave = useAutosave(formRef, canWrite)
@@ -262,8 +272,8 @@ export function PlanEditor({
   }
 
   /** Picking a drill fills the block in — name, length, category and its link. */
-  function applyDrill(id: string, drillId: string) {
-    const drill = drills.find((d) => d.id === drillId)
+  function applyDrill(id: string, drillId: string, fresh?: Drill) {
+    const drill = fresh ?? drills.find((d) => d.id === drillId)
     if (!drill) {
       patch(id, { drillId: null, link: null })
       return
@@ -851,7 +861,15 @@ export function PlanEditor({
                       "What this drill is" folded under it. */}
                   <div>
                     <label className="field-label">Drill</label>
-                    <DrillSelect drills={drills} value={b.drillId ?? ''} onChange={(id) => applyDrill(b.id, id)} />
+                    <DrillSelect
+                      drills={drills}
+                      groups={drillGroups}
+                      recent={recentDrills}
+                      canAdd={canWrite}
+                      onCreated={addToBank}
+                      value={b.drillId ?? ''}
+                      onChange={(id, fresh) => applyDrill(b.id, id, fresh)}
+                    />
                     {(() => {
                       const drill = drills.find((d) => d.id === b.drillId)
                       return drill ? <DrillDetail key={drill.id} drill={drill} /> : null
@@ -874,6 +892,10 @@ export function PlanEditor({
                         </div>
                         <DrillSelect
                           drills={drills}
+                          groups={drillGroups}
+                          recent={recentDrills}
+                          canAdd={canWrite}
+                          onCreated={addToBank}
                           value={extra}
                           onChange={(id) => setExtras((b.extraDrills ?? []).map((x, i) => (i === n ? id : x)))}
                         />
@@ -1154,22 +1176,140 @@ function fillWithStarter(blocks: PlanBlock[], drills: Drill[]): PlanBlock[] {
   return [...out, ...blocks.filter((b) => !used.has(b.id) && !blank(b))]
 }
 
-/** Picking a drill off the bank, grouped by category. */
-function DrillSelect({ drills, value, onChange }: { drills: Drill[]; value: string; onChange: (id: string) => void }) {
+const NEW_DRILL = '__new__'
+
+/**
+ * Picking a drill off the bank, grouped the way the bank is, Recent included.
+ * "+ Add a new drill" at the top makes one on the spot: into the bank, and
+ * straight into this block.
+ */
+function DrillSelect({
+  drills,
+  groups,
+  recent,
+  canAdd,
+  onCreated,
+  value,
+  onChange,
+}: {
+  drills: Drill[]
+  groups: DrillCategory[]
+  recent: string[]
+  canAdd: boolean
+  onCreated: (d: Drill) => void
+  value: string
+  onChange: (id: string, fresh?: Drill) => void
+}) {
+  const cats = groups.filter((g) => g.key !== 'recent')
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const [category, setCategory] = useState(cats[0]?.key ?? 'stickwork')
+  const [link, setLink] = useState('')
+  const [error, setError] = useState('')
+  const [busy, startAdd] = useTransition()
+
+  function add() {
+    if (!name.trim()) {
+      setError('Give it a name.')
+      return
+    }
+    startAdd(async () => {
+      const r = await quickAddDrill({ name, category, link })
+      if (!r.ok) {
+        setError(r.error)
+        return
+      }
+      onCreated(r.drill)
+      onChange(r.drill.id, r.drill)
+      setAdding(false)
+      setName('')
+      setLink('')
+      setError('')
+    })
+  }
+  // Enter adds the drill rather than saving the whole plan.
+  const enterAdds = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      add()
+    }
+  }
+
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="field !py-1.5">
-      <option value="">Not from the bank</option>
-      {DRILL_CATEGORIES.map((c) => {
-        const group = drills.filter((d) => d.category === c.key)
-        if (!group.length) return null
-        return (
-          <optgroup key={c.key} label={`${c.icon} ${c.label}`}>
-            {group.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </optgroup>
-        )
-      })}
-    </select>
+    <div>
+      <select
+        value={value}
+        onChange={(e) => {
+          if (e.target.value === NEW_DRILL) {
+            setAdding(true)
+            return
+          }
+          onChange(e.target.value)
+        }}
+        className="field !py-1.5"
+      >
+        {canAdd && <option value={NEW_DRILL}>＋ Add a new drill…</option>}
+        <option value="">Not from the bank</option>
+        {groups.map((c) => {
+          const group =
+            c.key === 'recent'
+              ? recent.map((id) => drills.find((d) => d.id === id)).filter((d): d is Drill => !!d)
+              : drills.filter((d) => d.category === c.key)
+          if (!group.length) return null
+          return (
+            <optgroup key={c.key} label={`${c.icon} ${c.label}`}>
+              {group.map((d) => (
+                <option key={`${c.key}:${d.id}`} value={d.id}>{d.name}</option>
+              ))}
+            </optgroup>
+          )
+        })}
+      </select>
+      {adding && (
+        <div className="mt-2 rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--border)' }}>
+          <div className="text-xs font-black uppercase tracking-wide text-gray-500">New drill</div>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={enterAdds}
+            placeholder="Drill name"
+            aria-label="New drill name"
+            className="field !py-1.5"
+            autoFocus
+          />
+          <div className="grid sm:grid-cols-2 gap-2">
+            <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="New drill category" className="field !py-1.5">
+              {cats.map((c) => (
+                <option key={c.key} value={c.key}>{c.icon} {c.label}</option>
+              ))}
+            </select>
+            <input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              onKeyDown={enterAdds}
+              placeholder="Video link (optional)"
+              aria-label="New drill video link"
+              className="field !py-1.5"
+            />
+          </div>
+          {error && <p className="text-sm text-red-700">{error}</p>}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={add} disabled={busy} className="btn btn-primary !py-1.5 text-sm">
+              {busy ? 'Adding…' : 'Add drill'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAdding(false)
+                setError('')
+              }}
+              className="btn btn-ghost !py-1.5 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
