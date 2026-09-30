@@ -27,12 +27,8 @@ export async function listDrills(): Promise<Drill[]> {
     setting: (['wall', 'solo', 'partner', 'team', 'film'].includes(String(row.setting))
       ? String(row.setting)
       : 'team') as DrillSetting,
-    // Before 0051 a drill has the one place.
-    settings: (() => {
-      const list = Array.isArray(row.settings) ? [...new Set(row.settings.filter(isDrillSetting))] : []
-      if (list.length) return list
-      return [(isDrillSetting(row.setting) ? row.setting : 'team') as DrillSetting]
-    })(),
+    // Only the places a coach has ticked; none until he does.
+    settings: Array.isArray(row.settings) ? [...new Set(row.settings.filter(isDrillSetting))] : [],
     minutes: Number(row.minutes) || 10,
     description: (row.description as string) ?? null,
     // Both arrive with 0037; a drill written before it simply has neither.

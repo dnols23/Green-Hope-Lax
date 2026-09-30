@@ -68,8 +68,7 @@ export const DRILL_SETTINGS = Object.keys(SETTING_LABELS) as DrillSetting[]
 export const isDrillSetting = (v: unknown): v is DrillSetting => DRILL_SETTINGS.includes(v as DrillSetting)
 
 /** A drill a player can be sent home with: any of its places is one he can do alone. */
-export const drillIsHomework = (d: Pick<Drill, 'setting' | 'settings'>) =>
-  (d.settings?.length ? d.settings : [d.setting]).some(isHomework)
+export const drillIsHomework = (d: Pick<Drill, 'settings'>) => d.settings.some(isHomework)
 
 /** The one place a set of places is filed under: the first take-home one, else the first. */
 export const primarySetting = (list: DrillSetting[]): DrillSetting => list.find(isHomework) ?? list[0] ?? 'team'
@@ -80,7 +79,7 @@ export interface Drill {
   category: string
   /** Defaults to 'team' — a drill nobody has vouched for is never homework. */
   setting: DrillSetting
-  /** Every place it can be done (0051). Always at least one; `setting` is the first take-home one. */
+  /** Every place it can be done (0051), as the coaches tick them — none until they do. `setting` is the first take-home one. */
   settings: DrillSetting[]
   minutes: number
   description: string | null
