@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { setSignupStatus } from '@/lib/actions'
 import { SignupStatusBadge } from '@/components/SignupStatusBadge'
-import { SIGNUPS, SIGNUP_STATUS_META, statusOf, type SignupStatus } from '@/lib/signups'
+import { SIGNUPS, statusLabel, statusOf, type SignupStatus } from '@/lib/signups'
 
-const CHOICES: SignupStatus[] = ['open', 'ongoing', 'closed']
+const CHOICES: SignupStatus[] = ['open', 'ongoing', 'closed', 'over']
 
 /**
  * Open or close a sign-up without anybody deploying anything.
@@ -17,8 +17,9 @@ export function SignupStatusControls({ statuses }: { statuses: Record<string, Si
     <section className="card p-5 mb-6">
       <h2 className="font-bold text-gray-700 mb-1">Sign-up status</h2>
       <p className="text-xs text-gray-500 mb-4">
-        What the page says, and whether it still takes entries. <strong>Ongoing</strong> closes
-        the form but keeps the badge green — the season is being played.
+        What the page and the home page say, and whether it still takes entries.{' '}
+        <strong>Ongoing</strong> closes the form but keeps the badge green.{' '}
+        <strong>Over</strong> keeps the page up to show what the program has done.
       </p>
       <div className="space-y-3">
         {SIGNUPS.map((s) => {
@@ -38,8 +39,7 @@ export function SignupStatusControls({ statuses }: { statuses: Record<string, Si
                 <select name="status" defaultValue={current} className="field !py-1.5 !w-auto">
                   {CHOICES.map((c) => (
                     <option key={c} value={c}>
-                      {SIGNUP_STATUS_META[c].label}
-                      {c === 'ongoing' && s.ongoingLabel ? ` (${s.ongoingLabel})` : ''}
+                      {statusLabel(s.key, c)}
                     </option>
                   ))}
                 </select>

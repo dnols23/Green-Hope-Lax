@@ -503,7 +503,9 @@ export async function deleteEventSignup(id: string) {
  * playday needs a page and a list entry, not a migration.
  */
 export async function setSignupStatus(formData: FormData) {
-  await requireSection('submissions')
+  // Set from Submissions or from Pages — either screen's coach may.
+  const viewer = await getViewer()
+  if (!viewer || !(canSee(viewer, 'submissions') || canSee(viewer, 'pages'))) return
   const key = str(formData.get('key'))
   const status = str(formData.get('status'))
   if (!SIGNUP_KEYS.includes(key) || !(status in SIGNUP_STATUS_META)) return
@@ -525,6 +527,7 @@ export async function setSignupStatus(formData: FormData) {
   if (href) revalidatePath(href)
   revalidatePath('/')
   revalidatePath('/admin/submissions')
+  revalidatePath('/admin/pages')
 }
 
 // Admin: delete a single submission (spam cleanup). Service client so RLS

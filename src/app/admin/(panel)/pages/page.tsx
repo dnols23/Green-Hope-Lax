@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase-server'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import type { PageSetting } from '@/lib/types'
 import { requireSection } from '@/lib/permissions'
+import { SignupStatusControls } from '@/components/admin/SignupStatusControls'
+import { readSignupStatus } from '@/lib/signupSettings'
 
 export const metadata = { title: 'Manage Pages' }
 
@@ -13,6 +15,7 @@ export default async function AdminPagesPage() {
     .select('*')
     .order('sort_order', { ascending: true })
   const pages = (data as PageSetting[]) ?? []
+  const statuses = await readSignupStatus()
 
   return (
     <div>
@@ -23,6 +26,8 @@ export default async function AdminPagesPage() {
         show it. The two <strong>Film Room</strong> switches are separate on purpose: one controls it
         for your coaches, the other for parents and players in the Team Hub.
       </p>
+
+      <SignupStatusControls statuses={statuses} />
 
       {pages.length === 0 ? (
         <div className="card p-6 text-sm text-gray-500">

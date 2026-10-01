@@ -8,7 +8,6 @@ const LINKS = [
   { href: '/news', label: 'News' },
   { href: '/schedule', label: 'Schedule' },
   { href: '/barton-playday', label: 'Winter Events' },
-  { href: '/swfl', label: 'SWFL' },
   { href: '/stats', label: 'Stats' },
   { href: '/record-books', label: 'Record Books' },
   { href: '/roster', label: 'Roster' },
