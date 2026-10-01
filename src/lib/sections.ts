@@ -129,6 +129,8 @@ export const SECTIONS: AdminSection[] = [
   // coach publishes it; only he ever writes it, which the pages enforce.
   { key: 'playbook',     label: 'Playbook',     href: '/admin/playbook',     group: 'Coaches Hub', always: true, hidden: true },
   { key: 'priorities',   label: 'Priorities',   href: '/admin/priorities',   group: 'Coaches Hub', always: true },
+  // Who starts and who's next at every spot, varsity and JV each.
+  { key: 'depth',        label: 'Depth Chart',  href: '/admin/depth',        group: 'Coaches Hub', always: true },
   // What the program needs and wants. Every coach adds; the head coach decides.
   { key: 'wishlist',     label: 'Wish List',    href: '/admin/wishlist',     group: 'Coaches Hub', always: true },
   // Kids the staff is reaching out to about playing. Every coach adds and updates.

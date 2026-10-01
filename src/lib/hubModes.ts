@@ -26,6 +26,7 @@ export const HUB_MODES: HubMode[] = [
   { key: 'library',   label: 'Library',          section: 'library',  icon: '🗄', href: '/admin/library' },
   { key: 'playbook',  label: 'Playbook',         section: 'playbook', icon: '📘', href: '/admin/playbook' },
   { key: 'priorities', label: 'Priorities',      section: 'priorities', icon: '🎯', href: '/admin/priorities' },
+  { key: 'depth',     label: 'Depth Chart',      section: 'depth',    icon: '📶', href: '/admin/depth' },
   { key: 'team',      label: 'Team Hub',         section: 'team',     icon: '🗣', href: '/admin/team' },
   { key: 'players',   label: 'Players',          section: 'hub',      icon: '🧍', href: '/admin/hub/players' },
   { key: 'evaluate',  label: 'Evaluate',         section: 'hub',      icon: '📝', href: '/admin/hub/evaluate' },
