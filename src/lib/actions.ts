@@ -31,6 +31,9 @@ import { HUB_MODES_KEY, HUB_MODE_KEYS } from './hubModes'
 import {
   SIGNUPS,
   SIGNUP_KEYS,
+  SIGNUP_EVENTS,
+  signupFee,
+  tagEvents,
   SIGNUP_STATUS_KEY,
   SIGNUP_STATUS_META,
   parseSignupStatus,
@@ -426,6 +429,12 @@ export async function submitEventSignup(
   }
 
   const rawNotes = str(formData.get('notes'))
+  // A combined sign-up: which of its events he's playing, checked against the list.
+  const options = SIGNUP_EVENTS[event]
+  const ticked = formData.getAll('events').map(String)
+  const picked = options ? options.events.filter((e) => ticked.includes(e.key)) : []
+  if (options && picked.length === 0)
+    return { ok: false, error: 'Tick the event(s) your player can attend.' }
   const data = {
     event,
     player_first: str(formData.get('player_first')),
@@ -436,7 +445,7 @@ export async function submitEventSignup(
     parent_email: str(formData.get('parent_email')),
     parent_phone: str(formData.get('parent_phone')),
     player_email: str(formData.get('player_email')) || null,
-    notes: rawNotes || null,
+    notes: options ? tagEvents(picked.map((e) => e.label), rawNotes || null) : rawNotes || null,
   }
 
   if (str(formData.get('company'))) return { ok: true } // honeypot
@@ -466,6 +475,7 @@ export async function submitEventSignup(
     html: emailShell(
       `New ${label} Signup`,
       row('Player', `${data.player_first} ${data.player_last}`) +
+        (options ? row('Events', picked.map((e) => e.label).join(', ')) + row('Owes', `$${signupFee(event, picked.length)}`) : '') +
         row('Grad year', data.grad_year) +
         row('Position', data.position) +
         row('Parent/Guardian', data.parent_name) +
