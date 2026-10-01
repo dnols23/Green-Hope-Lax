@@ -74,6 +74,8 @@ export interface PlanBlock {
   drillId?: string | null
   /** More drills run in the same block, after the first. */
   extraDrills?: string[]
+  /** This practice's note on each of those extra drills, by drill id. The first drill's is `notes`. */
+  drillNotes?: Record<string, string>
   /** A link carried over from that drill, so the block stands on its own. */
   link?: string | null
   /** The coach running it. */
@@ -303,6 +305,15 @@ export function readBlocks(raw: unknown): PlanBlock[] {
       extraDrills: Array.isArray(b.extraDrills)
         ? b.extraDrills.filter((x): x is string => typeof x === 'string' && !!x).slice(0, 4)
         : [],
+      drillNotes:
+        b.drillNotes && typeof b.drillNotes === 'object'
+          ? Object.fromEntries(
+              Object.entries(b.drillNotes)
+                .filter(([k, v]) => typeof v === 'string' && v.trim() && !!k)
+                .slice(0, 8)
+                .map(([k, v]) => [k, (v as string).slice(0, 4000)]),
+            )
+          : {},
       // Four is the most sides a practice can be split into; extra scores go.
       comp: readComp(b.comp, 4),
       link: typeof b.link === 'string' && b.link.trim() ? b.link.trim() : null,
