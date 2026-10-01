@@ -130,3 +130,41 @@ export async function depthCreateRoster(team: Team, name: string, chart: DepthCh
   revalidatePath('/admin/rosters')
   return { ok: true, id }
 }
+
+/**
+ * A player moved up to varsity or down to JV: off the one team's roster and
+ * chart, onto the other's, and his team changed to match.
+ */
+export async function depthMoveTeam(input: {
+  playerId: string
+  from: Team
+  to: Team
+  fromChart: DepthChart
+  toChart: DepthChart
+}): Promise<Result> {
+  const a = await rosterWriter(input.from)
+  const b = await rosterWriter(input.to)
+  if (!a || !b || a.team === b.team) return { ok: false, error: 'You can’t move players between these teams.' }
+  const fromChart = readDepthChart(input.fromChart)
+  const toChart = readDepthChart(input.toChart)
+  if (!fromChart.rosterId || !toChart.rosterId) return { ok: false, error: 'Pick a roster for both teams first.' }
+  const svc = createServiceClient()
+  const { count } = await svc.from('player_list_members').select('id', { count: 'exact', head: true }).eq('list_id', toChart.rosterId)
+  const { error } = await svc
+    .from('player_list_members')
+    .upsert({ list_id: toChart.rosterId, player_id: input.playerId, sort_order: count ?? 0 }, { onConflict: 'list_id,player_id' })
+  if (error) return { ok: false, error: `Couldn’t move him: ${error.message}` }
+  await svc.from('player_list_members').delete().eq('list_id', fromChart.rosterId).eq('player_id', input.playerId)
+  await svc.from('players').update({ team: b.team === 'jv' ? 'boys_jv' : 'boys_varsity' }).eq('id', input.playerId)
+  await svc.from('app_settings').upsert(
+    [
+      { key: depthKey(a.team), value: JSON.stringify(fromChart) },
+      { key: depthKey(b.team), value: JSON.stringify(toChart) },
+    ],
+    { onConflict: 'key' },
+  )
+  refresh()
+  revalidatePath('/admin/rosters', 'layout')
+  revalidatePath('/roster')
+  return { ok: true }
+}
