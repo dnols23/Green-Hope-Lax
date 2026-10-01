@@ -4,7 +4,7 @@
 // admin screen all read one list and can't disagree about whether a sign-up is
 // still taking players.
 
-export type SignupStatus = 'open' | 'ongoing' | 'closed'
+export type SignupStatus = 'open' | 'ongoing' | 'closed' | 'over'
 
 export const SIGNUP_STATUS_KEY = 'signup_status'
 
@@ -38,6 +38,13 @@ export const SIGNUP_STATUS_META: Record<SignupStatus, StatusMeta> = {
     accepting: false,
     closedNote: 'Sign-ups are closed. Watch the news feed for the next one.',
   },
+  // Played and done. The page stays up: it shows a program that keeps playing.
+  over: {
+    label: 'Event over',
+    live: false,
+    accepting: false,
+    closedNote: 'This one is over — thanks to everyone who played. We’ll be back next season.',
+  },
 }
 
 export interface Signup {
@@ -51,6 +58,8 @@ export interface Signup {
   detail: string
   /** Overrides the generic status wording, e.g. "League ongoing". */
   ongoingLabel?: string
+  /** Overrides "Event over", e.g. "League over". */
+  overLabel?: string
   /** What it says until the status is changed from here. */
   defaultStatus: SignupStatus
 }
@@ -71,7 +80,8 @@ export const SIGNUPS: Signup[] = [
     headline: 'South Wake Fall High School League at Seymour Park',
     detail: 'Six Monday nights, 6–9 PM · Aug 17 – Sep 28 · $75 per player',
     ongoingLabel: 'League ongoing',
-    defaultStatus: 'ongoing',
+    overLabel: 'League over',
+    defaultStatus: 'over',
   },
 ]
 
@@ -101,6 +111,7 @@ export function statusOf(stored: Record<string, SignupStatus>, key: string): Sig
 export function statusLabel(key: string, status: SignupStatus): string {
   const signup = SIGNUPS.find((s) => s.key === key)
   if (status === 'ongoing' && signup?.ongoingLabel) return signup.ongoingLabel
+  if (status === 'over' && signup?.overLabel) return signup.overLabel
   return SIGNUP_STATUS_META[status].label
 }
 

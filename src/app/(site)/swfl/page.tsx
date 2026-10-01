@@ -103,8 +103,9 @@ export default async function SwflPage() {
             HIGH SCHOOL LEAGUE
           </h1>
           <p className="mt-5 max-w-2xl mx-auto text-white/75">
-            Green Hope is playing six Monday nights at Seymour Park this fall — competing as
-            our high school club against other South Wake schools.
+            {status === 'over'
+              ? 'Green Hope played six Monday nights at Seymour Park this fall — competing as our high school club against other South Wake schools. We’ll be back next fall.'
+              : 'Green Hope is playing six Monday nights at Seymour Park this fall — competing as our high school club against other South Wake schools.'}
           </p>
           <div className="mt-6 flex justify-center">
             <SignupStatusBadge signupKey={KEY} status={status} />
