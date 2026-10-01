@@ -30,7 +30,7 @@ import { TEAMS, withTeam } from '@/lib/teams'
  * and what is in the JV bag are not the varsity staff's business — and, more to
  * the point, a shared board is one where things get written in the wrong place.
  */
-const TEAM_MODES = new Set(['warroom', 'planner', 'priorities', 'depth', 'inventory', 'playbook'])
+const TEAM_MODES = new Set(['warroom', 'planner', 'priorities', 'inventory', 'playbook'])
 
 export default async function HubLayout({ children }: { children: React.ReactNode }) {
   const [viewer, filmOn, modesOff] = await Promise.all([getViewer(), isPageOn('film-coaches'), readModesOff()])

@@ -108,3 +108,50 @@ export function fillFromRoster(
   }
   return { chart: { ...chart, slots }, placed }
 }
+
+/** Only players who are still on the roster. */
+export function pruneChart(chart: DepthChart, ids: Set<string>): DepthChart {
+  return {
+    ...chart,
+    slots: Object.fromEntries(DEPTH_POSITIONS.map((p) => [p.key, (chart.slots[p.key] ?? []).filter((id) => ids.has(id))])),
+  }
+}
+
+/** The bench: on the roster, at no spot. Dropping there takes a player off the spot he came from. */
+export const BENCH = 'bench'
+
+/**
+ * One drag, inside one team's chart: off the spot he was at (unless he came
+ * from the bench) and in at the new one (unless he went to the bench). A
+ * player already at the spot he is dropped on just moves within it.
+ */
+export function moveOnChart(
+  chart: DepthChart,
+  from: { zone: string; index: number; playerId: string },
+  to: { zone: string; index: number },
+): DepthChart {
+  const slots = { ...chart.slots }
+  let at = to.index
+  if (from.zone !== BENCH) {
+    const list = [...(slots[from.zone] ?? [])]
+    if (list[from.index] === from.playerId) list.splice(from.index, 1)
+    slots[from.zone] = list
+    if (to.zone === from.zone && from.index < at) at--
+  }
+  if (to.zone !== BENCH) {
+    const list = [...(slots[to.zone] ?? [])]
+    const dup = list.indexOf(from.playerId)
+    if (dup >= 0) {
+      list.splice(dup, 1)
+      if (dup < at) at--
+    }
+    list.splice(Math.max(0, Math.min(at, list.length)), 0, from.playerId)
+    slots[to.zone] = list
+  }
+  return { ...chart, slots }
+}
+
+/** Off every spot on a chart — he has gone to the other team. */
+export function dropFromChart(chart: DepthChart, playerId: string): DepthChart {
+  return { ...chart, slots: Object.fromEntries(Object.entries(chart.slots).map(([k, v]) => [k, v.filter((id) => id !== playerId)])) }
+}

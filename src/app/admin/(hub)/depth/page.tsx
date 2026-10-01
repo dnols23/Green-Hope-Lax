@@ -1,50 +1,68 @@
 import { requireTeam } from '@/lib/permissions'
-import { canSee, isSandboxed } from '@/lib/sections'
+import { canSee, canTeam, isSandboxed } from '@/lib/sections'
 import { createServiceClient } from '@/lib/supabase-server'
 import { listRosters, rosterMembers } from '@/lib/rosters'
-import { depthKey, readDepthChart } from '@/lib/depthChart'
-import { teamLabel } from '@/lib/teams'
-import { DepthClient } from './DepthClient'
+import { depthKey, readDepthChart, type DepthChart } from '@/lib/depthChart'
+import type { Team } from '@/lib/teams'
+import { DepthBoard, type TeamSide } from './DepthBoard'
 
 export const metadata = { title: 'Depth Chart' }
 export const dynamic = 'force-dynamic'
 
-/** Who is first, second and third at every spot — varsity and JV, each its own. */
+const TEAMS: Team[] = ['varsity', 'jv']
+
+/**
+ * Who is first, second and third at every spot — varsity and JV on one board,
+ * so a player can be dragged up or down a level as easily as along a line.
+ */
 export default async function DepthChartPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const { viewer, team, canWrite } = await requireTeam('depth', (await searchParams).team)
-  const [{ data }, rosters] = await Promise.all([
-    createServiceClient().from('app_settings').select('value').eq('key', depthKey(team)).maybeSingle(),
-    listRosters(),
-  ])
-  const chart = readDepthChart((data as { value?: unknown } | null)?.value)
-  // A roster that has since been archived still shows, so the chart keeps its players.
-  const all = chart.rosterId && !rosters.some((r) => r.id === chart.rosterId)
-    ? [...rosters, ...(await listRosters(true)).filter((r) => r.id === chart.rosterId)]
-    : rosters
-  const players = chart.rosterId ? await rosterMembers(chart.rosterId) : []
-  const write = canWrite && !isSandboxed(viewer)
+  const { viewer, team: first } = await requireTeam('depth', (await searchParams).team)
+  const svc = createServiceClient()
+  const read = async (t: Team) => {
+    const { data } = await svc.from('app_settings').select('value').eq('key', depthKey(t)).maybeSingle()
+    return readDepthChart((data as { value?: unknown } | null)?.value)
+  }
+  const [varsity, jv, live] = await Promise.all([read('varsity'), read('jv'), listRosters()])
+  const charts: Record<Team, DepthChart> = { varsity, jv }
+  // A roster archived since still shows, so a chart keeps its players.
+  const used = TEAMS.map((t) => charts[t].rosterId).filter((id): id is string => !!id)
+  const rosters = used.every((id) => live.some((r) => r.id === id))
+    ? live
+    : [...live, ...(await listRosters(true)).filter((r) => used.includes(r.id) && !live.some((l) => l.id === r.id))]
+
+  const sandboxed = isSandboxed(viewer)
+  const sides: TeamSide[] = await Promise.all(
+    TEAMS.map(async (t) => {
+      const write = canTeam(viewer, t) && !sandboxed
+      const members = charts[t].rosterId ? await rosterMembers(charts[t].rosterId!) : []
+      return {
+        team: t,
+        chart: charts[t],
+        players: members.map((p) => ({
+          id: p.id,
+          name: p.name,
+          // Numbers and grad years can come back as numbers; the chart edits them as text.
+          number: p.number == null ? null : String(p.number),
+          position: p.position,
+          class_year: p.class_year == null ? null : String(p.class_year),
+        })),
+        canWrite: write,
+        canEditRoster: write && canSee(viewer, 'rosters'),
+      }
+    }),
+  )
 
   return (
-    <DepthClient
-      key={`${team}:${chart.rosterId ?? ''}`}
-      team={team}
-      title={`${teamLabel(team)} depth chart`}
-      initial={chart}
-      rosters={all.map((r) => ({ id: r.id, name: r.name, count: r.memberCount }))}
-      players={players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        // Numbers and grad years can come back as numbers; the chart edits them as text.
-        number: p.number == null ? null : String(p.number),
-        position: p.position,
-        class_year: p.class_year == null ? null : String(p.class_year),
-      }))}
-      canWrite={write}
-      canEditRoster={write && canSee(viewer, 'rosters')}
+    <DepthBoard
+      key={TEAMS.map((t) => charts[t].rosterId ?? '').join(':')}
+      sides={sides}
+      rosters={rosters.map((r) => ({ id: r.id, name: r.name, count: r.memberCount }))}
+      canMoveTeams={sides.every((s) => s.canEditRoster)}
+      first={first}
     />
   )
 }
