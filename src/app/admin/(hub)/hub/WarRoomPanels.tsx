@@ -33,6 +33,9 @@ type Session = {
   /** Where on the panel it was picked up, so it doesn't jump to the finger. */
   dx: number
   dy: number
+  /** The panel's size, so it is the panel that is aimed, not the grip. */
+  w: number
+  h: number
   x: number
   y: number
   slot: number
@@ -126,18 +129,20 @@ export function WarRoomPanels({ panels }: { panels: Panel[] }) {
   }
 
   /**
-   * Which gap the finger is asking for. A panel only makes way once the finger
-   * is past its middle — side to side within a row, up and down between rows —
-   * so panels of different heights can't flip back and forth under a finger
-   * that has stopped.
+   * Which gap the carried panel is asking for. It goes by the middle of the
+   * panel being carried, not the finger: the grip is at the panel's far left,
+   * so going by the finger meant dragging a panel right across another before
+   * anything moved. A panel makes way as soon as the carried one's middle is
+   * over it — about half way across. It then takes the gap's place, away from
+   * that middle, so it can't flip straight back.
    */
   function slotAt(s: Session): number {
     const g = grid.current
     const hole = gap.current
     if (!g || !hole) return s.slot
     const r = g.getBoundingClientRect()
-    const x = s.x - r.left
-    const y = s.y - r.top
+    const x = s.x - s.dx + s.w / 2 - r.left
+    const y = s.y - s.dy + s.h / 2 - r.top
     let bottom = 0
     for (let i = 0; i < s.others.length; i++) {
       const el = els.current.get(s.others[i])
@@ -145,11 +150,8 @@ export function WarRoomPanels({ panels }: { panels: Panel[] }) {
       const { offsetLeft: left, offsetTop: top, offsetWidth: w, offsetHeight: h } = el
       bottom = Math.max(bottom, top + h)
       if (x < left || x > left + w || y < top || y > top + h) continue
-      const sameRow = Math.abs(top - hole.offsetTop) < 4
-      const after = i >= s.slot // this panel sits after the gap
-      const past = sameRow ? (after ? x > left + w / 2 : x < left + w / 2) : after ? y > top + h / 2 : y < top + h / 2
-      if (!past) return s.slot
-      return after ? i + 1 : i
+      // This panel sits after the gap: the carried one goes in after it.
+      return i >= s.slot ? i + 1 : i
     }
     return y > bottom ? s.others.length : s.slot
   }
@@ -194,6 +196,8 @@ export function WarRoomPanels({ panels }: { panels: Panel[] }) {
       pointerId: e.pointerId,
       dx: e.clientX - box.left,
       dy: e.clientY - box.top,
+      w: box.width,
+      h: box.height,
       x: e.clientX,
       y: e.clientY,
       slot: from,
