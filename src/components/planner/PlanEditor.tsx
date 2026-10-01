@@ -872,7 +872,16 @@ export function PlanEditor({
                     />
                     {(() => {
                       const drill = drills.find((d) => d.id === b.drillId)
-                      return drill ? <DrillDetail key={drill.id} drill={drill} /> : null
+                      return drill ? (
+                        <>
+                          <DrillDetail key={drill.id} drill={drill} />
+                          <PracticeNote
+                            value={b.notes}
+                            onChange={(notes) => patch(b.id, { notes })}
+                            drillName={drill.name}
+                          />
+                        </>
+                      ) : null
                     })()}
                   </div>
                   {(b.extraDrills ?? []).map((extra, n) => {
@@ -899,7 +908,16 @@ export function PlanEditor({
                           value={extra}
                           onChange={(id) => setExtras((b.extraDrills ?? []).map((x, i) => (i === n ? id : x)))}
                         />
-                        {drill && <DrillDetail key={drill.id} drill={drill} />}
+                        {drill && (
+                          <>
+                            <DrillDetail key={drill.id} drill={drill} />
+                            <PracticeNote
+                              value={b.drillNotes?.[drill.id] ?? ''}
+                              onChange={(text) => patch(b.id, { drillNotes: { ...(b.drillNotes ?? {}), [drill.id]: text } })}
+                              drillName={drill.name}
+                            />
+                          </>
+                        )}
                       </div>
                     )
                   })}
@@ -930,14 +948,12 @@ export function PlanEditor({
                     )
                   })()}
 
-                  {/* A block with a drill has "What this drill is" above, so it
-                      needs no second write-up. Only a block without one — or
-                      one that already has its own notes, so they aren't hidden —
-                      gets the box. */}
+                  {/* A block with a drill keeps its note under the drill, as
+                      "Note for this practice". Only a block without one gets
+                      the box here. */}
                   {(() => {
                     const drill = b.drillId ? drills.find((d) => d.id === b.drillId) : null
-                    const own = !!ownNotes(b, [drill ?? undefined])
-                    if (drill && !own) return null
+                    if (drill) return null
                     return (
                       <textarea
                         value={b.notes}
@@ -1311,5 +1327,33 @@ function DrillSelect({
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * A note on one drill for this practice only — "Jake runs the left line",
+ * "keep it to 3 reps". It stays on the plan, never on the drill in the bank.
+ * Folded until there is something in it.
+ */
+function PracticeNote({ value, onChange, drillName }: { value: string; onChange: (v: string) => void; drillName: string }) {
+  const has = !!value.trim()
+  return (
+    <details className="group mt-2 rounded-lg border border-gray-100" open={has || undefined}>
+      <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden px-2.5 py-2 min-h-9 flex items-center gap-2 text-xs font-bold text-gray-500">
+        <span className="text-gray-300 transition-transform group-open:rotate-90">▸</span>
+        <span className="shrink-0">📝 Note for this practice</span>
+        {has && <span className="font-normal text-gray-400 truncate min-w-0 group-open:hidden">{value.trim().split('\n')[0]}</span>}
+      </summary>
+      <div className="px-2.5 pb-2.5">
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={2}
+          placeholder="Only for today: groups, reps, what to watch for…"
+          className="field !py-1.5 text-sm"
+          aria-label={`Note on ${drillName} for this practice`}
+        />
+      </div>
+    </details>
   )
 }
