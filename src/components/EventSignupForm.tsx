@@ -1,8 +1,9 @@
 'use client'
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { submitEventSignup, type FormState } from '@/lib/actions'
 import { SubmitButton } from './SubmitButton'
 import { FalconBadge } from './Logo'
+import { signupFee, type SignupEvent } from '@/lib/signups'
 
 const initial: FormState = { ok: false }
 
@@ -19,6 +20,7 @@ export function EventSignupForm({
   venmoUrl,
   amount,
   followUp = 'Coach Nolan emails the details as soon as they are set.',
+  events,
 }: {
   event: string
   venmoHandle: string
@@ -26,8 +28,22 @@ export function EventSignupForm({
   amount: number
   /** The one thing this event needs them to know after signing up. */
   followUp?: string
+  /** A combined sign-up: the events to tick, priced per event. */
+  events?: SignupEvent[]
 }) {
   const [state, formAction] = useActionState(submitEventSignup, initial)
+  const [picked, setPicked] = useState<string[]>([])
+  // What he owes follows what he ticked, and so does the Venmo link.
+  const total = events ? signupFee(event, picked.length) : amount
+  const payUrl = (() => {
+    try {
+      const u = new URL(venmoUrl)
+      u.searchParams.set('amount', String(total))
+      return u.toString()
+    } catch {
+      return venmoUrl
+    }
+  })()
 
   if (state.ok) {
     return (
@@ -37,17 +53,17 @@ export function EventSignupForm({
           You&rsquo;re signed up! 🥍
         </h2>
         <p className="text-gray-600 mt-2 max-w-md mx-auto">
-          One more step: send the ${amount} player fee to{' '}
+          One more step: send the ${total} player fee to{' '}
           <span className="font-bold">{venmoHandle}</span> on Venmo with the player&rsquo;s name
           in the note. {followUp} Go Falcons!
         </p>
         <a
-          href={venmoUrl}
+          href={payUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-maroon mt-4"
         >
-          Pay ${amount} on Venmo ↗
+          Pay ${total} on Venmo ↗
         </a>
       </div>
     )
@@ -58,6 +74,48 @@ export function EventSignupForm({
       <input type="hidden" name="event" value={event} />
       {/* honeypot */}
       <input type="text" name="company" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
+
+      {events && (
+        <fieldset>
+          <legend className="field-label">Which event(s) can your player attend? *</legend>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {events.map((e) => {
+              const on = picked.includes(e.key)
+              return (
+                <label
+                  key={e.key}
+                  className="flex items-start gap-3 rounded-lg border-2 px-3 py-2.5 cursor-pointer"
+                  style={{ borderColor: on ? 'var(--gh-green)' : 'var(--border)', background: on ? 'var(--gh-green-50, #ecf6f0)' : undefined }}
+                >
+                  <input
+                    type="checkbox"
+                    name="events"
+                    value={e.key}
+                    checked={on}
+                    onChange={() => setPicked((p) => (on ? p.filter((k) => k !== e.key) : [...p, e.key]))}
+                    className="mt-1 w-4 h-4 accent-[var(--gh-green)]"
+                  />
+                  <span>
+                    <span className="block font-bold">{e.label}</span>
+                    <span className="block text-sm text-gray-500">{e.when}</span>
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+          <p className="text-sm mt-2" role="status">
+            {picked.length ? (
+              <>
+                Total: <span className="font-black" style={{ color: 'var(--gh-green)' }}>${total}</span>
+              </>
+            ) : (
+              <span className="text-gray-500">
+                ${signupFee(event, 1)} for one event, ${signupFee(event, events.length)} for {events.length === 2 ? 'both' : 'all'}.
+              </span>
+            )}
+          </p>
+        </fieldset>
+      )}
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div>

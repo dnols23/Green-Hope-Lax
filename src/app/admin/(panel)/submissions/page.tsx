@@ -25,13 +25,14 @@ import {
 import { formatDateTime } from '@/lib/format'
 import { requireSection } from '@/lib/permissions'
 import { readSignupStatus } from '@/lib/signupSettings'
+import { readEvents, signupFee } from '@/lib/signups'
 
 export const metadata = { title: 'Submissions' }
 
 const fmt = formatDateTime
 
 const TABS = [
-  { key: 'barton-playday', label: 'Barton Playday' },
+  { key: 'barton-playday', label: 'Barton + Trey Ennis' },
   { key: 'swfl', label: 'SWFL Fall League' },
   { key: 'high_school', label: 'High School Interest' },
   { key: 'green_machine', label: 'Green Machine' },
@@ -43,7 +44,7 @@ type TabKey = (typeof TABS)[number]['key']
 // just reading zero.
 const SOURCE: Record<TabKey, { blurb: string; href?: string; linkText?: string }> = {
   'barton-playday': {
-    blurb: 'Signups for the December 5 playday at Barton College. Returners only, $50 by Venmo — tick Paid as the money comes in.',
+    blurb: 'Firebirds signups for Barton (Dec 5) and Trey Ennis (Dec 12–13). $50 per event, $100 for both, by Venmo — tick Paid as the money comes in.',
     href: '/barton-playday',
     linkText: 'Playday page',
   },
@@ -138,7 +139,7 @@ export default async function SubmissionsPage({
       {tab === 'contact' ? (
         <ContactTable rows={contacts} />
       ) : tab === 'barton-playday' ? (
-        <EventTable rows={barton} title="Barton College Playday" csvName="falcons-barton-playday.csv" />
+        <EventTable rows={barton} title="Barton Playday + Trey Ennis" csvName="firebirds-barton-trey-ennis.csv" />
       ) : tab === 'swfl' ? (
         <PlayerTable
           rows={swfls}
@@ -239,6 +240,10 @@ function EventTable({ rows, title, csvName }: {
   csvName: string
 }) {
   const paid = rows.filter((r) => r.paid).length
+  // A combined sign-up writes its events in front of the notes; show them as their own column.
+  const read = (r: EventSignup) => readEvents(r.notes)
+  const anyEvents = rows.some((r) => read(r).events.length > 0)
+  const owes = (r: EventSignup) => signupFee(r.event, read(r).events.length)
   return (
     <section>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
@@ -256,12 +261,13 @@ function EventTable({ rows, title, csvName }: {
               player_last: r.player_last,
               grad_year: r.grad_year,
               position: r.position,
+              ...(anyEvents ? { events: read(r).events.join('; '), owes: owes(r) ? `$${owes(r)}` : '' } : {}),
               paid: r.paid ? 'yes' : 'no',
               parent_name: r.parent_name,
               parent_email: r.parent_email,
               parent_phone: r.parent_phone,
               player_email: r.player_email,
-              notes: r.notes,
+              notes: read(r).notes,
             }))}
             filename={csvName}
           />
@@ -274,7 +280,7 @@ function EventTable({ rows, title, csvName }: {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Submitted</th><th>Player</th><th>Grad</th><th>Position</th><th>Paid</th>
+                <th>Submitted</th><th>Player</th><th>Grad</th><th>Position</th>{anyEvents && <><th>Events</th><th>Owes</th></>}<th>Paid</th>
                 <th>Parent</th><th>Email</th><th>Phone</th><th>Notes</th>
                 <th className="col-actions">Actions</th>
               </tr>
@@ -286,6 +292,12 @@ function EventTable({ rows, title, csvName }: {
                   <td className="font-semibold whitespace-nowrap">{r.player_first} {r.player_last}</td>
                   <td>{r.grad_year ?? '—'}</td>
                   <td>{r.position ?? '—'}</td>
+                  {anyEvents && (
+                    <>
+                      <td className="whitespace-nowrap">{read(r).events.join(', ') || '—'}</td>
+                      <td className="font-semibold tabular-nums">{owes(r) ? `$${owes(r)}` : '—'}</td>
+                    </>
+                  )}
                   <td>
                     <PublishToggle
                       entity="eventpaid"
@@ -300,7 +312,7 @@ function EventTable({ rows, title, csvName }: {
                   <td className="whitespace-nowrap">{r.parent_name}</td>
                   <td><a href={`mailto:${r.parent_email}`} className="text-[var(--gh-green)]">{r.parent_email}</a></td>
                   <td className="whitespace-nowrap">{r.parent_phone}</td>
-                  <td className="max-w-xs text-gray-600">{r.notes || '—'}</td>
+                  <td className="max-w-xs text-gray-600">{read(r).notes || '—'}</td>
                   <td className="col-actions">
                     <DeleteButton id={r.id} action={deleteEventSignup} />
                   </td>

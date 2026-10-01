@@ -58,10 +58,10 @@ export interface Signup {
 export const SIGNUPS: Signup[] = [
   {
     key: 'barton-playday',
-    label: 'Barton College Playday',
+    label: 'Barton Playday + Trey Ennis',
     href: '/barton-playday',
-    headline: 'Barton College Playday — Wilson, NC',
-    detail: 'Sat, Dec 5 · Morning games · Returners only · $50 per player',
+    headline: 'Firebirds Winter Events — Barton Playday & Trey Ennis Tournament',
+    detail: 'Barton Sat, Dec 5 · Trey Ennis Dec 12–13 · $50 per event, $100 for both',
     defaultStatus: 'open',
   },
   {
@@ -102,4 +102,52 @@ export function statusLabel(key: string, status: SignupStatus): string {
   const signup = SIGNUPS.find((s) => s.key === key)
   if (status === 'ongoing' && signup?.ongoingLabel) return signup.ongoingLabel
   return SIGNUP_STATUS_META[status].label
+}
+
+// ── Picking events on one sign-up ────────────────────────────────────────────
+
+/** One event a combined sign-up covers. */
+export interface SignupEvent {
+  key: string
+  label: string
+  /** "Sat, Dec 5" — the short line beside the tick box. */
+  when: string
+}
+
+/**
+ * Sign-ups that cover more than one event: the player ticks the ones he can
+ * make and pays per event. Kept on the signup's notes as "[Events: …]", so it
+ * needs no column of its own.
+ */
+export const SIGNUP_EVENTS: Record<string, { events: SignupEvent[]; each: number; all: number }> = {
+  'barton-playday': {
+    events: [
+      { key: 'barton', label: 'Barton College Playday', when: 'Sat, Dec 5 · Wilson' },
+      { key: 'trey-ennis', label: 'Trey Ennis Tournament', when: 'Sat–Sun, Dec 12–13 · Durham' },
+    ],
+    each: 50,
+    all: 100,
+  },
+}
+
+/** What a player owes for the events he picked. */
+export function signupFee(signup: string, picked: number): number {
+  const cfg = SIGNUP_EVENTS[signup]
+  if (!cfg || picked <= 0) return 0
+  return picked >= cfg.events.length ? cfg.all : picked * cfg.each
+}
+
+const EVENTS_TAG = /^\[Events: ([^\]]*)\]\s*/
+
+/** The notes with the events written in front. */
+export function tagEvents(labels: string[], notes: string | null): string {
+  return `[Events: ${labels.join(', ')}]${notes ? ` ${notes}` : ''}`
+}
+
+/** Pull the events back out of a signup's notes. */
+export function readEvents(notes: string | null): { events: string[]; notes: string | null } {
+  const m = (notes ?? '').match(EVENTS_TAG)
+  if (!m) return { events: [], notes }
+  const rest = (notes ?? '').replace(EVENTS_TAG, '').trim()
+  return { events: m[1].split(',').map((s) => s.trim()).filter(Boolean), notes: rest || null }
 }
