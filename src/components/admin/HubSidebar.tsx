@@ -5,6 +5,12 @@ import { Suspense, useEffect, useState, useSyncExternalStore } from 'react'
 import { TOUR_EVENT, TOUR_KEY } from '@/lib/tour'
 import { SlideList } from './SlideList'
 
+/** Sidebar entries that cover several pages, each reached by the page's tabs. */
+const ENTRY_PAGES = [
+  ['/admin/hub/evaluate', '/admin/hub/mine', '/admin/hub/board'],
+  ['/admin/rosters', '/admin/hub/players', '/admin/depth'],
+]
+
 export interface HubLink {
   key: string
   label: string
@@ -194,9 +200,9 @@ function Rail({
     const forTeam = new URLSearchParams(query).get('team') === 'jv' ? 'jv' : 'varsity'
     if (forTeam !== team) return false
     const under = (p: string) => pathname === p || (p !== '/admin/hub' && pathname.startsWith(`${p}/`))
-    // Evaluations is one entry over three pages, reached by its tabs.
-    if (path === '/admin/hub/evaluate') return ['/admin/hub/evaluate', '/admin/hub/mine', '/admin/hub/board'].some(under)
-    return under(path)
+    // An entry over several pages (reached by its tabs) stays lit on all of them.
+    const family = ENTRY_PAGES.find((f) => f.includes(path))
+    return family ? family.some(under) : under(path)
   }
 
   // The headings in the order the links arrive in, so the server decides what

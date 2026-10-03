@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { RosterTabs } from '@/components/admin/RosterTabs'
 import { requireSection } from '@/lib/permissions'
 import { listRosters, rostersReady, playersOnNoRoster } from '@/lib/rosters'
 import { createRoster, setRosterPublic, setRosterArchived } from '@/lib/actions'
@@ -15,6 +16,7 @@ export default async function RostersPage() {
   if (!(await rostersReady())) {
     return (
       <div className="max-w-2xl">
+        <RosterTabs active="rosters" />
         <h1 className="text-xl font-black mb-1">Rosters</h1>
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mt-4">
           <p className="text-sm text-amber-900 font-bold mb-1">Rosters aren&rsquo;t switched on yet.</p>
@@ -45,6 +47,7 @@ export default async function RostersPage() {
   return (
     <div className="max-w-3xl space-y-8">
       <div>
+        <RosterTabs active="rosters" />
         <h1 className="text-xl font-black mb-1">Rosters</h1>
         <p className="text-gray-500 text-sm">
           Your own lists — a season squad, a tryout group, an off-season group. Coaches evaluate

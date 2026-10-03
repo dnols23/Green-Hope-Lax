@@ -1,4 +1,5 @@
 import { requireTeam } from '@/lib/permissions'
+import { RosterTabs } from '@/components/admin/RosterTabs'
 import { canSee, canTeam, isSandboxed } from '@/lib/sections'
 import { createServiceClient } from '@/lib/supabase-server'
 import { listRosters, rosterMembers } from '@/lib/rosters'
@@ -77,6 +78,8 @@ export default async function DepthChartPage({
   )
 
   return (
+    <>
+    <RosterTabs active="depth" />
     <DepthBoard
       key={TEAMS.map((t) => charts[t].rosterId ?? '').join(':')}
       sides={sides}
@@ -91,5 +94,6 @@ export default async function DepthChartPage({
       }))}
       first={first}
     />
+    </>
   )
 }
