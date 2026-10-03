@@ -23,6 +23,7 @@ import {
 } from '@/lib/planner'
 import { DRILL_CATEGORIES, categoryFor, sortDrills, type Drill, type DrillCategory } from '@/lib/drills'
 import { quickAddDrill } from '@/lib/drillActions'
+import { PROGRESSION_POSITIONS, progressionBlock, progressionMinutes, type Progression } from '@/lib/progressions'
 import { BlockCompetition, DrillDetail } from './DrillDetail'
 import { leaderOf, readSides, tally, type BlockComp, type CompFormat, type Consequence } from '@/lib/compete'
 import { FieldBoard } from './FieldBoard'
@@ -69,6 +70,7 @@ export function PlanEditor({
   drills: drillsIn,
   drillGroups = DRILL_CATEGORIES,
   recentDrills = [],
+  progressions = [],
   competitions,
   consequences,
   plays = [],
@@ -85,6 +87,8 @@ export function PlanEditor({
   drillGroups?: DrillCategory[]
   /** The drills the latest plans used, newest first. */
   recentDrills?: string[]
+  /** The Drill Bank's positional progressions, to drop in as a block. */
+  progressions?: Progression[]
   /** The staff's competitions (built-ins as changed, and their own). */
   competitions?: CompFormat[]
   /** What the losing side can be made to do. */
@@ -127,6 +131,9 @@ export function PlanEditor({
   const [endWanted, setEndWanted] = useState('')
   const [rosterId, setRosterId] = useState(plan.roster_id ?? '')
   const [blocks, setBlocks] = useState<PlanBlock[]>(plan.blocks)
+  /** The "Insert a progression" picker, and whether it runs alongside the block above. */
+  const [progPick, setProgPick] = useState(false)
+  const [progAlongside, setProgAlongside] = useState(false)
   /* The squads practice is split into, and what each has won so far. Two by
      default, because that is how a practice splits. */
   const [sides, setSides] = useState<string[]>(() => readSides(plan.sides))
@@ -1115,6 +1122,14 @@ export function PlanEditor({
         >
           + Add a block
         </button>
+        <button
+          type="button"
+          onClick={() => setProgPick((o) => !o)}
+          aria-expanded={progPick}
+          className={`btn ${progPick ? 'btn-primary' : 'btn-ghost'}`}
+        >
+          🪜 Insert a progression
+        </button>
         {/* Always here: with blocks already written, it builds the standard
             practice around them rather than wiping them. */}
         <button type="button" onClick={fillStandard} className="btn btn-ghost">
@@ -1133,6 +1148,57 @@ export function PlanEditor({
           </button>
         )}
       </div>
+      {progPick && (
+        <div className="card p-3 mt-2 space-y-2">
+          {progressions.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              None yet —{' '}
+              <a href="/admin/drills/progressions" className="font-bold text-[var(--gh-green)]">build one in the Drill Bank</a>.
+            </p>
+          ) : (
+            <>
+              <select
+                value=""
+                aria-label="Progression"
+                className="field"
+                onChange={(e) => {
+                  const p = progressions.find((x) => x.id === e.target.value)
+                  if (!p) return
+                  const block = progressionBlock(p, drills, progAlongside && blocks.length > 0)
+                  setBlocks((bs) => [...bs, block])
+                  setOpenId(block.id)
+                  setProgPick(false)
+                }}
+              >
+                <option value="">Pick a progression…</option>
+                {PROGRESSION_POSITIONS.filter((pos) => progressions.some((p) => p.position === pos.key)).map((pos) => (
+                  <optgroup key={pos.key} label={pos.label}>
+                    {progressions
+                      .filter((p) => p.position === pos.key)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} · {p.steps.length} {p.steps.length === 1 ? 'drill' : 'drills'}
+                          {progressionMinutes(p) ? `, ${progressionMinutes(p)} min` : ''}
+                        </option>
+                      ))}
+                  </optgroup>
+                ))}
+              </select>
+              {blocks.length > 0 && (
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={progAlongside}
+                    onChange={(e) => setProgAlongside(e.target.checked)}
+                    className="w-4 h-4 accent-[var(--gh-green)]"
+                  />
+                  Same time as the last block (positions split up)
+                </label>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </form>
   )
 }

@@ -9,6 +9,7 @@ import { DrillImport } from './DrillImport'
 import { DrillSearch } from './DrillSearch'
 import { GroupOrder } from './GroupOrder'
 import { DrillGroupList } from './DrillGroupList'
+import { DrillTabs } from './DrillTabs'
 import { DrillDiagram } from '@/components/planner/DrillDetail'
 import { CompetitionDiagram } from './CompetitionDiagram'
 import { listCompetitionTypes, listConsequences } from '@/lib/competitionsData'
@@ -24,6 +25,7 @@ export default async function DrillBankPage() {
   if (!(await drillsReady())) {
     return (
       <div className="max-w-2xl">
+        <DrillTabs active="drills" />
         <h1 className="text-xl font-black mb-1">Drill Bank</h1>
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mt-4">
           <p className="text-sm text-amber-900 font-bold mb-1">The drill bank isn&rsquo;t switched on yet.</p>
@@ -54,6 +56,7 @@ export default async function DrillBankPage() {
   return (
     <div className="max-w-3xl space-y-4">
       <div>
+        <DrillTabs active="drills" />
         <h1 className="text-xl font-black mb-1">Drill Bank</h1>
         <p className="text-gray-500 text-sm">
           Every drill you run, kept once. A drill&rsquo;s link comes with it into a practice plan, so
