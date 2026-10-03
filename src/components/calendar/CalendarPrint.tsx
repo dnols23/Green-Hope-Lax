@@ -64,12 +64,9 @@ export function CalendarPrint() {
 
   const items = loaded?.key === key ? loaded.items : null
 
-  // Straight to the print dialog once it is all on the page.
-  useEffect(() => {
-    if (!items) return
-    const t = window.setTimeout(() => window.print(), 400)
-    return () => window.clearTimeout(t)
-  }, [items])
+  /* No print dialog on its own: Safari on a phone blocks a page printing
+     without a tap ("This website has been blocked from automatically
+     printing"). The Print button at the top does it. */
 
   const months = useMemo(() => {
     const out: Date[] = []
