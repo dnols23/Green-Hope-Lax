@@ -97,27 +97,20 @@ export default async function DrillBankPage() {
             <label className="field-label">Link name (optional)</label>
             <input name="link_label" maxLength={80} className="field" placeholder="Watch it" />
           </div>
-          {/* Three fields, because a coach who has never seen the drill needs
-              three different things: how to put it out, how to run it, and
-              what he is actually trying to teach. */}
           <div className="sm:col-span-6">
             <label className="field-label">Setup</label>
             <textarea name="setup" rows={2} className="field"
               placeholder="Two lines at the restraining line, 6 cones, one ball each, goalie in the cage" />
           </div>
           <div className="sm:col-span-6">
-            <label className="field-label">How it runs</label>
-            <textarea name="description" rows={2} className="field" placeholder="The reps, in order" />
+            <label className="field-label">Variations</label>
+            <textarea name="variations" rows={2} className="field"
+              placeholder="Make it harder, easier or live: add a defender, weak hand only, shrink the space…" />
           </div>
           <div className="sm:col-span-6">
             <label className="field-label">Context</label>
             <textarea name="context" rows={2} className="field"
               placeholder="What it teaches, and what good looks like" />
-          </div>
-          <div className="sm:col-span-6">
-            <label className="field-label">Variations</label>
-            <textarea name="variations" rows={2} className="field"
-              placeholder="Make it harder, easier or live: add a defender, weak hand only, shrink the space…" />
           </div>
           <div className="sm:col-span-6">
             <button type="submit" className="btn btn-primary">Add drill</button>
@@ -205,7 +198,6 @@ function DrillRow({ d }: { d: Drill }) {
         {d.link && <DrillLink href={d.link} label={d.link_label || 'Open link'} />}
       </summary>
       <div className="pl-6 pt-2 space-y-2">
-        {d.description && <p className="text-sm text-gray-600 whitespace-pre-line">{d.description}</p>}
         <DrillDiagram drill={d} />
         <form action={upsertDrill} className="grid sm:grid-cols-6 gap-2 items-end">
           <input type="hidden" name="id" value={d.id} />
@@ -239,18 +231,14 @@ function DrillRow({ d }: { d: Drill }) {
               placeholder="Cones, lines, balls, where the goalie stands" />
           </div>
           <div className="sm:col-span-6">
-            <label className="field-label">How it runs</label>
-            <textarea name="description" rows={2} defaultValue={d.description ?? ''} className="field !py-1.5" />
+            <label className="field-label">Variations</label>
+            <textarea name="variations" rows={2} defaultValue={d.variations ?? ''} className="field !py-1.5"
+              placeholder="Make it harder, easier or live: add a defender, weak hand only, shrink the space…" />
           </div>
           <div className="sm:col-span-6">
             <label className="field-label">Context</label>
             <textarea name="context" rows={2} defaultValue={d.context ?? ''} className="field !py-1.5"
               placeholder="What it teaches, and what good looks like" />
-          </div>
-          <div className="sm:col-span-6">
-            <label className="field-label">Variations</label>
-            <textarea name="variations" rows={2} defaultValue={d.variations ?? ''} className="field !py-1.5"
-              placeholder="Make it harder, easier or live: add a defender, weak hand only, shrink the space…" />
           </div>
           <div className="sm:col-span-6 flex items-center gap-3">
             <button type="submit" className="btn btn-primary !py-1.5 text-sm">Save</button>
