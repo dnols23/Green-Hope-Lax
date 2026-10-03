@@ -31,6 +31,8 @@ export interface DepthChart {
   rosterId: string | null
   /** Each position's players, best first. A player can be on more than one. */
   slots: Record<string, string[]>
+  /** The order the position cards show in, as the coach slid them. */
+  order?: string[]
 }
 
 export function emptyChart(): DepthChart {
@@ -53,7 +55,15 @@ export function readDepthChart(raw: unknown): DepthChart {
       ? [...new Set(list.filter((x): x is string => typeof x === 'string' && !!x))].slice(0, 40)
       : []
   }
+  if (Array.isArray(r.order)) chart.order = orderPositions(r.order).map((p) => p.key)
   return chart
+}
+
+/** The positions in the coach's order: the saved ones first, any new ones after. */
+export function orderPositions(saved: unknown): DepthPosition[] {
+  const keys = Array.isArray(saved) ? saved.filter((k): k is string => typeof k === 'string') : []
+  const picked = [...new Set(keys)].map((k) => DEPTH_POSITIONS.find((p) => p.key === k)).filter((p): p is DepthPosition => !!p)
+  return [...picked, ...DEPTH_POSITIONS.filter((p) => !picked.includes(p))]
 }
 
 /** "1st line", "2nd line" … for the midfield; "Starters" / "Depth" for the rest. */
