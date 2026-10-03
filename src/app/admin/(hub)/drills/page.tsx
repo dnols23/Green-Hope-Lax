@@ -8,6 +8,7 @@ import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
 import { DrillSearch } from './DrillSearch'
 import { GroupOrder } from './GroupOrder'
+import { DrillGroupList } from './DrillGroupList'
 import { DrillDiagram } from '@/components/planner/DrillDetail'
 import { CompetitionDiagram } from './CompetitionDiagram'
 import { listCompetitionTypes, listConsequences } from '@/lib/competitionsData'
@@ -42,6 +43,7 @@ export default async function DrillBankPage() {
     listDrillGroups(),
     recentDrillIds(),
   ])
+  const orderKey = groups.map((g) => g.key).join(',')
   const inGroup = (key: string) =>
     key === 'recent'
       ? recent.map((id) => drills.find((d) => d.id === id)).filter((d): d is Drill => !!d)
@@ -61,7 +63,7 @@ export default async function DrillBankPage() {
 
       {drills.length > 0 && <DrillSearch listId="drill-list" />}
       {drills.length > 0 && !isSandboxed(viewer) && (
-        <GroupOrder groups={groups.map((g) => ({ id: g.key, label: g.label, icon: g.icon }))} />
+        <GroupOrder key={orderKey} groups={groups.map((g) => ({ id: g.key, label: g.label, icon: g.icon }))} />
       )}
 
       <details className="card p-4">
@@ -128,30 +130,40 @@ export default async function DrillBankPage() {
         </div>
       ) : (
         <div id="drill-list" className="space-y-4">
-          {groups.map((cat) => {
-            const group = inGroup(cat.key)
-            if (group.length === 0) return null
-            const recentGroup = isShortcutGroup(cat.key)
-            return (
-              <details
-                key={cat.key}
-                open={cat.key !== 'recent'}
-                className="card p-4"
-                data-drill-group
-                {...(recentGroup ? { 'data-drill-recent': '' } : {})}
-              >
-                <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
-                  <span className="caret text-sm">▸</span> {cat.icon} {cat.label}
-                  <span className="font-normal text-xs text-gray-400">{group.length}</span>
-                </summary>
-                <div className="mt-3 pt-3 border-t border-gray-100 divide-y divide-gray-100">
-                  {group.map((d) => (
-                    <DrillRow key={d.id} d={d} />
-                  ))}
-                </div>
-              </details>
-            )
-          })}
+          <DrillGroupList
+            key={orderKey}
+            order={groups.map((g) => g.key)}
+            canMove={!isSandboxed(viewer)}
+            groups={groups
+              .filter((cat) => inGroup(cat.key).length > 0)
+              .map((cat) => {
+                const group = inGroup(cat.key)
+                const recentGroup = isShortcutGroup(cat.key)
+                return {
+                  id: cat.key,
+                  label: cat.label,
+                  node: (
+                    <details
+                      key={cat.key}
+                      open={cat.key !== 'recent'}
+                      className="card p-4"
+                      data-drill-group
+                      {...(recentGroup ? { 'data-drill-recent': '' } : {})}
+                    >
+                      <summary className="cursor-pointer list-none font-bold text-gray-700 flex items-center gap-2">
+                        <span className="caret text-sm">▸</span> {cat.icon} {cat.label}
+                        <span className="font-normal text-xs text-gray-400">{group.length}</span>
+                      </summary>
+                      <div className="mt-3 pt-3 border-t border-gray-100 divide-y divide-gray-100">
+                        {group.map((d) => (
+                          <DrillRow key={d.id} d={d} />
+                        ))}
+                      </div>
+                    </details>
+                  ),
+                }
+              })}
+          />
           <CompetitionsGroup comps={comps.list} ready={comps.ready} drills={drills} />
           <ConsequencesGroup list={consequences} />
         </div>
