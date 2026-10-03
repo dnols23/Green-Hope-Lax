@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requireSection } from './permissions'
 import { canSee, canTeam, isSandboxed, type Viewer } from './sections'
 import { createServiceClient } from './supabase-server'
-import { depthKey, readDepthChart, type DepthChart } from './depthChart'
+import { ROSTER_TEAMS_KEY, depthKey, readDepthChart, readRosterTeams, type DepthChart } from './depthChart'
 import { isTeam, type Team } from './teams'
 
 /**
@@ -123,6 +123,9 @@ export async function depthCreateRoster(team: Team, name: string, chart: DepthCh
   const { data, error } = await svc.from('player_lists').insert({ name: clean }).select('id').single()
   if (error || !data) return { ok: false, error: `Couldn’t make it: ${error?.message ?? 'unknown error'}` }
   const id = String((data as { id: string }).id)
+  const map = await rosterTeams()
+  map[id] = w.team
+  await svc.from('app_settings').upsert({ key: ROSTER_TEAMS_KEY, value: JSON.stringify(map) }, { onConflict: 'key' })
   await svc
     .from('app_settings')
     .upsert({ key: depthKey(w.team), value: JSON.stringify(readDepthChart({ ...chart, rosterId: id })) }, { onConflict: 'key' })
@@ -193,4 +196,56 @@ export async function depthAddToTeam(team: Team, rosterId: string, playerId: str
   refresh()
   revalidatePath(`/admin/rosters/${rosterId}`)
   return { ok: true }
+}
+
+async function rosterTeams(): Promise<Record<string, Team>> {
+  const { data } = await createServiceClient().from('app_settings').select('value').eq('key', ROSTER_TEAMS_KEY).maybeSingle()
+  return readRosterTeams((data as { value?: unknown } | null)?.value)
+}
+
+/**
+ * Mark a roster as one team's — varsity's or JV's, never both — and tag its
+ * players to match, so their profiles and the roster page say the same thing.
+ * A chart on the other side still pointing at it is let go.
+ */
+export async function assignRosterTeam(rosterId: string, team: Team | null): Promise<Result> {
+  const viewer = await requireSection('rosters')
+  if (!rosterId) return { ok: false, error: 'No roster.' }
+  if (team && (!canTeam(viewer, team) || isSandboxed(viewer))) return { ok: false, error: 'That team isn’t yours to change.' }
+  const svc = createServiceClient()
+  const map = await rosterTeams()
+  if (team) map[rosterId] = team
+  else delete map[rosterId]
+  const { error } = await svc.from('app_settings').upsert({ key: ROSTER_TEAMS_KEY, value: JSON.stringify(map) }, { onConflict: 'key' })
+  if (error) return { ok: false, error: `Couldn’t save: ${error.message}` }
+  if (team) {
+    const { data: members } = await svc.from('player_list_members').select('player_id').eq('list_id', rosterId)
+    const ids = ((members ?? []) as { player_id: string }[]).map((m) => m.player_id)
+    if (ids.length) await svc.from('players').update({ team: team === 'jv' ? 'boys_jv' : 'boys_varsity' }).in('id', ids)
+    // The other side can't keep a roster that is now this side's.
+    const otherTeam: Team = team === 'jv' ? 'varsity' : 'jv'
+    const { data: o } = await svc.from('app_settings').select('value').eq('key', depthKey(otherTeam)).maybeSingle()
+    const oc = readDepthChart((o as { value?: unknown } | null)?.value)
+    if (oc.rosterId === rosterId) {
+      await svc.from('app_settings').upsert({ key: depthKey(otherTeam), value: JSON.stringify({ ...oc, rosterId: null }) }, { onConflict: 'key' })
+    }
+  }
+  refresh()
+  revalidatePath('/admin/rosters', 'layout')
+  return { ok: true }
+}
+
+/** This chart now runs off this roster, which becomes this team's. */
+export async function depthUseRoster(team: Team, rosterId: string | null, chart: DepthChart): Promise<Result> {
+  const w = await writer(team)
+  if (!w) return { ok: false, error: 'This depth chart isn’t yours to change.' }
+  if (rosterId) {
+    const map = await rosterTeams()
+    if (map[rosterId] && map[rosterId] !== team) return { ok: false, error: 'That roster belongs to the other team.' }
+    if (!map[rosterId]) {
+      const r = await assignRosterTeam(rosterId, team)
+      if (!r.ok) return r
+    }
+  }
+  return saveDepthChart(team, { ...chart, rosterId })
 }
