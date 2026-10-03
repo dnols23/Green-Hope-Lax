@@ -19,6 +19,7 @@ import { listCalendarItems } from '@/lib/calendarData'
 import { audienceLabel, colorFor, type CalItem } from '@/lib/calendarModel'
 import { addDaysYmd, hmOf, ymdOf, zoneParts, zonedToUtc } from '@/lib/zoned'
 import { WarRoomPanels, type Panel } from './WarRoomPanels'
+import { warRoomKey } from '@/lib/warRoomActions'
 import { PrioritiesPanel } from './PriorityRow'
 import { GameDayPanel, MakeGamePlanButton, findGamePlan, gameDay, planDateLabel } from './GameTiles'
 import { describeGamePlan, readGamePlan } from '@/lib/gamePlan'
@@ -167,6 +168,17 @@ export default async function WarRoom({
      switching first. */
   const coach = await getCurrentCoach()
   const viewer = await getViewer()
+  // This coach's War Room layout, kept with his account.
+  let savedOrder: string[] = []
+  if (viewer?.email) {
+    const { data: wo } = await createServiceClient().from('app_settings').select('value').eq('key', await warRoomKey(viewer.email)).maybeSingle()
+    try {
+      const v = JSON.parse(String((wo as { value?: unknown } | null)?.value ?? '[]'))
+      if (Array.isArray(v)) savedOrder = v.filter((k): k is string => typeof k === 'string')
+    } catch {
+      savedOrder = []
+    }
+  }
   /* A coach kept to one side of the program gets that side, whatever the
      address bar says. */
   const team = teamFor(viewer, (await searchParams).team)
@@ -673,7 +685,7 @@ export default async function WarRoom({
         </div>
       )}
 
-      <WarRoomPanels panels={panels} />
+      <WarRoomPanels panels={panels} savedOrder={savedOrder} />
 
       {isOwner && (
         <details className="card p-4 mt-6">

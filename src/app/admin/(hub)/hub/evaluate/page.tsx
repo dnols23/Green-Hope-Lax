@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { EvalTabs } from '../EvalTabs'
 import { getAllPlayers } from '@/lib/queries'
 import { getCurrentCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
@@ -76,6 +77,7 @@ export default async function EvaluatePicker({
 
     return (
       <div>
+        <EvalTabs active="evaluate" />
         <Link
           href={rosters.length === 0 ? '/admin/hub' : '/admin/hub/evaluate'}
           className="text-sm font-bold text-[var(--gh-green)]"
@@ -126,10 +128,8 @@ export default async function EvaluatePicker({
 
   return (
     <div>
-      <Link href="/admin/hub" className="text-sm font-bold text-[var(--gh-green)]">
-        ← Coaches Hub
-      </Link>
-      <h1 className="text-xl font-black mt-2 mb-1">Evaluate a player</h1>
+      <EvalTabs active="evaluate" />
+      <h1 className="text-xl font-black mb-1">Evaluate a player</h1>
       <p className="text-gray-500 text-sm mb-6">Which group are you working through?</p>
 
       <div className="space-y-2">

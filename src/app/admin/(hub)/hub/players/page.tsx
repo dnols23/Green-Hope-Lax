@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { RosterTabs } from '@/components/admin/RosterTabs'
 import { requireSection } from '@/lib/permissions'
 import { createServiceClient } from '@/lib/supabase-server'
 import { listRosters } from '@/lib/rosters'
@@ -22,6 +23,7 @@ export default async function PlayersPage() {
   if (!(await drillSetsReady())) {
     return (
       <div className="max-w-2xl">
+        <RosterTabs active="players" />
         <h1 className="text-xl font-black mb-1">Players</h1>
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mt-4">
           <p className="text-sm text-amber-900 font-bold mb-1">Drill sets aren&rsquo;t switched on yet.</p>
@@ -52,6 +54,7 @@ export default async function PlayersPage() {
   return (
     <div className="max-w-3xl space-y-4">
       <div>
+        <RosterTabs active="players" />
         <h1 className="text-xl font-black mb-1">Players</h1>
         <p className="text-gray-500 text-sm">
           Tap a name for the full profile. Players and parents join their hub with the team&rsquo;s

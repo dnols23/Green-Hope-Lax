@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { RosterTabs } from '@/components/admin/RosterTabs'
 import { notFound } from 'next/navigation'
 import { requireSection } from '@/lib/permissions'
 import { getRoster, rosterMembers } from '@/lib/rosters'
@@ -27,7 +28,8 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
   return (
     <div className="max-w-5xl space-y-4">
       <div>
-        <Link href="/admin/rosters" className="text-sm font-bold text-[var(--gh-green)]">← Rosters</Link>
+        <RosterTabs active="rosters" />
+        <Link href="/admin/rosters" className="text-sm font-bold text-[var(--gh-green)]">← All rosters</Link>
         <div className="flex items-center gap-2 mt-2 mb-1 flex-wrap">
           <h1 className="text-xl font-black">{roster.name}</h1>
           {roster.is_public && <span className="badge badge-win">Public</span>}

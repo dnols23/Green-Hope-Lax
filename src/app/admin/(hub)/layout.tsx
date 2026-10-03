@@ -80,7 +80,8 @@ export default async function HubLayout({ children }: { children: React.ReactNod
       .map((m) => ({
         key: m.key,
         label: m.label,
-        href: m.href,
+        // Roster opens on Rosters, or on Players for a coach without the rosters grant.
+        href: m.key === 'rosters' && !canSee(viewer, 'rosters') ? '/admin/hub/players' : m.href,
         icon: m.icon,
         group: 'Program',
       })),

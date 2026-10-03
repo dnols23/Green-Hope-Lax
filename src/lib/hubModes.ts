@@ -26,13 +26,11 @@ export const HUB_MODES: HubMode[] = [
   { key: 'library',   label: 'Library',          section: 'library',  icon: '🗄', href: '/admin/library' },
   { key: 'playbook',  label: 'Playbook',         section: 'playbook', icon: '📘', href: '/admin/playbook' },
   { key: 'priorities', label: 'Priorities',      section: 'priorities', icon: '🎯', href: '/admin/priorities' },
-  { key: 'depth',     label: 'Depth Chart',      section: 'depth',    icon: '📶', href: '/admin/depth' },
   { key: 'team',      label: 'Team Hub',         section: 'team',     icon: '🗣', href: '/admin/team' },
-  { key: 'players',   label: 'Players',          section: 'hub',      icon: '🧍', href: '/admin/hub/players' },
-  { key: 'evaluate',  label: 'Evaluate',         section: 'hub',      icon: '📝', href: '/admin/hub/evaluate' },
-  { key: 'mine',      label: 'My evaluations',   section: 'hub',      icon: '📋', href: '/admin/hub/mine' },
-  { key: 'board',     label: 'Evaluation board', section: 'hub',      icon: '📊', href: '/admin/hub/board' },
-  { key: 'rosters',   label: 'Rosters',          section: 'rosters',  icon: '🥍', href: '/admin/rosters' },
+  // One entry for evaluating, your own evaluations and the staff board — tabs on the page.
+  { key: 'evaluate',  label: 'Evaluations',      section: 'hub',      icon: '📝', href: '/admin/hub/evaluate' },
+  // One entry for rosters, players and the depth chart — tabs on the page.
+  { key: 'rosters',   label: 'Roster',           section: 'hub',      icon: '🥍', href: '/admin/rosters' },
   { key: 'coachreviews', label: 'Coach Reviews', section: 'coach-reviews', icon: '🧢', href: '/admin/coach-reviews' },
   { key: 'calendar',  label: 'Calendar',         section: 'calendar', icon: '📅', href: '/admin/calendar', fixed: true },
   { key: 'wall',      label: 'On the Wall',      section: 'wall',     icon: '🔊', href: '/admin/wall' },

@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { EvalTabs } from '../EvalTabs'
 import { requireSection } from '@/lib/permissions'
 import { createServiceClient } from '@/lib/supabase-server'
 import { EVAL_CATEGORIES, ratingsAverage, readRating, type Evaluation } from '@/lib/evaluations'
@@ -63,8 +63,8 @@ export default async function EvaluationBoard() {
 
   return (
     <div>
-      <Link href="/admin/hub" className="text-sm font-bold text-[var(--gh-green)]">← Coaches Hub</Link>
-      <div className="flex items-center gap-2 mt-2 mb-1">
+      <EvalTabs active="board" />
+      <div className="flex items-center gap-2 mb-1">
         <h1 className="text-xl font-black">Team Evaluation Board</h1>
       </div>
       <p className="text-gray-500 text-sm mb-6">Compiled scores across every coach, open to the whole staff. Tap a player to see each coach’s ratings and notes.</p>

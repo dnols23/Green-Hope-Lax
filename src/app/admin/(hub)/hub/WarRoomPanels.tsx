@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { saveWarRoomOrder } from '@/lib/warRoomActions'
 
 const ORDER_KEY = 'gh-warroom-order-v1'
 const ORDER_EVENT = 'gh-warroom-order-changed'
@@ -53,13 +54,16 @@ type Session = {
  * Pick a panel up by its grip and it lifts off the page and follows the
  * finger; the others slide out of the way and a dashed gap shows where it
  * will land before anything is let go. Pointer events rather than the
- * browser's drag and drop, which iPhones don't have. The order is kept in the
- * coach's own browser — the head coach wants today's plan first, the goalie
- * coach wants the schedule.
+ * browser's drag and drop, which iPhones don't have. The order is kept with
+ * the coach's account — the head coach wants today's plan first, the goalie
+ * coach wants the schedule — so it's the same on every device. A layout only
+ * ever saved in this browser (before accounts kept it) is still used until
+ * the next move saves it properly.
  */
-export function WarRoomPanels({ panels }: { panels: Panel[] }) {
+export function WarRoomPanels({ panels, savedOrder = [] }: { panels: Panel[]; savedOrder?: string[] }) {
   const [drag, setDrag] = useState<Drag | null>(null)
-  const savedJson = useSyncExternalStore(subscribe, readOrder, () => '')
+  const localJson = useSyncExternalStore(subscribe, readOrder, () => '')
+  const [moved, setMoved] = useState<string[] | null>(null)
   const grid = useRef<HTMLDivElement>(null)
   const gap = useRef<HTMLDivElement>(null)
   const els = useRef(new Map<string, HTMLElement>())
@@ -67,8 +71,9 @@ export function WarRoomPanels({ panels }: { panels: Panel[] }) {
   const session = useRef<Session | null>(null)
   const skipSlide = useRef<string | null>(null)
 
-  let saved: string[] = []
-  try { saved = savedJson ? (JSON.parse(savedJson) as string[]) : [] } catch { saved = [] }
+  let local: string[] = []
+  try { local = localJson ? (JSON.parse(localJson) as string[]) : [] } catch { local = [] }
+  const saved = moved ?? (savedOrder.length ? savedOrder : local)
 
   const byKey = new Map(panels.map((p) => [p.key, p]))
   const ordered: Panel[] = []
@@ -119,8 +124,10 @@ export function WarRoomPanels({ panels }: { panels: Panel[] }) {
   }, [carrying])
 
   function persist(next: string[]) {
+    setMoved(next)
     try { localStorage.setItem(ORDER_KEY, JSON.stringify(next)) } catch {}
     window.dispatchEvent(new Event(ORDER_EVENT))
+    void saveWarRoomOrder(next)
   }
 
   function place(s: Session) {
