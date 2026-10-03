@@ -193,7 +193,10 @@ function Rail({
     const [path, query = ''] = href.split('?')
     const forTeam = new URLSearchParams(query).get('team') === 'jv' ? 'jv' : 'varsity'
     if (forTeam !== team) return false
-    return pathname === path || (path !== '/admin/hub' && pathname.startsWith(`${path}/`))
+    const under = (p: string) => pathname === p || (p !== '/admin/hub' && pathname.startsWith(`${p}/`))
+    // Evaluations is one entry over three pages, reached by its tabs.
+    if (path === '/admin/hub/evaluate') return ['/admin/hub/evaluate', '/admin/hub/mine', '/admin/hub/board'].some(under)
+    return under(path)
   }
 
   // The headings in the order the links arrive in, so the server decides what

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { EvalTabs } from '../EvalTabs'
 import { getCurrentCoach } from '@/lib/coach'
 import { createServiceClient } from '@/lib/supabase-server'
 import { deleteEvaluation } from '@/lib/actions'
@@ -29,10 +30,10 @@ export default async function MyEvaluations() {
 
   return (
     <div>
+      <EvalTabs active="mine" />
       <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
         <div>
-          <Link href="/admin/hub" className="text-sm font-bold text-[var(--gh-green)]">← Coaches Hub</Link>
-          <h1 className="text-xl font-black mt-2">My Evaluations</h1>
+          <h1 className="text-xl font-black">My Evaluations</h1>
         </div>
         <Link href="/admin/hub/evaluate" className="btn btn-primary">+ Evaluate a player</Link>
       </div>
