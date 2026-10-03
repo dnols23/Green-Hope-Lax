@@ -6,6 +6,7 @@ import { listRosters, rosterMembers } from '@/lib/rosters'
 import { listStaff } from '@/lib/staff'
 import { listDrillGroups, listDrills, recentDrillIds } from '@/lib/drillsData'
 import { listCompetitionTypes, listConsequences } from '@/lib/competitionsData'
+import { listProgressions } from '@/lib/progressionsData'
 import { adoptPlan, deletePlan, duplicatePlan, sendPlanForReview } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { PlanEditor } from '@/components/planner/PlanEditor'
@@ -39,7 +40,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
     canTeam(viewer, plan.team) &&
     (sandboxed ? plan.private && mine : !plan.private || mine || reviewer)
 
-  const [live, staff, drills, comps, consequences, drillGroups, recentDrills] = await Promise.all([
+  const [live, staff, drills, comps, consequences, drillGroups, recentDrills, progressions] = await Promise.all([
     listRosters(),
     listStaff(),
     listDrills(),
@@ -47,6 +48,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
     listConsequences(),
     listDrillGroups(),
     recentDrillIds(),
+    listProgressions(),
   ])
   /* A plan written last season still points at last season's roster. Offering
      only the live ones would show this plan's own roster as blank and quietly
@@ -170,6 +172,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
         drills={drills}
         drillGroups={drillGroups}
         recentDrills={recentDrills}
+        progressions={progressions}
         competitions={comps.list}
         consequences={consequences}
         plays={plays}

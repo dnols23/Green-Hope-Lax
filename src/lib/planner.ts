@@ -303,14 +303,14 @@ export function readBlocks(raw: unknown): PlanBlock[] {
       shotUrl: readShotUrl(b.shotUrl),
       drillId: typeof b.drillId === 'string' ? b.drillId : null,
       extraDrills: Array.isArray(b.extraDrills)
-        ? b.extraDrills.filter((x): x is string => typeof x === 'string' && !!x).slice(0, 4)
+        ? b.extraDrills.filter((x): x is string => typeof x === 'string' && !!x).slice(0, 11)
         : [],
       drillNotes:
         b.drillNotes && typeof b.drillNotes === 'object'
           ? Object.fromEntries(
               Object.entries(b.drillNotes)
                 .filter(([k, v]) => typeof v === 'string' && v.trim() && !!k)
-                .slice(0, 8)
+                .slice(0, 12)
                 .map(([k, v]) => [k, (v as string).slice(0, 4000)]),
             )
           : {},
