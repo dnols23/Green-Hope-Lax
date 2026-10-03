@@ -2610,3 +2610,35 @@ export async function adoptPlan(formData: FormData) {
   revalidatePath(`/admin/planner/${plan.id}`)
   revalidatePath('/admin/hub')
 }
+
+/** One player's line on a roster, edited in place: number, name, position, grad year, team. */
+export async function saveRosterPlayer(input: {
+  id: string
+  listId: string
+  name: string
+  number: string
+  position: string
+  class_year: string
+  team: string
+}): Promise<{ ok: boolean; error?: string }> {
+  await requireSection('rosters')
+  const name = String(input.name ?? '').trim().slice(0, 120)
+  if (!input.id || !name) return { ok: false, error: 'A player needs a name.' }
+  const team = ['boys_varsity', 'boys_jv', 'girls'].includes(input.team) ? input.team : null
+  const { error } = await createServiceClient()
+    .from('players')
+    .update({
+      name,
+      number: String(input.number ?? '').trim().slice(0, 4) || null,
+      position: String(input.position ?? '').trim().slice(0, 40) || null,
+      class_year: String(input.class_year ?? '').trim().slice(0, 10) || null,
+      ...(team ? { team } : {}),
+    })
+    .eq('id', input.id)
+  if (error) return { ok: false, error: `Couldn’t save: ${error.message}` }
+  if (input.listId) revalidatePath(`/admin/rosters/${input.listId}`)
+  revalidatePath('/admin/rosters')
+  revalidatePath('/admin/depth')
+  revalidatePath('/roster')
+  return { ok: true }
+}
