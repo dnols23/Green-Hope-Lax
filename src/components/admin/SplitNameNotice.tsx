@@ -14,7 +14,7 @@ export async function SplitNameNotice() {
   const svc = createServiceClient()
   const { data } = await svc.from('players').select('id, name, number')
   const rows = ((data ?? []) as { id: string; name: string; number: string | null }[]).filter(
-    (p) => p.number && !/^#?\d{1,3}$/.test(p.number.trim())
+    (p) => p.number && !/^#?\d{1,3}$/.test(String(p.number).trim())
   )
   if (rows.length === 0) return null
 
