@@ -157,6 +157,8 @@ export const SECTIONS: AdminSection[] = [
     views: [{ audience: 'public', href: '/coaches' }] },
   { key: 'news',         label: 'News',         href: '/admin/news',         group: 'Content',
     views: [{ audience: 'public', href: '/news' }] },
+  // @ghlacrosse Reels: what to shoot, edit and post, and when.
+  { key: 'social',       label: 'Instagram',    href: '/admin/content',      group: 'Content' },
   { key: 'awards',       label: 'Awards',       href: '/admin/awards',       group: 'Content',
     views: [{ audience: 'public', href: '/awards' }] },
   { key: 'record-books', label: 'Record Books', href: '/admin/record-books', group: 'Content',
