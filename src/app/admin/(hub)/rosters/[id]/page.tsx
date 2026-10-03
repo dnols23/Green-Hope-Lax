@@ -2,10 +2,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireSection } from '@/lib/permissions'
 import { getRoster, rosterMembers } from '@/lib/rosters'
-import { renameRoster, removePlayerFromRoster, deleteRoster } from '@/lib/actions'
+import { renameRoster, deleteRoster } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
-import { TEAM_LABELS, type TeamGroup } from '@/lib/types'
 import { ImportPlayers } from './ImportPlayers'
+import { RosterTable } from './RosterTable'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +18,7 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
   const players = await rosterMembers(id)
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-5xl space-y-4">
       <div>
         <Link href="/admin/rosters" className="text-sm font-bold text-[var(--gh-green)]">← Rosters</Link>
         <div className="flex items-center gap-2 mt-2 mb-1 flex-wrap">
@@ -111,52 +111,24 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
             Nobody yet. Paste your list above to fill it.
           </div>
         ) : (
-          <div className="card table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>#</th><th>Player</th><th>Position</th><th>Grad</th><th>Team</th><th>Public</th>
-                  <th className="col-actions">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {players.map((p) => (
-                  <tr key={p.id}>
-                    <td className="font-black tabular-nums" style={{ color: 'var(--gh-green)' }}>{p.number ?? '–'}</td>
-                    <td className="font-semibold whitespace-nowrap">{p.name}</td>
-                    <td>{p.position ?? '—'}</td>
-                    <td>{p.class_year ?? '—'}</td>
-                    <td className="text-gray-500 text-xs">{TEAM_LABELS[p.team as TeamGroup]}</td>
-                    <td>
-                      <span className={`badge ${p.is_active ? 'badge-win' : 'badge-sched'}`}>
-                        {p.is_active ? 'Public' : 'Hidden'}
-                      </span>
-                    </td>
-                    <td className="col-actions">
-                      <div className="flex items-center gap-3">
-                        <Link href={`/admin/hub/evaluate/${p.id}`} className="text-xs font-bold text-[var(--gh-green)]">
-                          Evaluate
-                        </Link>
-                        <form action={removePlayerFromRoster}>
-                          <input type="hidden" name="list_id" value={roster.id} />
-                          <input type="hidden" name="player_id" value={p.id} />
-                          <button type="submit" className="text-xs font-bold text-gray-400 hover:text-red-700">
-                            Remove
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <RosterTable
+            listId={roster.id}
+            players={players.map((p) => ({
+              id: p.id,
+              name: p.name,
+              // Numbers and grad years can come back as numbers; the table edits them as text.
+              number: p.number == null ? null : String(p.number),
+              position: p.position,
+              class_year: p.class_year == null ? null : String(p.class_year),
+              team: p.team,
+              is_active: p.is_active,
+            }))}
+          />
         )}
         {players.length > 0 && (
           <p className="text-xs text-gray-400 mt-2">
-            &ldquo;Remove&rdquo; takes them off this roster only — the player and their evaluations stay.
-            &ldquo;Hidden&rdquo; means they don&rsquo;t appear on the public roster page; change that on{' '}
-            <Link href="/admin/roster" className="font-semibold text-[var(--gh-green)]">Roster</Link>.
+            Tap any box to change it — it saves when you leave the box. &ldquo;Remove&rdquo; takes them off this roster only — the player and their evaluations stay.
+            &ldquo;Hidden&rdquo; keeps them off the public roster page.
           </p>
         )}
         </div>
