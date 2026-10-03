@@ -6,6 +6,9 @@ import { renameRoster, deleteRoster } from '@/lib/actions'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { ImportPlayers } from './ImportPlayers'
 import { RosterTable } from './RosterTable'
+import { RosterTeamPick } from './RosterTeamPick'
+import { createServiceClient } from '@/lib/supabase-server'
+import { ROSTER_TEAMS_KEY, readRosterTeams } from '@/lib/depthChart'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +18,11 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
 
   const roster = await getRoster(id)
   if (!roster) notFound()
-  const players = await rosterMembers(id)
+  const [players, { data: rt }] = await Promise.all([
+    rosterMembers(id),
+    createServiceClient().from('app_settings').select('value').eq('key', ROSTER_TEAMS_KEY).maybeSingle(),
+  ])
+  const rosterTeam = readRosterTeams((rt as { value?: unknown } | null)?.value)[id] ?? null
 
   return (
     <div className="max-w-5xl space-y-4">
@@ -31,6 +38,7 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
           {roster.season ? ` · ${roster.season}` : ''}
           {roster.notes ? ` · ${roster.notes}` : ''}
         </p>
+        <RosterTeamPick rosterId={roster.id} team={rosterTeam} />
       </div>
 
       <details className="card p-4">

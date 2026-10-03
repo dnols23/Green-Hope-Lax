@@ -3,6 +3,8 @@ import { requireSection } from '@/lib/permissions'
 import { listRosters, rostersReady, playersOnNoRoster } from '@/lib/rosters'
 import { createRoster, setRosterPublic, setRosterArchived } from '@/lib/actions'
 import { AdoptCard } from './AdoptCard'
+import { createServiceClient } from '@/lib/supabase-server'
+import { ROSTER_TEAMS_KEY, readRosterTeams } from '@/lib/depthChart'
 
 export const metadata = { title: 'Rosters' }
 export const dynamic = 'force-dynamic'
@@ -25,7 +27,12 @@ export default async function RostersPage() {
     )
   }
 
-  const [rosters, loose] = await Promise.all([listRosters(true), playersOnNoRoster()])
+  const [rosters, loose, { data: rt }] = await Promise.all([
+    listRosters(true),
+    playersOnNoRoster(),
+    createServiceClient().from('app_settings').select('value').eq('key', ROSTER_TEAMS_KEY).maybeSingle(),
+  ])
+  const rosterTeam = readRosterTeams((rt as { value?: unknown } | null)?.value)
   const live = rosters.filter((r) => !r.is_archived)
   const archived = rosters.filter((r) => r.is_archived)
   // The public page still runs off the players marked active until a roster is
@@ -99,6 +106,11 @@ export default async function RostersPage() {
                 <Link href={`/admin/rosters/${r.id}`} className="min-w-0 flex-1 group">
                   <div className="font-bold flex items-center gap-2 flex-wrap group-hover:underline">
                     {r.name}
+                    {rosterTeam[r.id] && (
+                      <span className="badge" style={{ background: '#fde8ea', color: 'var(--gh-maroon)' }}>
+                        {rosterTeam[r.id] === 'jv' ? 'JV' : 'Varsity'}
+                      </span>
+                    )}
                     {r.is_public && <span className="badge badge-win">On the public site</span>}
                   </div>
                   <div className="text-xs text-gray-500">

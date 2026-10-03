@@ -155,3 +155,25 @@ export function moveOnChart(
 export function dropFromChart(chart: DepthChart, playerId: string): DepthChart {
   return { ...chart, slots: Object.fromEntries(Object.entries(chart.slots).map(([k, v]) => [k, v.filter((id) => id !== playerId)])) }
 }
+
+// ── Which team a roster is for ───────────────────────────────────────────────
+
+/** rosterId → the team it belongs to, kept in app_settings. No SQL. */
+export const ROSTER_TEAMS_KEY = 'roster_teams'
+
+export function readRosterTeams(raw: unknown): Record<string, Team> {
+  let r: Record<string, unknown> = {}
+  try {
+    r = (typeof raw === 'string' ? JSON.parse(raw) : raw ?? {}) as Record<string, unknown>
+  } catch {
+    return {}
+  }
+  const out: Record<string, Team> = {}
+  for (const [k, v] of Object.entries(r)) if (v === 'varsity' || v === 'jv') out[k] = v
+  return out
+}
+
+/** Every position empty: everyone back on the bench. The roster stays. */
+export function clearChart(chart: DepthChart): DepthChart {
+  return { ...chart, slots: Object.fromEntries(DEPTH_POSITIONS.map((p) => [p.key, []])) }
+}

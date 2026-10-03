@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition, type PointerEvent as ReactP
 import {
   BENCH,
   DEPTH_POSITIONS,
+  clearChart,
   dropFromChart,
   fillFromRoster,
   moveOnChart,
@@ -12,7 +13,7 @@ import {
   tierLabel,
   type DepthChart,
 } from '@/lib/depthChart'
-import { depthAddToTeam, depthCreateRoster, depthMoveTeam, depthRemoveFromRoster, saveDepthChart, type DepthPlayer } from '@/lib/depthActions'
+import { depthAddToTeam, depthCreateRoster, depthMoveTeam, depthRemoveFromRoster, depthUseRoster, saveDepthChart, type DepthPlayer } from '@/lib/depthActions'
 import type { Team } from '@/lib/teams'
 import { RosterPanel } from './DepthRoster'
 
@@ -24,12 +25,18 @@ const other = (t: Team): Team => (t === 'varsity' ? 'jv' : 'varsity')
 export type ProgramPlayer = DepthPlayer & { team: string }
 const TEAM_GROUP: Record<string, string> = { boys_varsity: 'Varsity', boys_jv: 'JV', girls: 'Girls' }
 
+type RosterOption = { id: string; name: string; count: number; mine: boolean }
+
 export interface TeamSide {
   team: Team
   chart: DepthChart
   players: DepthPlayer[]
   canWrite: boolean
   canEditRoster: boolean
+  /** The rosters this team's chart may run off: its own, and unclaimed ones. */
+  rosters: RosterOption[]
+  /** Anything about the roster the coach needs to sort out first. */
+  note: string | null
 }
 
 type Spot = { team: Team; zone: string; index: number }
@@ -48,13 +55,11 @@ type Pending = { src: Src; x0: number; y0: number; offX: number; offY: number; w
  */
 export function DepthBoard({
   sides: initial,
-  rosters,
   canMoveTeams,
   everyone: everyoneIn,
   first,
 }: {
   sides: TeamSide[]
-  rosters: { id: string; name: string; count: number }[]
   canMoveTeams: boolean
   everyone: ProgramPlayer[]
   first: Team
@@ -333,7 +338,8 @@ export function DepthBoard({
             wide={shown.length === 1}
             chart={charts[t]}
             players={players[t]}
-            rosters={rosters}
+            rosters={side(t).rosters}
+            note={side(t).note}
             canWrite={side(t).canWrite}
             canEditRoster={side(t).canEditRoster}
             canSend={canMoveTeams}
@@ -351,9 +357,15 @@ export function DepthBoard({
               const next = { ...charts[t], rosterId: id }
               setCharts((c) => ({ ...c, [t]: next }))
               start(async () => {
-                await saveDepthChart(t, next)
+                const r = await depthUseRoster(t, id, charts[t])
+                setMsg(r.ok ? (id ? `That roster is ${TEAM_NAME[t]}’s now.` : 'Saved') : r.error)
                 router.refresh()
               })
+            }}
+            onClear={() => {
+              if (!confirm(`Clear the whole ${TEAM_NAME[t]} depth chart? Everyone goes back to the bench; the roster stays.`)) return
+              saveTeam(t, clearChart(charts[t]))
+              setMsg(`${TEAM_NAME[t]} chart cleared.`)
             }}
             onNewRoster={(name) =>
               start(async () => {
@@ -410,6 +422,7 @@ function TeamColumn({
   chart,
   players,
   rosters,
+  note,
   canWrite,
   canEditRoster,
   canSend,
@@ -423,6 +436,7 @@ function TeamColumn({
   setMsg,
   onRoster,
   onNewRoster,
+  onClear,
   ids,
   addable,
   onAdd,
@@ -432,7 +446,8 @@ function TeamColumn({
   wide: boolean
   chart: DepthChart
   players: DepthPlayer[]
-  rosters: { id: string; name: string; count: number }[]
+  rosters: RosterOption[]
+  note: string | null
   canWrite: boolean
   canEditRoster: boolean
   canSend: boolean
@@ -446,6 +461,7 @@ function TeamColumn({
   setMsg: (m: string) => void
   onRoster: (id: string | null) => void
   onNewRoster: (name: string) => void
+  onClear: () => void
   ids: Set<string>
   addable: ProgramPlayer[]
   onAdd: (playerId: string) => void
@@ -491,12 +507,21 @@ function TeamColumn({
               disabled={!canWrite}
               className="field !py-1.5"
             >
-              <option value="">Pick a roster…</option>
-              {rosters.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} ({r.count})
-                </option>
-              ))}
+              <option value="">Pick a {TEAM_NAME[team]} roster…</option>
+              {rosters.some((r) => r.mine) && (
+                <optgroup label={`${TEAM_NAME[team]} rosters`}>
+                  {rosters.filter((r) => r.mine).map((r) => (
+                    <option key={r.id} value={r.id}>{r.name} ({r.count})</option>
+                  ))}
+                </optgroup>
+              )}
+              {rosters.some((r) => !r.mine) && (
+                <optgroup label={`Not on a team yet — picking one makes it ${TEAM_NAME[team]}’s`}>
+                  {rosters.filter((r) => !r.mine).map((r) => (
+                    <option key={r.id} value={r.id}>{r.name} ({r.count})</option>
+                  ))}
+                </optgroup>
+              )}
               {canEditRoster && <option value={NEW_ROSTER}>＋ New roster…</option>}
             </select>
           </div>
@@ -505,7 +530,13 @@ function TeamColumn({
               Pull in roster
             </button>
           )}
+          {canWrite && placed.size > 0 && (
+            <button type="button" onClick={onClear} className="btn btn-ghost !py-1.5 text-[var(--gh-maroon)]">
+              Clear chart
+            </button>
+          )}
         </div>
+        {note && <p className="text-sm font-semibold text-[var(--gh-maroon)]">{note}</p>}
         {canEditRoster && chart.rosterId && addable.length > 0 && (
           <select
             value=""
