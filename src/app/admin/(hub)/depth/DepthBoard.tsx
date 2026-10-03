@@ -9,6 +9,7 @@ import {
   dropFromChart,
   fillFromRoster,
   moveOnChart,
+  orderPositions,
   pruneChart,
   tierLabel,
   type DepthChart,
@@ -16,6 +17,7 @@ import {
 import { depthAddToTeam, depthCreateRoster, depthMoveTeam, depthRemoveFromRoster, depthUseRoster, saveDepthChart, type DepthPlayer } from '@/lib/depthActions'
 import type { Team } from '@/lib/teams'
 import { RosterPanel } from './DepthRoster'
+import { SlideList } from '@/components/admin/SlideList'
 
 const NEW_ROSTER = '__new__'
 const TEAM_NAME: Record<Team, string> = { varsity: 'Varsity', jv: 'JV' }
@@ -135,6 +137,23 @@ export function DepthBoard({
       const r = await depthMoveTeam({ playerId: player.id, from: src.team, to: to.team, fromChart, toChart })
       setMsg(r.ok ? `${player.name} moved to ${TEAM_NAME[to.team]}.` : r.error)
       if (!r.ok) router.refresh()
+    })
+  }
+
+  /**
+   * Who can be added to a team: nobody already on it, nobody on the other
+   * team (moving him across is a drag or "Send to"), and one line per name —
+   * a player entered twice shows once.
+   */
+  function addableFor(t: Team): ProgramPlayer[] {
+    const names = (list: DepthPlayer[]) => new Set(list.map((p) => p.name.trim().toLowerCase()))
+    const taken = new Set([...names(players[t]), ...names(players[other(t)])])
+    const seen = new Set<string>()
+    return everyone.filter((p) => {
+      const n = p.name.trim().toLowerCase()
+      if (taken.has(n) || seen.has(n)) return false
+      seen.add(n)
+      return true
     })
   }
 
@@ -375,7 +394,7 @@ export function DepthBoard({
               })
             }
             ids={ids(t)}
-            addable={everyone.filter((p) => !ids(t).has(p.id))}
+            addable={addableFor(t)}
             onAdd={(id) => addToTeam(t, id)}
             onRemove={(id) => removeFromTeam(t, id)}
           />
@@ -468,6 +487,7 @@ function TeamColumn({
   onRemove: (playerId: string) => void
 }) {
   const [making, setMaking] = useState(false)
+  const [ordering, setOrdering] = useState(false)
   const [rosterName, setRosterName] = useState('')
   const byId = new Map(players.map((p) => [p.id, p]))
   const clean = pruneChart(chart, ids)
@@ -530,12 +550,44 @@ function TeamColumn({
               Pull in roster
             </button>
           )}
+          {canWrite && chart.rosterId && (
+            <button
+              type="button"
+              onClick={() => setOrdering((o) => !o)}
+              aria-expanded={ordering}
+              className={`btn !py-1.5 ${ordering ? 'btn-primary' : 'btn-ghost'}`}
+            >
+              {ordering ? 'Done' : '↕ Positions'}
+            </button>
+          )}
           {canWrite && placed.size > 0 && (
             <button type="button" onClick={onClear} className="btn btn-ghost !py-1.5 text-[var(--gh-maroon)]">
               Clear chart
             </button>
           )}
         </div>
+        {ordering && (
+          <div>
+            <SlideList
+              items={orderPositions(chart.order).map((p) => ({ id: p.key, label: p.label }))}
+              onReorder={(keys) => saveChart({ ...chart, order: keys })}
+              label={(p) => p.label}
+              className="space-y-1"
+              renderItem={(p, grip, dragging) => (
+                <div
+                  className={`flex items-center gap-2 rounded-lg border px-3 min-h-10 text-sm font-bold ${dragging ? 'shadow-lg' : ''}`}
+                  style={{ background: 'var(--surface, #fff)', borderColor: 'var(--border)' }}
+                >
+                  <span className="flex-1">{p.label}</span>
+                  {grip && (
+                    <span {...grip} className="px-2 py-1.5 text-lg leading-none text-gray-400 select-none">☰</span>
+                  )}
+                </div>
+              )}
+            />
+            <p className="text-xs text-gray-400 mt-1">Drag ☰ to put the positions in your order.</p>
+          </div>
+        )}
         {note && <p className="text-sm font-semibold text-[var(--gh-maroon)]">{note}</p>}
         {canEditRoster && chart.rosterId && addable.length > 0 && (
           <select
@@ -594,7 +646,7 @@ function TeamColumn({
       ) : (
         <>
           <div className={`grid gap-3 items-start ${wide ? 'md:grid-cols-2' : ''}`}>
-            {DEPTH_POSITIONS.map((pos) => (
+            {orderPositions(chart.order).map((pos) => (
               <Zone key={pos.key} {...zoneProps} zone={pos.key} title={pos.label} list={clean.slots[pos.key] ?? []} pos={pos} />
             ))}
             <Zone {...zoneProps} zone={BENCH} title="Bench — not on the chart" list={bench.map((p) => p.id)} pos={null} />
