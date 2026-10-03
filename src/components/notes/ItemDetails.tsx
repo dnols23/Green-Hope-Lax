@@ -64,7 +64,7 @@ export function ItemDetails({
 
       <Box label="Setup" value={d.setup} readOnly={readOnly} placeholder="Two lines at X, balls at the front of each, goalie in" onChange={(v) => set('setup', v)} />
       <Box label="How it runs" value={d.run} readOnly={readOnly} placeholder="Step by step: who goes, where, when it ends" onChange={(v) => set('run', v)} />
-      <Box label="Why we run it" value={d.why} readOnly={readOnly} placeholder="What good looks like; what to coach" onChange={(v) => set('why', v)} />
+      <Box label="Context" value={d.why} readOnly={readOnly} placeholder="What good looks like; what to coach" onChange={(v) => set('why', v)} />
 
       <div>
         <label className="block min-w-0">

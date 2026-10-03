@@ -2294,7 +2294,6 @@ export async function upsertDrill(formData: FormData) {
     description: str(formData.get('description')) || null,
     link: str(formData.get('link')) || null,
     ...(formData.has('link_label') ? { link_label: str(formData.get('link_label')).slice(0, 80) || null } : {}),
-    equipment: str(formData.get('equipment')) || null,
     // The staff's favourites are the staff's call.
     is_favorite: !isSandboxed(viewer) && str(formData.get('is_favorite')) === 'true',
     updated_at: new Date().toISOString(),
@@ -2308,6 +2307,7 @@ export async function upsertDrill(formData: FormData) {
     setup: str(formData.get('setup')) || null,
     context: str(formData.get('context')) || null,
   }
+  const variations = str(formData.get('variations')) || null
 
   const svc = createServiceClient()
   const write = async (row: Record<string, unknown>) =>
@@ -2316,7 +2316,8 @@ export async function upsertDrill(formData: FormData) {
       : await svc.from('drills').insert({ ...row, created_by: viewer?.email ?? null })
 
   // Newest columns first; a database a migration or two behind still saves the rest.
-  let { error } = await write({ ...payload, ...detail, settings: places })
+  let { error } = await write({ ...payload, ...detail, settings: places, variations })
+  if (error) ({ error } = await write({ ...payload, ...detail, settings: places }))
   if (error) ({ error } = await write({ ...payload, ...detail }))
   if (error) await write(payload)
   revalidatePath('/admin/drills')
@@ -2330,7 +2331,7 @@ export async function upsertDrill(formData: FormData) {
  */
 export async function saveDrillDetails(
   id: string,
-  input: { setup: string; description: string; context: string; link: string; linkLabel: string },
+  input: { setup: string; description: string; context: string; variations?: string; link: string; linkLabel: string },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const viewer = await getViewer()
   if (!viewer || !canSee(viewer, 'drills')) return { ok: false, error: 'You don’t have the drill bank.' }
@@ -2347,8 +2348,15 @@ export async function saveDrillDetails(
   }
   let { error } = await svc
     .from('drills')
-    .update({ ...base, setup: clip(input.setup, 4000), context: clip(input.context, 4000) })
+    .update({ ...base, setup: clip(input.setup, 4000), context: clip(input.context, 4000), variations: clip(input.variations, 4000) })
     .eq('id', id)
+  // Variations arrive with 0054; save everything else without them.
+  if (error && /variations/i.test(error.message)) {
+    ;({ error } = await svc
+      .from('drills')
+      .update({ ...base, setup: clip(input.setup, 4000), context: clip(input.context, 4000) })
+      .eq('id', id))
+  }
   // Setup and "why" arrive with 0037; save the rest without them.
   if (error && /setup|context/i.test(error.message)) {
     ;({ error } = await svc.from('drills').update(base).eq('id', id))
