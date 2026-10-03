@@ -65,14 +65,16 @@ export function SlideList<T extends { id: string }>({
     const near = rows.current.get(order[from + 1] ?? '') ?? rows.current.get(order[from - 1] ?? '')
     const step = near ? Math.abs(near.offsetTop - el.offsetTop) || el.offsetHeight : el.offsetHeight
     const scroller = scrollParent(el)
-    const startScroll = scroller?.scrollTop ?? 0
+    // A list inside a scrolling box scrolls the box; a list on the page scrolls the page.
+    const scrollTop = () => (scroller ? scroller.scrollTop : window.scrollY)
+    const startScroll = scrollTop()
     let y = drag.y
     let target = from
     let raf = 0
     let over = false
 
     const paint = () => {
-      const dy = y - drag.y + ((scroller?.scrollTop ?? 0) - startScroll)
+      const dy = y - drag.y + (scrollTop() - startScroll)
       target = Math.max(0, Math.min(order.length - 1, from + Math.round(dy / step)))
       order.forEach((id, j) => {
         const row = rows.current.get(id)
@@ -89,15 +91,21 @@ export function SlideList<T extends { id: string }>({
         row.style.transform = shift ? `translateY(${shift}px)` : ''
       })
     }
-    // Near the top or bottom of the scroll area, the area scrolls.
+    /* Held against the top or bottom of the screen (or of its scrolling box),
+       the list scrolls under it, faster the harder it's pushed — so a row can
+       be carried past what fits on screen. The top zone clears the site header. */
     const edge = () => {
       const box = scroller?.getBoundingClientRect()
       const top = box ? Math.max(box.top, 0) : 0
       const bottom = box ? Math.min(box.bottom, window.innerHeight) : window.innerHeight
-      const speed = y < top + 56 ? -Math.ceil((top + 56 - y) / 4) : y > bottom - 56 ? Math.ceil((y - (bottom - 56)) / 4) : 0
-      if (speed && scroller) {
-        scroller.scrollTop += speed
-        paint()
+      const zone = 90
+      const speed =
+        y < top + zone ? -Math.ceil((top + zone - y) / 4) : y > bottom - zone ? Math.ceil((y - (bottom - zone)) / 4) : 0
+      if (speed) {
+        const before = scrollTop()
+        if (scroller) scroller.scrollTop += speed
+        else window.scrollBy(0, speed)
+        if (scrollTop() !== before) paint()
       }
       raf = requestAnimationFrame(edge)
     }

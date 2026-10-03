@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { SlideList } from '@/components/admin/SlideList'
 import { saveDrillOrder } from '@/lib/drillActions'
@@ -11,12 +12,14 @@ export function GroupOrder({ groups }: { groups: Group[] }) {
   const [open, setOpen] = useState(false)
   const [list, setList] = useState(groups)
   const [saving, start] = useTransition()
+  const router = useRouter()
 
   function reorder(ids: string[]) {
     const next = ids.map((id) => list.find((g) => g.id === id)).filter((g): g is Group => !!g)
     setList(next)
     start(async () => {
       await saveDrillOrder(next.map((g) => g.id))
+      router.refresh()
     })
   }
 
@@ -30,7 +33,7 @@ export function GroupOrder({ groups }: { groups: Group[] }) {
           open ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 text-gray-700 bg-white'
         }`}
       >
-        {open ? 'Done' : '↕ Reorder'}
+        {open ? 'Done' : '↕ Reorder categories'}
       </button>
       {open && (
         <div className="card p-2 mt-2">

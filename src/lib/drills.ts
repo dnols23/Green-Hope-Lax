@@ -161,7 +161,9 @@ export function orderGroups(saved: unknown): DrillCategory[] {
   const all = [FAVORITES_GROUP, RECENT_GROUP, ...DRILL_CATEGORIES]
   const keys = Array.isArray(saved) ? saved.filter((k): k is string => typeof k === 'string') : []
   const picked = [...new Set(keys)].map((k) => all.find((c) => c.key === k)).filter((c): c is DrillCategory => !!c)
-  return [...picked, ...all.filter((c) => !picked.includes(c))]
+  const rest = all.filter((c) => !picked.includes(c))
+  // A shortcut group added since the order was saved goes to the top; a new category to the end.
+  return [...rest.filter((c) => isShortcutGroup(c.key)), ...picked, ...rest.filter((c) => !isShortcutGroup(c.key))]
 }
 
 /** Written up: a video, a diagram, or any of setup / how it runs / why. */
