@@ -12,13 +12,17 @@ import {
   tierLabel,
   type DepthChart,
 } from '@/lib/depthChart'
-import { depthCreateRoster, depthMoveTeam, saveDepthChart, type DepthPlayer } from '@/lib/depthActions'
+import { depthAddToTeam, depthCreateRoster, depthMoveTeam, depthRemoveFromRoster, saveDepthChart, type DepthPlayer } from '@/lib/depthActions'
 import type { Team } from '@/lib/teams'
 import { RosterPanel } from './DepthRoster'
 
 const NEW_ROSTER = '__new__'
 const TEAM_NAME: Record<Team, string> = { varsity: 'Varsity', jv: 'JV' }
 const other = (t: Team): Team => (t === 'varsity' ? 'jv' : 'varsity')
+
+/** Anyone in the program, and the team he's down as. */
+export type ProgramPlayer = DepthPlayer & { team: string }
+const TEAM_GROUP: Record<string, string> = { boys_varsity: 'Varsity', boys_jv: 'JV', girls: 'Girls' }
 
 export interface TeamSide {
   team: Team
@@ -46,11 +50,13 @@ export function DepthBoard({
   sides: initial,
   rosters,
   canMoveTeams,
+  everyone: everyoneIn,
   first,
 }: {
   sides: TeamSide[]
   rosters: { id: string; name: string; count: number }[]
   canMoveTeams: boolean
+  everyone: ProgramPlayer[]
   first: Team
 }) {
   const router = useRouter()
@@ -63,6 +69,7 @@ export function DepthBoard({
     jv: initial.find((s) => s.team === 'jv')!.players,
   }))
   const side = (t: Team) => initial.find((s) => s.team === t)!
+  const [everyone, setEveryone] = useState(everyoneIn)
   const [view, setView] = useState<'both' | Team>('both')
   const [msg, setMsg] = useState('')
   const [saving, start] = useTransition()
@@ -122,6 +129,48 @@ export function DepthBoard({
     start(async () => {
       const r = await depthMoveTeam({ playerId: player.id, from: src.team, to: to.team, fromChart, toChart })
       setMsg(r.ok ? `${player.name} moved to ${TEAM_NAME[to.team]}.` : r.error)
+      if (!r.ok) router.refresh()
+    })
+  }
+
+  /** Someone already in the program, onto this team — off the other side if that's where he was. */
+  function addToTeam(t: Team, playerId: string) {
+    const { charts: cs, players: ps } = latest.current
+    const rosterId = cs[t].rosterId
+    const who = everyone.find((p) => p.id === playerId)
+    if (!who || !rosterId) return
+    const o = other(t)
+    const fromOther = ps[o].some((p) => p.id === playerId)
+    const player: DepthPlayer = { id: who.id, name: who.name, number: who.number, position: who.position, class_year: who.class_year }
+    if (fromOther) {
+      const next = dropFromChart(cs[o], playerId)
+      setCharts((c) => ({ ...c, [o]: next }))
+    }
+    setPlayers((p) => ({ ...p, [o]: p[o].filter((x) => x.id !== playerId), [t]: [...p[t].filter((x) => x.id !== playerId), player] }))
+    setEveryone((list) => list.map((p) => (p.id === playerId ? { ...p, team: t === 'jv' ? 'boys_jv' : 'boys_varsity' } : p)))
+    start(async () => {
+      const r = await depthAddToTeam(t, rosterId, playerId)
+      if (r.ok && fromOther) await saveDepthChart(o, dropFromChart(cs[o], playerId))
+      setMsg(r.ok ? `${who.name} is on ${TEAM_NAME[t]} — he's on the bench.` : r.error)
+      if (!r.ok) router.refresh()
+    })
+  }
+
+  /** Off this team's roster and chart. The player and his evaluations stay. */
+  function removeFromTeam(t: Team, playerId: string) {
+    const { charts: cs, players: ps } = latest.current
+    const rosterId = cs[t].rosterId
+    const who = ps[t].find((p) => p.id === playerId)
+    if (!who || !rosterId) return
+    if (!confirm(`Take ${who.name} off ${TEAM_NAME[t]}? He stays in the program; add him back any time.`)) return
+    setMenu(null)
+    const next = dropFromChart(cs[t], playerId)
+    setCharts((c) => ({ ...c, [t]: next }))
+    setPlayers((p) => ({ ...p, [t]: p[t].filter((x) => x.id !== playerId) }))
+    start(async () => {
+      const r = await depthRemoveFromRoster(t, rosterId, playerId)
+      if (r.ok) await saveDepthChart(t, next)
+      setMsg(r.ok ? `${who.name} is off ${TEAM_NAME[t]}.` : r.error)
       if (!r.ok) router.refresh()
     })
   }
@@ -314,6 +363,9 @@ export function DepthBoard({
               })
             }
             ids={ids(t)}
+            addable={everyone.filter((p) => !ids(t).has(p.id))}
+            onAdd={(id) => addToTeam(t, id)}
+            onRemove={(id) => removeFromTeam(t, id)}
           />
         ))}
       </div>
@@ -372,6 +424,9 @@ function TeamColumn({
   onRoster,
   onNewRoster,
   ids,
+  addable,
+  onAdd,
+  onRemove,
 }: {
   team: Team
   wide: boolean
@@ -392,6 +447,9 @@ function TeamColumn({
   onRoster: (id: string | null) => void
   onNewRoster: (name: string) => void
   ids: Set<string>
+  addable: ProgramPlayer[]
+  onAdd: (playerId: string) => void
+  onRemove: (playerId: string) => void
 }) {
   const [making, setMaking] = useState(false)
   const [rosterName, setRosterName] = useState('')
@@ -410,7 +468,11 @@ function TeamColumn({
     setMsg(`Placed ${n} ${n === 1 ? 'player' : 'players'}.`)
   }
 
-  const zoneProps = { team, drag, menu, setMenu, pickUp, move, canWrite, canSend, byId }
+  const zoneProps = { team, drag, menu, setMenu, pickUp, move, canWrite, canSend, byId, onRemove: canEditRoster ? onRemove : undefined }
+  const groups = ['boys_jv', 'boys_varsity', 'girls']
+    .map((g) => ({ g, list: addable.filter((p) => p.team === g) }))
+    .concat([{ g: 'other', list: addable.filter((p) => !TEAM_GROUP[p.team]) }])
+    .filter((x) => x.list.length)
 
   return (
     <section className="space-y-3" aria-label={`${TEAM_NAME[team]} depth chart`}>
@@ -444,6 +506,25 @@ function TeamColumn({
             </button>
           )}
         </div>
+        {canEditRoster && chart.rosterId && addable.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => e.target.value && onAdd(e.target.value)}
+            aria-label={`Add a player to ${TEAM_NAME[team]}`}
+            className="field !py-1.5"
+          >
+            <option value="">＋ Add a player to {TEAM_NAME[team]}…</option>
+            {groups.map(({ g, list }) => (
+              <optgroup key={g} label={g === 'other' ? 'Other' : `${TEAM_GROUP[g]} players`}>
+                {list.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.number ? `#${p.number} ` : ''}{p.name}{p.position ? ` · ${p.position}` : ''}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
         {making && (
           <div className="flex items-center gap-2 flex-wrap">
             <input
@@ -519,6 +600,7 @@ function Zone({
   canWrite,
   canSend,
   byId,
+  onRemove,
 }: {
   team: Team
   zone: string
@@ -533,6 +615,7 @@ function Zone({
   canWrite: boolean
   canSend: boolean
   byId: Map<string, DepthPlayer>
+  onRemove?: (playerId: string) => void
 }) {
   const over = drag?.target && drag.target.team === team && drag.target.zone === zone ? drag.target : null
   const bench = zone === BENCH
@@ -623,6 +706,15 @@ function Zone({
                       className="text-xs font-bold text-gray-400 hover:text-red-700 ml-auto"
                     >
                       Take off {pos?.label}
+                    </button>
+                  )}
+                  {onRemove && (
+                    <button
+                      type="button"
+                      onClick={() => onRemove(id)}
+                      className={`text-xs font-bold text-[var(--gh-maroon)] hover:underline ${bench ? 'ml-auto' : ''}`}
+                    >
+                      Remove from {TEAM_NAME[team]}
                     </button>
                   )}
                 </div>

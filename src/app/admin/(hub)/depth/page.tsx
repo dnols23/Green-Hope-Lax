@@ -34,6 +34,10 @@ export default async function DepthChartPage({
     ? live
     : [...live, ...(await listRosters(true)).filter((r) => used.includes(r.id) && !live.some((l) => l.id === r.id))]
 
+  // One roster for both teams: each side is the players on it whose team is that side.
+  const shared = !!charts.varsity.rosterId && charts.varsity.rosterId === charts.jv.rosterId
+  const onSide = (t: Team, team: string) => !shared || (t === 'jv' ? team === 'boys_jv' : team !== 'boys_jv')
+  const { data: everyone } = await svc.from('players').select('id, name, number, position, class_year, team').order('name')
   const sandboxed = isSandboxed(viewer)
   const sides: TeamSide[] = await Promise.all(
     TEAMS.map(async (t) => {
@@ -42,7 +46,7 @@ export default async function DepthChartPage({
       return {
         team: t,
         chart: charts[t],
-        players: members.map((p) => ({
+        players: members.filter((p) => onSide(t, p.team)).map((p) => ({
           id: p.id,
           name: p.name,
           // Numbers and grad years can come back as numbers; the chart edits them as text.
@@ -62,6 +66,14 @@ export default async function DepthChartPage({
       sides={sides}
       rosters={rosters.map((r) => ({ id: r.id, name: r.name, count: r.memberCount }))}
       canMoveTeams={sides.every((s) => s.canEditRoster)}
+      everyone={((everyone ?? []) as { id: string; name: string; number: unknown; position: string | null; class_year: unknown; team: string }[]).map((p) => ({
+        id: p.id,
+        name: p.name,
+        number: p.number == null ? null : String(p.number),
+        position: p.position,
+        class_year: p.class_year == null ? null : String(p.class_year),
+        team: p.team,
+      }))}
       first={first}
     />
   )

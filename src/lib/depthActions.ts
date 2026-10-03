@@ -149,12 +149,16 @@ export async function depthMoveTeam(input: {
   const toChart = readDepthChart(input.toChart)
   if (!fromChart.rosterId || !toChart.rosterId) return { ok: false, error: 'Pick a roster for both teams first.' }
   const svc = createServiceClient()
-  const { count } = await svc.from('player_list_members').select('id', { count: 'exact', head: true }).eq('list_id', toChart.rosterId)
-  const { error } = await svc
-    .from('player_list_members')
-    .upsert({ list_id: toChart.rosterId, player_id: input.playerId, sort_order: count ?? 0 }, { onConflict: 'list_id,player_id' })
-  if (error) return { ok: false, error: `Couldn’t move him: ${error.message}` }
-  await svc.from('player_list_members').delete().eq('list_id', fromChart.rosterId).eq('player_id', input.playerId)
+  // Two rosters: off one, onto the other. One roster shared by both teams: he
+  // stays on it, and his team decides which side he shows on.
+  if (fromChart.rosterId !== toChart.rosterId) {
+    const { count } = await svc.from('player_list_members').select('id', { count: 'exact', head: true }).eq('list_id', toChart.rosterId)
+    const { error } = await svc
+      .from('player_list_members')
+      .upsert({ list_id: toChart.rosterId, player_id: input.playerId, sort_order: count ?? 0 }, { onConflict: 'list_id,player_id' })
+    if (error) return { ok: false, error: `Couldn’t move him: ${error.message}` }
+    await svc.from('player_list_members').delete().eq('list_id', fromChart.rosterId).eq('player_id', input.playerId)
+  }
   await svc.from('players').update({ team: b.team === 'jv' ? 'boys_jv' : 'boys_varsity' }).eq('id', input.playerId)
   await svc.from('app_settings').upsert(
     [
@@ -166,5 +170,27 @@ export async function depthMoveTeam(input: {
   refresh()
   revalidatePath('/admin/rosters', 'layout')
   revalidatePath('/roster')
+  return { ok: true }
+}
+
+/**
+ * A player already in the program, put on this team: onto its roster if he
+ * isn't there, and his team set to match — which, on a roster both teams
+ * share, is what puts him on this side.
+ */
+export async function depthAddToTeam(team: Team, rosterId: string, playerId: string): Promise<Result> {
+  const w = await rosterWriter(team)
+  if (!w) return { ok: false, error: 'You can’t change rosters.' }
+  if (!rosterId || !playerId) return { ok: false, error: 'Pick a roster first.' }
+  const svc = createServiceClient()
+  const { data: on } = await svc.from('player_list_members').select('id').eq('list_id', rosterId).eq('player_id', playerId).maybeSingle()
+  if (!on) {
+    const { count } = await svc.from('player_list_members').select('id', { count: 'exact', head: true }).eq('list_id', rosterId)
+    const { error } = await svc.from('player_list_members').insert({ list_id: rosterId, player_id: playerId, sort_order: count ?? 0 })
+    if (error) return { ok: false, error: `Couldn’t add him: ${error.message}` }
+  }
+  await svc.from('players').update({ team: w.team === 'jv' ? 'boys_jv' : 'boys_varsity' }).eq('id', playerId)
+  refresh()
+  revalidatePath(`/admin/rosters/${rosterId}`)
   return { ok: true }
 }
