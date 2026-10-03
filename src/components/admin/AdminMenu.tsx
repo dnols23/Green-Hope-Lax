@@ -95,7 +95,8 @@ export function AdminMenu({ links, tier }: { links: AdminSection[]; tier: string
       <div className="px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <WorkflowNav onHub={() => setOpen(false)} showHub={pathname !== '/admin/hub'} />
-          <Link href="/admin" className="flex items-center gap-2 font-black shrink-0" onClick={() => setOpen(false)}>
+          {/* The falcon is the way out to the public site; the Hub button is the way home in here. */}
+          <Link href="/" title="The public site" className="flex items-center gap-2 font-black shrink-0" onClick={() => setOpen(false)}>
             <FalconHead size={28} />
             <span className="hidden sm:inline">
               Falcons <span className="text-white/50 font-normal text-sm">{tier}</span>
