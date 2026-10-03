@@ -2,7 +2,7 @@ import { requireSection } from '@/lib/permissions'
 import { isSandboxed } from '@/lib/sections'
 import { drillsReady, listDrillGroups, listDrills, recentDrillIds } from '@/lib/drillsData'
 import { upsertDrill, deleteDrill, toggleDrillFavorite } from '@/lib/actions'
-import { DRILL_CATEGORIES, DRILL_SETTINGS, SETTING_LABELS, categoryFor, isHomework, type Drill, type DrillSetting } from '@/lib/drills'
+import { DRILL_CATEGORIES, DRILL_SETTINGS, SETTING_LABELS, categoryFor, isHomework, isShortcutGroup, type Drill, type DrillSetting } from '@/lib/drills'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
@@ -45,6 +45,8 @@ export default async function DrillBankPage() {
   const inGroup = (key: string) =>
     key === 'recent'
       ? recent.map((id) => drills.find((d) => d.id === id)).filter((d): d is Drill => !!d)
+      : key === 'favorites'
+      ? drills.filter((d) => d.is_favorite)
       : drills.filter((d) => d.category === key)
 
   return (
@@ -103,13 +105,14 @@ export default async function DrillBankPage() {
             <textarea name="description" rows={2} className="field" placeholder="The reps, in order" />
           </div>
           <div className="sm:col-span-6">
-            <label className="field-label">Why we run it</label>
+            <label className="field-label">Context</label>
             <textarea name="context" rows={2} className="field"
               placeholder="What it teaches, and what good looks like" />
           </div>
-          <div className="sm:col-span-4">
-            <label className="field-label">Equipment</label>
-            <input name="equipment" className="field" placeholder="6 cones, 2 goals, ball bag" />
+          <div className="sm:col-span-6">
+            <label className="field-label">Variations</label>
+            <textarea name="variations" rows={2} className="field"
+              placeholder="Make it harder, easier or live: add a defender, weak hand only, shrink the space…" />
           </div>
           <div className="sm:col-span-6">
             <button type="submit" className="btn btn-primary">Add drill</button>
@@ -128,11 +131,11 @@ export default async function DrillBankPage() {
           {groups.map((cat) => {
             const group = inGroup(cat.key)
             if (group.length === 0) return null
-            const recentGroup = cat.key === 'recent'
+            const recentGroup = isShortcutGroup(cat.key)
             return (
               <details
                 key={cat.key}
-                open={!recentGroup}
+                open={cat.key !== 'recent'}
                 className="card p-4"
                 data-drill-group
                 {...(recentGroup ? { 'data-drill-recent': '' } : {})}
@@ -162,7 +165,7 @@ function DrillRow({ d }: { d: Drill }) {
   return (
     <details
       className="py-2"
-      data-drill={[d.name, categoryFor(d.category).label, ...d.settings.map((x) => SETTING_LABELS[x]), d.description, d.setup, d.context, d.equipment]
+      data-drill={[d.name, categoryFor(d.category).label, ...d.settings.map((x) => SETTING_LABELS[x]), d.description, d.setup, d.context, d.variations]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()}
@@ -188,7 +191,6 @@ function DrillRow({ d }: { d: Drill }) {
       </summary>
       <div className="pl-6 pt-2 space-y-2">
         {d.description && <p className="text-sm text-gray-600 whitespace-pre-line">{d.description}</p>}
-        {d.equipment && <p className="text-xs text-gray-500">Needs: {d.equipment}</p>}
         <DrillDiagram drill={d} />
         <form action={upsertDrill} className="grid sm:grid-cols-6 gap-2 items-end">
           <input type="hidden" name="id" value={d.id} />
@@ -226,13 +228,14 @@ function DrillRow({ d }: { d: Drill }) {
             <textarea name="description" rows={2} defaultValue={d.description ?? ''} className="field !py-1.5" />
           </div>
           <div className="sm:col-span-6">
-            <label className="field-label">Why we run it</label>
+            <label className="field-label">Context</label>
             <textarea name="context" rows={2} defaultValue={d.context ?? ''} className="field !py-1.5"
               placeholder="What it teaches, and what good looks like" />
           </div>
-          <div className="sm:col-span-4">
-            <label className="field-label">Equipment</label>
-            <input name="equipment" defaultValue={d.equipment ?? ''} className="field !py-1.5" />
+          <div className="sm:col-span-6">
+            <label className="field-label">Variations</label>
+            <textarea name="variations" rows={2} defaultValue={d.variations ?? ''} className="field !py-1.5"
+              placeholder="Make it harder, easier or live: add a defender, weak hand only, shrink the space…" />
           </div>
           <div className="sm:col-span-6 flex items-center gap-3">
             <button type="submit" className="btn btn-primary !py-1.5 text-sm">Save</button>
@@ -365,7 +368,7 @@ function CompetitionForm({ comp }: { comp?: CompFormat }) {
         <textarea name="how" rows={2} defaultValue={comp?.how ?? ''} className="field !py-1.5 text-sm" />
       </div>
       <div>
-        <label className="field-label">Why we run it</label>
+        <label className="field-label">Context</label>
         <textarea name="why" rows={2} defaultValue={comp?.why ?? ''} className="field !py-1.5 text-sm" />
       </div>
       <div>

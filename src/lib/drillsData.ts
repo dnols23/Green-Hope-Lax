@@ -42,6 +42,7 @@ export function readDrill(row: Record<string, unknown>): Drill {
     link: (row.link as string) ?? null,
     link_label: (row.link_label as string) ?? null,
     equipment: (row.equipment as string) ?? null,
+    variations: (row.variations as string) ?? null,
     board: readBoard(row.board),
     competitions: readSavedComps(row.competitions),
     is_favorite: row.is_favorite === true,

@@ -91,6 +91,8 @@ export interface Drill {
   link: string | null
   link_label: string | null
   equipment: string | null
+  /** Ways to change it up: harder, easier, live, weak hand (0054). */
+  variations: string | null
   /** The drill drawn on the field (0048); null until someone draws it. */
   board: Board | null
   /** Competitions kept because they worked (0049). */
@@ -148,17 +150,23 @@ export const DRILL_ORDER_KEY = 'drill_category_order'
 /** "Recent": the drills the latest plans used. It moves with the categories. */
 export const RECENT_GROUP: DrillCategory = { key: 'recent', label: 'Recent', tag: 'individual', icon: '🕘' }
 
+/** "Favorites": every starred drill in one place. It moves with the categories too. */
+export const FAVORITES_GROUP: DrillCategory = { key: 'favorites', label: 'Favorites', tag: 'individual', icon: '⭐' }
+
+/** Groups that repeat drills filed elsewhere — not categories of their own. */
+export const isShortcutGroup = (key: string) => key === 'recent' || key === 'favorites'
+
 /** Every group in the staff's order: the saved ones first, anything new after. */
 export function orderGroups(saved: unknown): DrillCategory[] {
-  const all = [RECENT_GROUP, ...DRILL_CATEGORIES]
+  const all = [FAVORITES_GROUP, RECENT_GROUP, ...DRILL_CATEGORIES]
   const keys = Array.isArray(saved) ? saved.filter((k): k is string => typeof k === 'string') : []
   const picked = [...new Set(keys)].map((k) => all.find((c) => c.key === k)).filter((c): c is DrillCategory => !!c)
   return [...picked, ...all.filter((c) => !picked.includes(c))]
 }
 
 /** Written up: a video, a diagram, or any of setup / how it runs / why. */
-export function drillHasDetails(d: Pick<Drill, 'link' | 'description' | 'setup' | 'context' | 'board'>): boolean {
-  return !!(d.link?.trim() || d.description?.trim() || d.setup?.trim() || d.context?.trim() || (d.board && boardItemCount(d.board) > 0))
+export function drillHasDetails(d: Pick<Drill, 'link' | 'description' | 'setup' | 'context' | 'board'> & { variations?: string | null }): boolean {
+  return !!(d.link?.trim() || d.description?.trim() || d.setup?.trim() || d.context?.trim() || d.variations?.trim() || (d.board && boardItemCount(d.board) > 0))
 }
 
 /** Written-up drills first, then favourites, then by name. */

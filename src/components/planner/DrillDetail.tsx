@@ -34,10 +34,10 @@ export function DrillDetail({ drill: fromBank }: { drill: Drill }) {
      What was just saved shows at once, before the bank catches up. */
   const [drill, setDrill] = useState(fromBank)
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState({ setup: '', description: '', context: '', link: '', linkLabel: '' })
+  const [draft, setDraft] = useState({ setup: '', description: '', context: '', variations: '', link: '', linkLabel: '' })
   const [saving, startSaving] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const empty = ![drill.setup, drill.description, drill.context, drill.link].some((v) => v?.trim()) && !drill.board
+  const empty = ![drill.setup, drill.description, drill.context, drill.variations, drill.link].some((v) => v?.trim()) && !drill.board
 
 
   function edit() {
@@ -45,6 +45,7 @@ export function DrillDetail({ drill: fromBank }: { drill: Drill }) {
       setup: drill.setup ?? '',
       description: drill.description ?? '',
       context: drill.context ?? '',
+      variations: drill.variations ?? '',
       link: drill.link ?? '',
       linkLabel: drill.link_label ?? '',
     })
@@ -65,6 +66,7 @@ export function DrillDetail({ drill: fromBank }: { drill: Drill }) {
         setup: draft.setup.trim() || null,
         description: draft.description.trim() || null,
         context: draft.context.trim() || null,
+        variations: draft.variations.trim() || null,
         link: draft.link.trim() || null,
         link_label: draft.linkLabel.trim() || null,
       }))
@@ -88,7 +90,8 @@ export function DrillDetail({ drill: fromBank }: { drill: Drill }) {
           <div className="space-y-2.5 pt-2">
             <DetailBox label="Setup" value={draft.setup} rows={2} placeholder="Two lines at X, balls at the front of each, goalie in" onChange={(v) => setDraft((d) => ({ ...d, setup: v }))} />
             <DetailBox label="How it runs" value={draft.description} rows={3} placeholder="Step by step: who goes, where, when it ends" onChange={(v) => setDraft((d) => ({ ...d, description: v }))} />
-            <DetailBox label="Why we run it" value={draft.context} rows={2} placeholder="What good looks like; what to coach" onChange={(v) => setDraft((d) => ({ ...d, context: v }))} />
+            <DetailBox label="Context" value={draft.context} rows={2} placeholder="What good looks like; what to coach" onChange={(v) => setDraft((d) => ({ ...d, context: v }))} />
+            <DetailBox label="Variations" value={draft.variations} rows={2} placeholder="Harder, easier, live, weak hand only…" onChange={(v) => setDraft((d) => ({ ...d, variations: v }))} />
             <div>
               <label className="block">
                 <span className="section-label">Video link</span>
@@ -131,7 +134,8 @@ export function DrillDetail({ drill: fromBank }: { drill: Drill }) {
             </div>
             <Part label="Setup" body={drill.setup} fallback="Nobody has written the setup down yet." />
             <Part label="How it runs" body={drill.description} fallback="No run-through written yet." />
-            <Part label="Why we run it" body={drill.context} fallback="Nobody has written down what it is for yet." />
+            <Part label="Context" body={drill.context} fallback="Nobody has written down what it is for yet." />
+            <Part label="Variations" body={drill.variations} fallback="No variations written yet." />
 
             <div>
               <div className="section-label mb-1">Video</div>
