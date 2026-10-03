@@ -65,6 +65,8 @@ function Row({ listId, p, setMsg }: { listId: string; p: RosterRowPlayer; setMsg
   }
   const [row, setRow] = useState(initial)
   const [saved, setSaved] = useState(initial)
+  // The name opens his profile; the pencil beside it edits it.
+  const [naming, setNaming] = useState(false)
   const [, start] = useTransition()
 
   function save(next = row) {
@@ -85,7 +87,7 @@ function Row({ listId, p, setMsg }: { listId: string; p: RosterRowPlayer; setMsg
     })
   }
 
-  const box = (k: 'name' | 'number' | 'position' | 'class_year', label: string, cls: string, extra: Record<string, string> = {}) => (
+  const box = (k: 'number' | 'position' | 'class_year', label: string, cls: string, extra: Record<string, string> = {}) => (
     <input
       value={row[k]}
       onChange={(e) => setRow({ ...row, [k]: e.target.value })}
@@ -103,7 +105,43 @@ function Row({ listId, p, setMsg }: { listId: string; p: RosterRowPlayer; setMsg
   return (
     <tr>
       <td>{box('number', 'number', '!w-12 font-black tabular-nums text-[var(--gh-green)]', { inputMode: 'numeric' })}</td>
-      <td>{box('name', 'name', 'min-w-36 font-semibold')}</td>
+      <td>
+        {naming ? (
+          <input
+            autoFocus
+            value={row.name}
+            onChange={(e) => setRow({ ...row, name: e.target.value })}
+            onBlur={() => {
+              setNaming(false)
+              save()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+              if (e.key === 'Escape') {
+                setRow(saved)
+                setNaming(false)
+              }
+            }}
+            aria-label={`${p.name} name`}
+            className="field !py-1 !px-2 text-sm min-w-36 font-semibold"
+          />
+        ) : (
+          <div className="flex items-center gap-1.5 min-w-36">
+            <Link href={`/admin/hub/players/${p.id}`} className="font-semibold hover:underline hover:text-[var(--gh-green)]">
+              {saved.name}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setNaming(true)}
+              aria-label={`Rename ${saved.name}`}
+              title="Edit name"
+              className="text-gray-300 hover:text-gray-600 text-sm px-1"
+            >
+              ✎
+            </button>
+          </div>
+        )}
+      </td>
       <td>{box('position', 'position', '!w-24', { list: 'roster-positions' })}</td>
       <td>{box('class_year', 'grad year', '!w-16', { inputMode: 'numeric', placeholder: '2028' })}</td>
       <td>
@@ -127,6 +165,9 @@ function Row({ listId, p, setMsg }: { listId: string; p: RosterRowPlayer; setMsg
       </td>
       <td className="col-actions">
         <div className="flex items-center gap-3">
+          <Link href={`/admin/hub/players/${p.id}`} className="text-xs font-bold text-[var(--gh-green)]">
+            Profile
+          </Link>
           <Link href={`/admin/hub/evaluate/${p.id}`} className="text-xs font-bold text-[var(--gh-green)]">
             Evaluate
           </Link>

@@ -80,7 +80,7 @@ export default async function AdminRosterPage() {
   const players = (data as Player[]) ?? []
   // Players imported from a first-name/last-name spreadsheet before the importer
   // understood that shape: the surname sits in the number column.
-  const splitNames = players.filter((p) => p.number && !/^#?\d{1,3}$/.test(p.number.trim()))
+  const splitNames = players.filter((p) => p.number && !/^#?\d{1,3}$/.test(String(p.number).trim()))
 
   return (
     <div>

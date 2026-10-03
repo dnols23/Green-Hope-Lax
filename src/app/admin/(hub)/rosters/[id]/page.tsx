@@ -127,7 +127,7 @@ export default async function RosterDetail({ params }: { params: Promise<{ id: s
         )}
         {players.length > 0 && (
           <p className="text-xs text-gray-400 mt-2">
-            Tap any box to change it — it saves when you leave the box. &ldquo;Remove&rdquo; takes them off this roster only — the player and their evaluations stay.
+            Tap a name for the player’s profile, ✎ to rename. Tap any box to change it — it saves when you leave the box. &ldquo;Remove&rdquo; takes them off this roster only — the player and their evaluations stay.
             &ldquo;Hidden&rdquo; keeps them off the public roster page.
           </p>
         )}
