@@ -2291,7 +2291,8 @@ export async function upsertDrill(formData: FormData) {
     ...(formData.has('minutes') ? { minutes: Math.max(0, Math.min(240, Number(formData.get('minutes')) || 10)) } : {}),
     // Every place ticked; the old single column keeps the first take-home one.
     setting: primarySetting(places),
-    description: str(formData.get('description')) || null,
+    // "How it runs" is gone from the bank's forms; a form that still sends it keeps it.
+    ...(formData.has('description') ? { description: str(formData.get('description')) || null } : {}),
     link: str(formData.get('link')) || null,
     ...(formData.has('link_label') ? { link_label: str(formData.get('link_label')).slice(0, 80) || null } : {}),
     // The staff's favourites are the staff's call.
@@ -2331,7 +2332,7 @@ export async function upsertDrill(formData: FormData) {
  */
 export async function saveDrillDetails(
   id: string,
-  input: { setup: string; description: string; context: string; variations?: string; link: string; linkLabel: string },
+  input: { setup: string; description?: string; context: string; variations?: string; link: string; linkLabel: string },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const viewer = await getViewer()
   if (!viewer || !canSee(viewer, 'drills')) return { ok: false, error: 'You don’t have the drill bank.' }
@@ -2341,7 +2342,7 @@ export async function saveDrillDetails(
   if (link && !/^https?:\/\//i.test(link)) return { ok: false, error: 'The video link has to start with http:// or https://' }
   const svc = createServiceClient()
   const base = {
-    description: clip(input.description, 4000),
+    ...(input.description !== undefined ? { description: clip(input.description, 4000) } : {}),
     link,
     link_label: clip(input.linkLabel, 80),
     updated_at: new Date().toISOString(),
