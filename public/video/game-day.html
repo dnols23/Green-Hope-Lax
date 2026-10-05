@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en" data-resolution="portrait">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <!--HF:BASE-->
+    <script src="assets/gsap.min.js"></script>
+    <link rel="stylesheet" href="assets/kit.css" />
+    <!--HF:FIELDS-->
+    <style>
+      #level { top: 250px; font-size: 40px; letter-spacing: 0.6em; }
+      #game { top: 310px; font-size: 300px; }
+      #day { top: 600px; font-size: 300px; }
+      #vs { top: 960px; font-size: 46px; letter-spacing: 0.5em; color: #9aa6a0; }
+      #opp { top: 1035px; font-size: 170px; }
+      #rule { left: 290px; top: 1245px; width: 500px; }
+      #when { top: 1290px; font-size: 46px; letter-spacing: 0.16em; color: #eef2ef; }
+      #where { top: 1365px; font-size: 36px; letter-spacing: 0.22em; color: #9aa6a0; }
+      #handle { top: 1470px; }
+      #black { position: absolute; inset: 0; background: #000; opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="10" data-width="1080" data-height="1920">
+      <!--HF:AUDIO-->
+      <div class="haze"></div>
+      <div data-unless="photo">
+        <img class="wm l" src="assets/falcon-head.png" alt="" />
+        <img class="wm r" src="assets/falcon-head.png" alt="" />
+      </div>
+      <div id="photo" class="photo" data-if="photo"><img id="pimg" src="{{photo:photo}}" alt="" /><div class="shade"></div></div>
+      <div id="beam" class="beam"></div>
+      <div class="vignette"></div>
+      <div id="scene" class="fill clip" data-start="0" data-duration="10" data-track-index="0">
+        <div id="level" class="row caps"><span data-field="level"></span></div>
+        <div id="game" class="row anton"><span>Game</span></div>
+        <div id="day" class="row anton green"><span>Day</span></div>
+        <div id="vs" class="row caps"><span data-field="vs"></span></div>
+        <div id="opp" class="row anton chrome"><span data-field="opponent" data-fit="940"></span></div>
+        <div id="rule" class="rule"></div>
+        <div id="when" class="row caps" data-if="when"><span data-field="when" data-fit="940"></span></div>
+        <div id="where" class="row caps" data-if="where"><span data-field="where" data-fit="940"></span></div>
+        <div id="handle" class="row caps handle"><span data-field="handle"></span></div>
+      </div>
+      <div id="black"></div>
+    </div>
+    <script src="assets/kit.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo('#pimg', { scale: 1.14 }, { scale: 1, duration: 10, ease: 'none' }, 0)
+        .fromTo('#beam', { backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0', duration: 1.0, ease: 'power2.inOut' }, 0)
+        .fromTo('#game', { opacity: 0, scale: 1.35, filter: 'blur(12px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.6, ease: 'expo.out' }, 0.15)
+        .fromTo('#day', { opacity: 0, scale: 1.35, filter: 'blur(12px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.6, ease: 'expo.out' }, 0.5)
+        .fromTo('#level', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 1.0)
+        .fromTo('#vs', { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'sine.out' }, 1.6)
+        .fromTo('#opp', { opacity: 0, y: 70 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 1.85)
+        .fromTo('#rule', { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: 'power3.inOut' }, 2.6)
+        .fromTo('#when', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 2.9)
+        .fromTo('#where', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 3.2)
+        .fromTo('#handle', { opacity: 0 }, { opacity: 1, duration: 0.8, ease: 'sine.out' }, 4.0)
+        // a second pass of light across the board
+        .fromTo('#beam', { backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0', duration: 1.2, ease: 'power2.inOut', immediateRender: false }, 5.2)
+        .fromTo('#day', { scale: 1 }, { scale: 1.06, duration: 0.12, ease: 'power2.out', immediateRender: false }, 5.7)
+        .to('#day', { scale: 1, duration: 0.35, ease: 'power2.inOut' }, 5.82)
+        .to('#black', { opacity: 1, duration: 0.6, ease: 'power2.in' }, 9.4);
+      window.__timelines['main'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

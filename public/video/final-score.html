@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en" data-resolution="portrait">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <!--HF:BASE-->
+    <script src="assets/gsap.min.js"></script>
+    <link rel="stylesheet" href="assets/kit.css" />
+    <!--HF:FIELDS-->
+    <style>
+      #level { top: 250px; font-size: 40px; letter-spacing: 0.6em; }
+      #final { top: 310px; font-size: 250px; }
+      .side { position: absolute; top: 640px; width: 470px; text-align: center; }
+      #left { left: 60px; }
+      #right { right: 60px; }
+      .team { font-size: 38px; letter-spacing: 0.22em; color: #c3ccc7; white-space: nowrap; display: inline-block; }
+      .score { margin-top: 26px; font-size: 330px; }
+      .lose { background: none; color: #5c6863; -webkit-text-fill-color: #5c6863; }
+      #dash { top: 860px; font-size: 120px; color: #3b4a43; }
+      #result { top: 1120px; font-size: 96px; letter-spacing: 0.06em; }
+      #rule { left: 290px; top: 1250px; width: 500px; }
+      #standouts { position: absolute; top: 1290px; left: 0; right: 0; text-align: center; }
+      .standout { font-size: 42px; letter-spacing: 0.12em; color: #eef2ef; line-height: 64px; white-space: nowrap; }
+      #handle { top: 1500px; }
+      #black { position: absolute; inset: 0; background: #000; opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="10" data-width="1080" data-height="1920">
+      <!--HF:AUDIO-->
+      <div class="haze"></div>
+      <div data-unless="photo">
+        <img class="wm l" src="assets/falcon-head.png" alt="" />
+        <img class="wm r" src="assets/falcon-head.png" alt="" />
+      </div>
+      <div id="photo" class="photo" data-if="photo"><img id="pimg" src="{{photo:photo}}" alt="" /><div class="shade"></div></div>
+      <div id="beam" class="beam"></div>
+      <div class="vignette"></div>
+      <div id="scene" class="fill clip" data-start="0" data-duration="10" data-track-index="0">
+        <div id="level" class="row caps"><span data-field="level"></span></div>
+        <div id="final" class="row anton chrome"><span>Final</span></div>
+        <div id="left" class="side">
+          <span class="team caps">Green Hope</span>
+          <div id="us" class="score anton">0</div>
+        </div>
+        <div id="dash" class="row anton"><span>–</span></div>
+        <div id="right" class="side">
+          <span class="team caps" data-field="opponent" data-fit="460"></span>
+          <div id="them" class="score anton">0</div>
+        </div>
+        <div id="result" class="row anton green"><span id="resultText"></span></div>
+        <div id="rule" class="rule" data-if="standouts"></div>
+        <div id="standouts" data-lines="standouts">
+          <template><div class="standout caps"><span data-line></span></div></template>
+        </div>
+        <div id="handle" class="row caps handle"><span data-field="handle"></span></div>
+      </div>
+      <div id="black"></div>
+    </div>
+    <script src="assets/kit.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const us = parseInt(HF.val('us'), 10) || 0;
+      const them = parseInt(HF.val('them'), 10) || 0;
+      const won = us > them;
+      document.getElementById('resultText').textContent = won ? 'Falcons win' : us === them ? 'Tie game' : '';
+      // the winner's score in green, the other in grey
+      document.getElementById(won || us === them ? 'us' : 'them').classList.add('green');
+      if (us !== them) document.getElementById(won ? 'them' : 'us').classList.add('lose');
+      const winner = won ? '#us' : '#them';
+
+      const tl = gsap.timeline({ paused: true });
+      // the number itself is tweened (not set from a callback), so any seek shows the right count
+      const count = (sel, to, at) => {
+        tl.fromTo(sel, { innerText: 0 }, { innerText: to, snap: { innerText: 1 }, duration: 1.3, ease: 'power2.out' }, at);
+      };
+      tl.fromTo('#pimg', { scale: 1.14 }, { scale: 1, duration: 10, ease: 'none' }, 0)
+        .fromTo('#beam', { backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0', duration: 1.0, ease: 'power2.inOut' }, 0)
+        .fromTo('#final', { opacity: 0, scale: 1.35, filter: 'blur(12px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.6, ease: 'expo.out' }, 0.15)
+        .fromTo('#level', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.7)
+        .fromTo(['#left', '#right'], { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out', stagger: 0.15 }, 1.0)
+        .fromTo('#dash', { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'sine.out' }, 1.3);
+      count('#us', us, 1.3);
+      count('#them', them, 1.3);
+      tl.fromTo(winner, { scale: 1 }, { scale: 1.12, duration: 0.14, ease: 'power2.out', immediateRender: false }, 2.65)
+        .to(winner, { scale: 1, duration: 0.4, ease: 'power2.inOut' }, 2.8)
+        .fromTo('#result', { opacity: 0, scale: 1.25, filter: 'blur(10px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.6, ease: 'expo.out' }, 2.75)
+        .fromTo('#rule', { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: 'power3.inOut' }, 3.4)
+        .fromTo('.standout', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out', stagger: 0.35 }, 3.7)
+        .fromTo('#handle', { opacity: 0 }, { opacity: 1, duration: 0.8, ease: 'sine.out' }, 5.2)
+        .fromTo('#beam', { backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0', duration: 1.2, ease: 'power2.inOut', immediateRender: false }, 6.0)
+        .to('#black', { opacity: 1, duration: 0.6, ease: 'power2.in' }, 9.4);
+      window.__timelines['main'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

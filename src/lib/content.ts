@@ -50,6 +50,7 @@ export const ELEVENLABS_VOICES_KEY = 'elevenlabs_voices'
 export const ELEVENLABS_MODEL_KEY = 'elevenlabs_model'
 export const DEFAULT_ELEVENLABS_MODEL = 'eleven_multilingual_v2'
 export const AUDIO_BUCKET = 'content-audio'
+export const VIDEO_BUCKET = 'content-video'
 
 export const isStatus = (v: unknown): v is ContentStatus => CONTENT_STATUSES.includes(v as ContentStatus)
 export const isFormat = (v: unknown): v is ContentFormat => CONTENT_FORMATS.includes(v as ContentFormat)
@@ -114,9 +115,19 @@ export interface ContentItem {
   shares: number | null
   saves: number | null
   notes: string | null
+  video_template: string | null
+  video_fields: Record<string, string>
+  video_track: string | null
+  video_status: VideoStatus | null
+  video_job: string | null
+  video_path: string | null
+  video_error: string | null
+  video_requested_at: string | null
   created_at: string
   updated_at: string
 }
+
+export type VideoStatus = 'rendering' | 'ready' | 'failed'
 
 export interface CaptionSnippet {
   id: string
@@ -167,6 +178,11 @@ export function readSeries(row: Record<string, unknown>): ContentSeries {
   }
 }
 
+function stringRecord(v: unknown): Record<string, string> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+  return Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'string')) as Record<string, string>
+}
+
 export function readItem(row: Record<string, unknown>): ContentItem {
   return {
     id: String(row.id),
@@ -202,6 +218,14 @@ export function readItem(row: Record<string, unknown>): ContentItem {
     shares: int(row.shares),
     saves: int(row.saves),
     notes: text(row.notes),
+    video_template: text(row.video_template),
+    video_fields: stringRecord(row.video_fields),
+    video_track: text(row.video_track),
+    video_status: row.video_status === 'rendering' || row.video_status === 'ready' || row.video_status === 'failed' ? row.video_status : null,
+    video_job: text(row.video_job),
+    video_path: text(row.video_path),
+    video_error: text(row.video_error),
+    video_requested_at: text(row.video_requested_at),
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
   }

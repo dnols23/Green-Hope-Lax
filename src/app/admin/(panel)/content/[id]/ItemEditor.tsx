@@ -27,7 +27,8 @@ import {
   type ContentSeries,
   type Voice,
 } from '@/lib/content'
-import type { AudioLinks, ContentPlayer, GameOption } from '@/lib/contentData'
+import type { AudioLinks, ContentPlayer, GameOption, VideoRender } from '@/lib/contentData'
+import { VideoPanel } from './VideoPanel'
 
 const TEAM_LABELS: Record<string, string> = { boys_varsity: 'Varsity', boys_jv: 'JV', girls: 'Girls' }
 
@@ -44,6 +45,7 @@ export function ItemEditor({
   voiceKeySet,
   voAudio,
   sfxAudio,
+  video,
 }: {
   item: ContentItem
   publishInput: string
@@ -56,6 +58,7 @@ export function ItemEditor({
   voiceKeySet: boolean
   voAudio: AudioLinks | null
   sfxAudio: AudioLinks | null
+  video: VideoRender
 }) {
   const [f, setF] = useState<ContentItemInput>({
     id: item.id,
@@ -177,6 +180,14 @@ export function ItemEditor({
             </div>
           </div>
         </section>
+
+        <VideoPanel
+          item={item}
+          game={games.find((g) => g.id === f.game_id) ?? null}
+          player={players.find((p) => f.featured_player_ids.includes(p.id)) ?? null}
+          voAudio={voAudio}
+          initialRender={video}
+        />
 
         <section className="card p-4 space-y-3">
           <h2 className="font-bold text-gray-700">Links</h2>

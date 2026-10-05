@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" data-resolution="portrait">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <!--HF:BASE-->
+    <script src="assets/gsap.min.js"></script>
+    <link rel="stylesheet" href="assets/kit.css" />
+    <!--HF:FIELDS-->
+    <style>
+      #kicker { top: 250px; font-size: 40px; letter-spacing: 0.6em; }
+      /* the jersey number, huge and hollow behind everything */
+      #bignum { position: absolute; right: -40px; top: 330px; font-size: 760px; color: transparent;
+        -webkit-text-stroke: 4px rgba(79, 208, 150, 0.35); white-space: nowrap; }
+      #mark { position: absolute; left: 215px; top: 420px; width: 650px; opacity: 0.9; }
+      #first { top: 900px; font-size: 120px; }
+      #last { top: 1020px; font-size: 220px; }
+      #meta { top: 1265px; font-size: 38px; letter-spacing: 0.24em; color: #eef2ef; }
+      #rule { left: 290px; top: 1330px; width: 500px; }
+      #stats { position: absolute; top: 1370px; left: 0; right: 0; text-align: center; }
+      .stat { font-size: 40px; letter-spacing: 0.12em; color: #c3ccc7; line-height: 60px; white-space: nowrap; }
+      #handle { top: 1570px; }
+      #black { position: absolute; inset: 0; background: #000; opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="10" data-width="1080" data-height="1920">
+      <!--HF:AUDIO-->
+      <div class="haze"></div>
+      <div id="photo" class="photo" data-if="photo"><img id="pimg" src="{{photo:photo}}" alt="" /><div class="shade"></div></div>
+      <div id="bignum" class="anton" data-if="number"><span id="numText"></span></div>
+      <img id="mark" src="assets/falcon-head.png" alt="" data-unless="photo" />
+      <div id="beam" class="beam"></div>
+      <div class="vignette"></div>
+      <div id="scene" class="fill clip" data-start="0" data-duration="10" data-track-index="0">
+        <div id="kicker" class="row caps"><span>Player spotlight</span></div>
+        <div id="first" class="row anton"><span id="firstText" data-fit="940"></span></div>
+        <div id="last" class="row anton green"><span id="lastText" data-fit="960"></span></div>
+        <div id="meta" class="row caps"><span id="metaText" data-fit="940"></span></div>
+        <div id="rule" class="rule" data-if="stats"></div>
+        <div id="stats" data-lines="stats">
+          <template><div class="stat caps"><span data-line></span></div></template>
+        </div>
+        <div id="handle" class="row caps handle"><span data-field="handle"></span></div>
+      </div>
+      <div id="black"></div>
+    </div>
+    <script>
+      // Split the name before kit.js sizes it: first name small, last name big.
+      (function () {
+        const F = window.__FIELDS || {};
+        const parts = String(F.name || '').trim().split(/\s+/);
+        const last = parts.length > 1 ? parts.pop() : parts[0] || '';
+        document.getElementById('firstText').textContent = parts.length && parts[0] !== last ? parts.join(' ') : '';
+        document.getElementById('lastText').textContent = last;
+        const num = String(F.number || '').replace(/^#/, '');
+        document.getElementById('numText').textContent = num;
+        document.getElementById('metaText').textContent = [num && '#' + num, F.position, F.year].filter(Boolean).join('  ·  ');
+      })();
+    </script>
+    <script src="assets/kit.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo('#pimg', { scale: 1.16 }, { scale: 1.02, duration: 10, ease: 'none' }, 0)
+        .fromTo('#photo', { opacity: 0 }, { opacity: 1, duration: 0.8, ease: 'sine.out' }, 0)
+        .fromTo('#mark', { opacity: 0, scale: 1.06 }, { opacity: 0.9, scale: 1, duration: 1.0, ease: 'power2.out' }, 0)
+        .fromTo('#bignum', { opacity: 0, x: 220 }, { opacity: 1, x: 0, duration: 1.2, ease: 'power3.out' }, 0.2)
+        .fromTo('#kicker', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.4)
+        .fromTo('#beam', { backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0', duration: 1.0, ease: 'power2.inOut' }, 0.9)
+        .fromTo('#first', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 1.1)
+        .fromTo('#last', { opacity: 0, scale: 1.3, filter: 'blur(12px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.65, ease: 'expo.out' }, 1.45)
+        .fromTo('#meta', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 2.2)
+        .fromTo('#rule', { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: 'power3.inOut' }, 2.6)
+        .fromTo('.stat', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out', stagger: 0.45 }, 3.0)
+        .fromTo('#handle', { opacity: 0 }, { opacity: 1, duration: 0.8, ease: 'sine.out' }, 5.0)
+        .fromTo('#beam', { backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0', duration: 1.2, ease: 'power2.inOut', immediateRender: false }, 6.0)
+        .to('#black', { opacity: 1, duration: 0.6, ease: 'power2.in' }, 9.4);
+      window.__timelines['main'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

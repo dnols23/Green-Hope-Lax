@@ -20,6 +20,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // GSAP, vendored for the video templates
+    "public/video/assets/gsap.min.js",
   ]),
 ]);
 

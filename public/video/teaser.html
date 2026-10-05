@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en" data-resolution="portrait">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <!--HF:BASE-->
+    <script src="assets/gsap.min.js"></script>
+    <!--HF:FIELDS-->
+    <style>
+      @font-face { font-family: 'Anton'; src: url('assets/anton.woff2') format('woff2'); }
+      @font-face { font-family: 'Geist'; font-weight: 600; src: url('assets/geist-600.woff2') format('woff2'); }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden;
+        background: radial-gradient(ellipse 120% 70% at 50% 40%, #0f3b2a 0%, #082318 38%, #030b07 72%, #010302 100%); }
+      /* Stadium-light haze from above and faint falcon watermarks, as in the uniform board. */
+      #haze { position: absolute; inset: 0; background:
+        radial-gradient(ellipse 70% 22% at 50% 0%, rgba(190,255,220,0.16), transparent 70%),
+        radial-gradient(ellipse 90% 30% at 50% 100%, rgba(20,90,60,0.25), transparent 70%); }
+      .wm { position: absolute; width: 900px; opacity: 0.07; filter: grayscale(1) brightness(1.4) blur(1px); }
+      #wm1 { left: -430px; top: 160px; }
+      #wm2 { right: -430px; top: 1260px; transform: scaleX(-1); }
+      /* Back in black: the green world turns black and steel, wiped in under the same light as the falcon. */
+      #bgDark {
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse 120% 70% at 50% 40%, #24292e 0%, #121518 36%, #050607 70%, #000 100%);
+        -webkit-mask: linear-gradient(90deg, #000 0%, #000 47%, transparent 53%, transparent 100%) 100% 0 / 300% 100% no-repeat;
+        mask: linear-gradient(90deg, #000 0%, #000 47%, transparent 53%, transparent 100%) 100% 0 / 300% 100% no-repeat;
+      }
+      #bgDark .haze { position: absolute; inset: 0; background:
+        radial-gradient(ellipse 70% 22% at 50% 0%, rgba(210,225,240,0.14), transparent 70%),
+        radial-gradient(ellipse 90% 30% at 50% 100%, rgba(80,90,100,0.18), transparent 70%); }
+      #bgDark .wm { opacity: 0.08; filter: blur(1px); }
+      /* The light itself, crossing the whole frame. */
+      #beam {
+        position: absolute; inset: 0; mix-blend-mode: screen; opacity: 0.5;
+        background: linear-gradient(105deg, transparent 0%, transparent 44%, rgba(255,255,255,0.10) 48%,
+          rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.10) 52%, transparent 56%, transparent 100%);
+        background-size: 300% 100%; background-position: 100% 0;
+      }
+      .clip { position: absolute; inset: 0; }
+
+      /* The falcon: our green logo until the light passes, then gunmetal and black. */
+      #mark { position: absolute; left: 90px; top: 620px; width: 900px; height: 574px; }
+      .falcon {
+        position: absolute; inset: 0;
+        -webkit-mask: url('assets/falcon-head.png') center / contain no-repeat;
+        mask: url('assets/falcon-head.png') center / contain no-repeat;
+      }
+      .logo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+      /* The gunmetal falcon is wiped in under the light: opaque on the left of the edge, clear to the right. */
+      #metal {
+        position: absolute; inset: 0;
+        -webkit-mask: linear-gradient(90deg, #000 0%, #000 47%, transparent 53%, transparent 100%) 100% 0 / 300% 100% no-repeat;
+        mask: linear-gradient(90deg, #000 0%, #000 47%, transparent 53%, transparent 100%) 100% 0 / 300% 100% no-repeat;
+      }
+      #sweep {
+        background: linear-gradient(105deg, transparent 0%, transparent 38%, rgba(255,255,255,0.12) 44%,
+          rgba(255,255,255,0.95) 50%, rgba(255,255,255,0.12) 56%, transparent 62%, transparent 100%);
+        background-size: 300% 100%;
+        background-position: 100% 0;
+      }
+
+      #glow {
+        position: absolute; left: 140px; top: 560px; width: 800px; height: 700px; border-radius: 50%;
+        background: radial-gradient(closest-side, rgba(255,255,255,0.10), transparent);
+        opacity: 0;
+      }
+      .fit { display: inline-block; white-space: nowrap; }
+      #back .fit, #black .fit { background: inherit; -webkit-background-clip: text; background-clip: text; }
+      .type { font-family: 'Anton', sans-serif; color: #f5f5f4; text-transform: uppercase; text-align: center; position: absolute; left: 0; right: 0; }
+      #year { top: 1300px; font-family: 'Geist', sans-serif; font-weight: 600; font-size: 44px; letter-spacing: 0.6em; color: #c3ccc7; }
+      #back { top: 360px; font-size: 230px; line-height: 1; letter-spacing: 0.02em;
+        background: linear-gradient(180deg, #4fd096 0%, #1f8a5c 45%, #0b5236 55%, #2a9d6b 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      #black { top: 700px; font-size: 330px; line-height: 1; letter-spacing: 0.02em;
+        background: linear-gradient(180deg, #ffffff 0%, #e3e7ea 34%, #868d94 50%, #f3f5f7 62%, #a7aeb4 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      #handle { top: 1440px; font-family: 'Geist', sans-serif; font-weight: 600; font-size: 34px; letter-spacing: 0.35em; color: #9aa6a0; }
+      #line { position: absolute; left: 290px; top: 1090px; width: 500px; height: 7px; background: #1f8a5c; transform-origin: left center; }
+      #tag { top: 1135px; font-family: 'Geist', sans-serif; font-weight: 600; font-size: 34px; letter-spacing: 0.32em; color: #c3ccc7; }
+      #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.85) 100%); pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="16.6" data-width="1080" data-height="1920">
+      <!--HF:AUDIO-->
+      <div id="haze"></div>
+      <img id="wm1" class="wm" src="assets/falcon-head.png" alt="" />
+      <img id="wm2" class="wm" src="assets/falcon-head.png" alt="" />
+      <div id="bgDark">
+        <div class="haze"></div>
+        <img id="wm3" class="wm" src="assets/falcon-gunmetal-black.png" alt="" style="left:-430px;top:160px" />
+        <img id="wm4" class="wm" src="assets/falcon-gunmetal-black.png" alt="" style="right:-430px;top:1260px;transform:scaleX(-1)" />
+      </div>
+      <div id="beam"></div>
+      <div id="vignette"></div>
+      <div id="scene1" class="clip" data-start="0" data-duration="7.25" data-track-index="0">
+        <div id="glow"></div>
+        <div id="mark">
+          <img id="green" class="logo" src="assets/falcon-head.png" alt="" />
+          <div id="metal"><img class="logo" src="assets/falcon-gunmetal-black.png" alt="" /></div>
+          <div id="sweep" class="falcon"></div>
+        </div>
+        <div id="year" class="type"><span id="ys"></span> <span id="yn"></span></div>
+      </div>
+      <div id="scene2" class="clip" data-start="7.25" data-duration="9.35" data-track-index="1">
+        <div id="back" class="type"><span class="fit" data-field="line1" data-fit="980"></span></div>
+        <div id="black" class="type"><span class="fit" data-field="line2" data-fit="1000"></span></div>
+        <div id="line"></div>
+        <div id="tag" class="type"><span class="fit" data-field="tag" data-fit="980"></span></div>
+        <div id="handle" class="type"><span data-field="handle"></span></div>
+      </div>
+    </div>
+    <script>
+      // The opening line comes in two beats: everything but the last word, then the last word.
+      (function () {
+        const words = String((window.__FIELDS || {}).kicker || '').trim().split(/\s+/);
+        const last = words.length > 1 ? words.pop() : '';
+        document.getElementById('ys').textContent = words.join(' ');
+        document.getElementById('yn').textContent = last;
+      })();
+    </script>
+    <script src="assets/kit.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // Scene 1 — the green falcon; a light sweep turns it gunmetal and black as it passes.
+      // The song drives it — our "Back in Black", from the pre-chorus (song 0:25) into the chorus:
+      //   "Hear the roar, hear the thunder / Every rival goin' under" 0.3–3.2
+      //   "We're back in BLACK" 4.7–6.0 (black ≈ 5.64) · "Falcons!" 6.26 · "We're back in BLACK" 7.24–8.6 (black ≈ 8.16)
+      //   "Green Hope's comin', there's no turnin' back" 10.0–14.7 · "We're back in BLACK" 14.8–16.1 (black ≈ 15.72)
+      tl.fromTo('#mark', { scale: 1.06, opacity: 0 }, { scale: 1, opacity: 1, duration: 1.2, ease: 'power2.out' }, 0.0)
+        .fromTo('#ys', { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out' }, 0.3)
+        .fromTo('#yn', { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out' }, 0.92)
+        // first "black": the light crosses and the green world turns gunmetal and black
+        .fromTo('#sweep', { backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0', duration: 1.0, ease: 'power2.inOut' }, 5.14)
+        .fromTo('#metal', { maskPosition: '100% 0', webkitMaskPosition: '100% 0' }, { maskPosition: '0% 0', webkitMaskPosition: '0% 0', duration: 1.0, ease: 'power2.inOut' }, 5.14)
+        .fromTo('#bgDark', { maskPosition: '100% 0', webkitMaskPosition: '100% 0' }, { maskPosition: '0% 0', webkitMaskPosition: '0% 0', duration: 1.0, ease: 'power2.inOut' }, 5.14)
+        .fromTo('#beam', { backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0', duration: 1.0, ease: 'power2.inOut' }, 5.14)
+        .to('#glow', { opacity: 1, duration: 0.3, ease: 'sine.out' }, 5.5)
+        .to('#glow', { opacity: 0, duration: 0.8, ease: 'sine.in' }, 5.8)
+        // "Falcons!" — a glint across the gunmetal
+        .fromTo('#sweep', { backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0', duration: 0.8, ease: 'power3.in', immediateRender: false }, 6.1)
+        .to(['#mark', '#year'], { opacity: 0, duration: 0.3, ease: 'power2.in' }, 6.95);
+
+      // Scene 2 — the line, on the second chorus line.
+      tl.fromTo('#back', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 7.3)
+        .fromTo('#black', { opacity: 0, scale: 1.25, filter: 'blur(14px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.7, ease: 'expo.out' }, 8.1)
+        .fromTo('#line', { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: 'power3.inOut' }, 8.9)
+        .fromTo('#tag', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 10.0)
+        .fromTo('#handle', { opacity: 0 }, { opacity: 1, duration: 0.8, ease: 'sine.out' }, 11.6)
+        // last "black": BLACK punches
+        .fromTo('#black', { scale: 1 }, { scale: 1.08, duration: 0.12, ease: 'power2.out', immediateRender: false }, 15.68)
+        .to('#black', { scale: 1, duration: 0.35, ease: 'power2.inOut' }, 15.8)
+        .to(['#back', '#black', '#line', '#tag', '#handle'], { opacity: 0, duration: 0.45, ease: 'power2.in' }, 16.15);
+
+      window.__timelines['main'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

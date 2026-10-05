@@ -1,0 +1,53 @@
+# Renders one Content Studio video. Started by the "Render video" button
+# (src/lib/videoActions.ts) through the GitHub API; uploads the MP4 to a
+# one-time signed Supabase URL, so this workflow needs no secrets.
+name: Render video
+
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Render job JSON from the Content Studio
+        required: true
+      label:
+        description: What is being rendered
+        required: false
+        default: video
+
+run-name: "Render ${{ inputs.label }}"
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            public/video
+            scripts/render-video.mjs
+            src/lib/videoTemplates.ts
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: ffmpeg
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg)
+
+      - name: Cache HyperFrames and its Chrome
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm/_npx
+            ~/.cache/hyperframes
+          key: hyperframes-0.8.133-${{ runner.os }}
+
+      # The job is read from the event payload, not passed through env, so its
+      # signed URLs never show up in this public repo's logs.
+      - name: Render and upload
+        run: node scripts/render-video.mjs

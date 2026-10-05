@@ -9,6 +9,7 @@ import {
   listSeries,
   listSnippets,
   readVoiceSettings,
+  settleVideo,
   signedAudio,
 } from '@/lib/contentData'
 import { toEtInput } from '@/lib/content'
@@ -24,7 +25,7 @@ export default async function ContentItemPage({ params }: { params: Promise<{ id
   const item = await getItem(id)
   if (!item) notFound()
 
-  const [series, snippets, players, games, drills, voices, vo, sfx] = await Promise.all([
+  const [series, snippets, players, games, drills, voices, vo, sfx, video] = await Promise.all([
     listSeries(),
     listSnippets(),
     listContentPlayers(),
@@ -33,6 +34,7 @@ export default async function ContentItemPage({ params }: { params: Promise<{ id
     readVoiceSettings(),
     signedAudio(item.vo_audio_url, `voiceover-${item.id.slice(0, 8)}.mp3`),
     signedAudio(item.sfx_audio_url, `sfx-${item.id.slice(0, 8)}.mp3`),
+    settleVideo(item),
   ])
 
   return (
@@ -54,6 +56,7 @@ export default async function ContentItemPage({ params }: { params: Promise<{ id
         voiceKeySet={voices.keySet}
         voAudio={vo}
         sfxAudio={sfx}
+        video={video}
       />
     </div>
   )
