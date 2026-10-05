@@ -84,8 +84,9 @@ export function SwflForm() {
       </div>
 
       <div>
-        <label className="field-label">Player email (optional)</label>
+        <label className="field-label">Player school email (optional)</label>
         <input name="player_email" type="email" className="field" />
+        <p className="text-xs text-gray-500 mt-1">The email their school gave them — not a personal Gmail or iCloud.</p>
       </div>
 
       <div>

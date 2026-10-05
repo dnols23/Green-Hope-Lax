@@ -3,6 +3,7 @@ import { useActionState } from 'react'
 import { submitInterest, type FormState } from '@/lib/actions'
 import { SubmitButton } from './SubmitButton'
 import { FalconBadge } from './Logo'
+import { SCHOOL_EMAIL_HINT, WCPSS_EMAIL_ERROR, WCPSS_PATTERN } from '@/lib/schoolEmail'
 
 const initial: FormState = { ok: false }
 
@@ -73,10 +74,28 @@ export function InterestForm({ level = 'high' }: { level?: 'high' | 'middle' }) 
         </div>
       </div>
 
-      <div>
-        <label htmlFor="player_email" className="field-label">Player email (optional)</label>
-        <input id="player_email" name="player_email" type="email" className="field" />
-      </div>
+      {level === 'high' ? (
+        <div>
+          <label htmlFor="player_email" className="field-label">Player school email *</label>
+          <input
+            id="player_email"
+            name="player_email"
+            type="email"
+            required
+            pattern={WCPSS_PATTERN}
+            title={WCPSS_EMAIL_ERROR}
+            placeholder="jdsmith@wcpss.net"
+            className="field"
+          />
+          <p className="text-xs text-gray-500 mt-1">{SCHOOL_EMAIL_HINT} — not a personal Gmail or iCloud.</p>
+        </div>
+      ) : (
+        <div>
+          <label htmlFor="player_email" className="field-label">Player school email (optional)</label>
+          <input id="player_email" name="player_email" type="email" className="field" />
+          <p className="text-xs text-gray-500 mt-1">The email their school gave them — not a personal Gmail or iCloud.</p>
+        </div>
+      )}
 
       <div>
         <label htmlFor="notes" className="field-label">Notes / questions</label>
