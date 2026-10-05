@@ -39,6 +39,8 @@ export const HUB_MODES: HubMode[] = [
   { key: 'inventory', label: 'Inventory',        section: 'inventory',icon: '📦', href: '/admin/inventory' },
   { key: 'wishlist',  label: 'Wish List',        section: 'wishlist', icon: '🎁', href: '/admin/wishlist' },
   { key: 'recruits',  label: 'Recruits',         section: 'recruits', icon: '📇', href: '/admin/recruits' },
+  // The @ghlacrosse Content Studio: Reels planned, shot, edited and posted.
+  { key: 'instagram', label: 'Instagram',        section: 'social',   icon: '📸', href: '/admin/content' },
 ]
 
 export const HUB_MODE_KEYS = HUB_MODES.map((m) => m.key)
