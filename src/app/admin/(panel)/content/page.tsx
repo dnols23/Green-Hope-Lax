@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { requireSection } from '@/lib/permissions'
-import { listContentPlayers, listItems, listSeries } from '@/lib/contentData'
+import { listItems, listSeries } from '@/lib/contentData'
 import { createContentItem } from '@/lib/contentActions'
 import {
   CONTENT_STATUSES,
@@ -28,15 +28,13 @@ export default async function ContentBoard({
 }) {
   await requireSection('social')
   const sp = await searchParams
-  const [items, series, players] = await Promise.all([listItems(), listSeries(), listContentPlayers()])
+  const [items, series] = await Promise.all([listItems(), listSeries()])
 
   const today = etToday()
   const weekEnd = addDaysYmd(today, 7)
   const shoot = typeof sp.shoot === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.shoot) ? sp.shoot : ''
   const presetSeries = series.find((s) => s.slug === sp.series || s.id === sp.series)?.id ?? ''
   const seriesOf = (id: string | null) => series.find((s) => s.id === id) ?? null
-  const uncleared = new Set(players.filter((p) => !p.media_cleared).map((p) => p.id))
-  const needsRelease = (i: ContentItem) => i.featured_player_ids.some((id) => uncleared.has(id))
 
   // The week ahead: every shoot and every post, in order.
   const week = items
@@ -133,7 +131,7 @@ export default async function ContentBoard({
                 </h2>
                 <div className="space-y-2">
                   {col.map((i) => (
-                    <Card key={i.id} item={i} series={seriesOf(i.series_id)} warn={needsRelease(i)} />
+                    <Card key={i.id} item={i} series={seriesOf(i.series_id)} />
                   ))}
                   {col.length === 0 && <p className="px-1 pb-1 text-xs text-gray-400">—</p>}
                 </div>
@@ -146,16 +144,11 @@ export default async function ContentBoard({
   )
 }
 
-function Card({ item: i, series, warn }: { item: ContentItem; series: ContentSeries | null; warn: boolean }) {
+function Card({ item: i, series }: { item: ContentItem; series: ContentSeries | null }) {
   const done = i.shot_checklist.filter((s) => s.done).length
   return (
     <article className="card p-3" style={{ borderLeft: `4px solid ${series?.color ?? '#9ca3af'}` }}>
       <Link href={`/admin/content/${i.id}`} className="font-bold text-sm leading-snug hover:underline block">
-        {warn && (
-          <span title="A featured player has no media release" className="mr-1">
-            ⚠
-          </span>
-        )}
         {i.title}
       </Link>
       {series && <div className="text-[0.7rem] font-semibold mt-0.5" style={{ color: series.color }}>{series.name}</div>}

@@ -23,7 +23,6 @@ export interface ContentPlayer {
   number: string | null
   team: string
   is_active: boolean
-  media_cleared: boolean
 }
 
 export async function listSeries(): Promise<ContentSeries[]> {
@@ -53,14 +52,13 @@ export async function listSnippets(): Promise<CaptionSnippet[]> {
 
 export async function listContentPlayers(): Promise<ContentPlayer[]> {
   const supabase = await createClient()
-  const { data } = await supabase.from('players').select('id, name, number, team, is_active, media_cleared').order('name')
+  const { data } = await supabase.from('players').select('id, name, number, team, is_active').order('name')
   return ((data ?? []) as Record<string, unknown>[]).map((p) => ({
     id: String(p.id),
     name: String(p.name ?? ''),
     number: p.number == null || p.number === '' ? null : String(p.number),
     team: String(p.team ?? ''),
     is_active: p.is_active !== false,
-    media_cleared: p.media_cleared === true,
   }))
 }
 

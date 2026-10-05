@@ -43,9 +43,6 @@ export const VO_MODE_LABELS: Record<VoMode, string> = {
 export const SNIPPET_KINDS = ['hook', 'cta', 'signoff', 'hashtags'] as const
 export type SnippetKind = (typeof SNIPPET_KINDS)[number]
 
-/** Statuses a video can't reach while anyone in it lacks a media release. */
-export const NEEDS_RELEASE: ContentStatus[] = ['ready', 'posted']
-
 /** Instagram's caption limit, hashtags included. */
 export const CAPTION_LIMIT = 2200
 

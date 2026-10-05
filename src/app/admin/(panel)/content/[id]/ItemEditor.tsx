@@ -15,7 +15,6 @@ import {
   CONTENT_FORMATS,
   CONTENT_STATUSES,
   FORMAT_LABELS,
-  NEEDS_RELEASE,
   STATUS_LABELS,
   VO_MODE_LABELS,
   dayLabel,
@@ -26,7 +25,6 @@ import {
   type CaptionSnippet,
   type ContentItem,
   type ContentSeries,
-  type ContentStatus,
   type Voice,
 } from '@/lib/content'
 import type { AudioLinks, ContentPlayer, GameOption } from '@/lib/contentData'
@@ -91,8 +89,6 @@ export function ItemEditor({
   const [saving, start] = useTransition()
 
   const s = series.find((x) => x.id === f.series_id) ?? null
-  const uncleared = players.filter((p) => f.featured_player_ids.includes(p.id) && !p.media_cleared)
-  const blocked = NEEDS_RELEASE.includes(f.status as ContentStatus) && uncleared.length > 0
 
   function save() {
     setSay(null)
@@ -257,11 +253,6 @@ export function ItemEditor({
 
         <section className="card p-4">
           <h2 className="font-bold text-gray-700 mb-2">Featured players</h2>
-          {blocked && (
-            <p className="text-xs font-semibold text-red-700 mb-2" role="alert">
-              Can’t be {STATUS_LABELS[f.status as ContentStatus]} until every featured player has a media release.
-            </p>
-          )}
           <div className="max-h-80 overflow-y-auto space-y-0.5">
             {players
               .filter((p) => p.is_active || f.featured_player_ids.includes(p.id))
@@ -282,9 +273,6 @@ export function ItemEditor({
                       {p.name}
                       <span className="text-xs text-gray-400"> · {TEAM_LABELS[p.team] ?? p.team}</span>
                     </span>
-                    {!p.media_cleared && (
-                      <span className="text-[0.6rem] font-black uppercase px-1.5 py-0.5 rounded bg-red-100 text-red-700 shrink-0">no release</span>
-                    )}
                   </label>
                 )
               })}

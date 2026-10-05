@@ -11,8 +11,6 @@ import {
   AUDIO_BUCKET,
   ELEVENLABS_MODEL_KEY,
   ELEVENLABS_VOICES_KEY,
-  NEEDS_RELEASE,
-  STATUS_LABELS,
   fillPlaceholders,
   fromEtInput,
   isFormat,
@@ -25,7 +23,6 @@ import {
   shotsFromText,
   voicesFromText,
   type ChecklistShot,
-  type ContentStatus,
 } from './content'
 import { readVoiceSettings, signedAudio, type AudioLinks } from './contentData'
 
@@ -44,20 +41,6 @@ const url = (v: unknown) => {
 const count = (v: unknown) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Math.max(0, Math.round(Number(v))))
 const ymd = (v: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v ?? '')) ? String(v) : null)
 const uuid = (v: unknown) => (/^[0-9a-f-]{36}$/i.test(String(v ?? '')) ? String(v) : null)
-
-/** The names of featured players with no media release on file. */
-async function withoutRelease(ids: string[]): Promise<string[]> {
-  if (!ids.length) return []
-  const supabase = await createClient()
-  const { data } = await supabase.from('players').select('id, name, media_cleared')
-  return ((data ?? []) as { id: string; name: string; media_cleared: boolean | null }[])
-    .filter((p) => ids.includes(String(p.id)) && p.media_cleared !== true)
-    .map((p) => p.name)
-}
-
-function releaseError(status: ContentStatus, names: string[]): string {
-  return `Can’t mark it ${STATUS_LABELS[status]}: no media release for ${names.join(', ')}. Clear them on Media Releases, or take them off this video.`
-}
 
 // ── Videos ──────────────────────────────────────────────────────────────────
 
@@ -105,10 +88,6 @@ export async function setContentStatus(id: string, status: string): Promise<Resu
   const { data } = await supabase.from('content_items').select('*').eq('id', id).maybeSingle()
   if (!data) return { ok: false, error: 'That video is gone.' }
   const item = readItem(data as Record<string, unknown>)
-  if (NEEDS_RELEASE.includes(status)) {
-    const missing = await withoutRelease(item.featured_player_ids)
-    if (missing.length) return { ok: false, error: releaseError(status, missing) }
-  }
   const { error } = await supabase
     .from('content_items')
     .update({ status, ...(status === 'posted' && !item.posted_at ? { posted_at: nowIso() } : {}) })
@@ -160,10 +139,6 @@ export async function saveContentItem(
   const was = readItem(before as Record<string, unknown>)
   const status = isStatus(input.status) ? input.status : was.status
   const featured = [...new Set((input.featured_player_ids ?? []).map(uuid).filter((x): x is string => !!x))]
-  if (NEEDS_RELEASE.includes(status)) {
-    const missing = await withoutRelease(featured)
-    if (missing.length) return { ok: false, error: releaseError(status, missing) }
-  }
 
   const gameId = uuid(input.game_id)
   const drillId = uuid(input.drill_id)
@@ -278,17 +253,6 @@ export async function saveContentSeries(formData: FormData) {
     ? await supabase.from('content_series').update(row).eq('id', id)
     : await supabase.from('content_series').insert(row)
   if (error) throw new Error(`Couldn’t save the series: ${error.message}`)
-  refresh()
-}
-
-// ── Media releases ──────────────────────────────────────────────────────────
-
-export async function setMediaCleared(formData: FormData) {
-  await requireSection('social')
-  const id = uuid(formData.get('id'))
-  if (!id) return
-  const supabase = await createClient()
-  await supabase.from('players').update({ media_cleared: formData.get('cleared') === 'true' }).eq('id', id)
   refresh()
 }
 

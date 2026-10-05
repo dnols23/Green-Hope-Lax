@@ -4,7 +4,7 @@ import { ContentTabs } from '../ContentTabs'
 export const metadata = { title: 'Instagram · Process' }
 
 const WEEK: { day: string; what: string; detail: string }[] = [
-  { day: 'Sun', what: 'Plan', detail: 'Pick the two videos for the week on the Board. Check the shot lists and that everyone featured has a media release. Post at 7pm.' },
+  { day: 'Sun', what: 'Plan', detail: 'Pick the two videos for the week on the Board. Check the shot lists. Post at 7pm.' },
   { day: 'Tue', what: 'Shoot', detail: 'Shoot at practice off the checklist. Tick shots as you get them.' },
   { day: 'Tue night', what: 'Dump', detail: 'Everything off the phone into Drive → IG/01_Inbox/<date>. Paste the folder link on the video.' },
   { day: 'Wed', what: 'Edit', detail: 'Cut in Canva from the series template. Best clips to 02_Selects; export to 03_Exports. Status → Editing, then Ready.' },
@@ -46,7 +46,6 @@ export default async function ContentProcessPage() {
             'The hook lands in the first 1.5 seconds: the loudest, fastest moment first. No title cards.',
             'Lock exposure on bright days; wipe the lens.',
             'Shoot from low and close. Over shoulders for huddles.',
-            'Only players with a media release on screen and identifiable.',
           ]}
         />
         <Rules
