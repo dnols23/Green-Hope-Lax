@@ -30,6 +30,34 @@ import { EMPTY_BOARD, readBoard, type Board, type BoardClip, type BoardFrame } f
  */
 
 const SCRATCH = 'gh-playboard-v1'
+/* What the board on the glass is: its name, and the saved play it is (if any).
+   Kept beside the drawing, so coming back to the board brings back the title
+   too, not just the lines. */
+const SCRATCH_META = 'gh-playboard-open-v1'
+
+interface OpenMeta {
+  name: string
+  openId: string | null
+  openName: string
+}
+
+function loadMeta(plays: SavedPlay[], board: Board): OpenMeta {
+  try {
+    const m = JSON.parse(localStorage.getItem(SCRATCH_META) ?? 'null') as Partial<OpenMeta> | null
+    if (!m) {
+      // Nothing kept yet (a board from before titles were kept): if the drawing
+      // is exactly a saved play, it is that play.
+      const same = plays.find((p) => JSON.stringify(p.board) === JSON.stringify(board))
+      return same ? { name: same.name, openId: same.id, openName: same.name } : { name: '', openId: null, openName: '' }
+    }
+    const name = typeof m?.name === 'string' ? m.name : ''
+    // A play deleted since is no longer one to update; the name stays as typed.
+    const openId = typeof m?.openId === 'string' && plays.some((p) => p.id === m.openId) ? m.openId : null
+    return { name, openId, openName: openId && typeof m?.openName === 'string' ? m.openName : '' }
+  } catch {
+    return { name: '', openId: null, openName: '' }
+  }
+}
 
 export interface SavedPlay {
   id: string
@@ -73,11 +101,12 @@ export default function QuickBoard({
 }) {
   const [first] = useState(() => askedFor(plays))
   const [board, setBoard] = useState<Board>(() => first?.board ?? loadScratch())
-  const [name, setName] = useState(first?.name ?? '')
-  const [openId, setOpenId] = useState<string | null>(first?.id ?? null)
+  const [meta] = useState(() => (first ? null : loadMeta(plays, board)))
+  const [name, setName] = useState(first?.name ?? meta?.name ?? '')
+  const [openId, setOpenId] = useState<string | null>(first?.id ?? meta?.openId ?? null)
   /* The name the open play was saved under. Type a different one and Save
      makes a new play, so the playbook links below stop pointing at the old one. */
-  const [openName, setOpenName] = useState(first?.name ?? '')
+  const [openName, setOpenName] = useState(first?.name ?? meta?.openName ?? '')
   const [added, setAdded] = useState<Record<string, PlaybookSpot[]>>({})
   const [said, setSaid] = useState<{ ok: boolean; text: string; href?: string; link?: string } | null>(null)
   const [saving, startSaving] = useTransition()
@@ -165,6 +194,14 @@ export default function QuickBoard({
       // A full or blocked store is not a reason to stop drawing.
     }
   }, [board])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SCRATCH_META, JSON.stringify({ name, openId, openName } satisfies OpenMeta))
+    } catch {
+      // as above
+    }
+  }, [name, openId, openName])
 
   /** The open play, if what is on the glass is still saved under its name. */
   const currentId = openId && openName === name.trim() ? openId : null
