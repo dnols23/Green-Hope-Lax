@@ -867,7 +867,10 @@ export function PlanEditor({
                   {/* The drill, and any more run in the same block, each with
                       "What this drill is" folded under it. */}
                   <div>
-                    <label className="field-label">Drill</label>
+                    <DrillHead
+                      label={(b.extraDrills ?? []).length ? 'Drill 1' : 'Drill'}
+                      onDown={canSwap(b, 0) ? () => patch(b.id, swapDrills(b, 0)) : undefined}
+                    />
                     <DrillSelect
                       drills={drills}
                       groups={drillGroups}
@@ -896,16 +899,12 @@ export function PlanEditor({
                     const setExtras = (next: string[]) => patch(b.id, { extraDrills: next })
                     return (
                       <div key={`${n}:${extra}`}>
-                        <div className="flex items-center">
-                          <label className="field-label flex-1">Drill {n + 2}</label>
-                          <button
-                            type="button"
-                            onClick={() => setExtras((b.extraDrills ?? []).filter((_, i) => i !== n))}
-                            className="text-xs font-bold text-gray-400 hover:text-red-700"
-                          >
-                            Remove
-                          </button>
-                        </div>
+                        <DrillHead
+                          label={`Drill ${n + 2}`}
+                          onUp={canSwap(b, n) ? () => patch(b.id, swapDrills(b, n)) : undefined}
+                          onDown={canSwap(b, n + 1) ? () => patch(b.id, swapDrills(b, n + 1)) : undefined}
+                          onRemove={() => setExtras((b.extraDrills ?? []).filter((_, i) => i !== n))}
+                        />
                         <DrillSelect
                           drills={drills}
                           groups={drillGroups}
@@ -1200,6 +1199,63 @@ export function PlanEditor({
         </div>
       )}
     </form>
+  )
+}
+
+/** Can the drills at `i` and `i + 1` in a block trade places? Both must be picked. */
+function canSwap(b: PlanBlock, i: number): boolean {
+  const ids = [b.drillId ?? '', ...(b.extraDrills ?? [])]
+  return i >= 0 && i + 1 < ids.length && !!ids[i] && !!ids[i + 1]
+}
+
+/**
+ * The drills at `i` and `i + 1` trade places. Each drill keeps its own note for
+ * this practice: the first drill's note lives in `notes`, the others' in
+ * `drillNotes`, so a note follows its drill into or out of first place.
+ */
+function swapDrills(b: PlanBlock, i: number): Partial<PlanBlock> {
+  const ids = [b.drillId ?? '', ...(b.extraDrills ?? [])]
+  const notes: Record<string, string> = { ...(b.drillNotes ?? {}) }
+  if (b.drillId) notes[b.drillId] = b.notes
+  ;[ids[i], ids[i + 1]] = [ids[i + 1], ids[i]]
+  const first = ids[0]
+  const { [first]: firstNote = '', ...rest } = notes
+  return { drillId: first || null, extraDrills: ids.slice(1), notes: firstNote, drillNotes: rest }
+}
+
+/** A drill's label in a block, with ↑ ↓ to change the order and Remove for the extras. */
+function DrillHead({
+  label,
+  onUp,
+  onDown,
+  onRemove,
+}: {
+  label: string
+  onUp?: () => void
+  onDown?: () => void
+  onRemove?: () => void
+}) {
+  const arrow = 'w-7 h-7 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-[var(--gh-green)] hover:bg-gray-100 disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-gray-400'
+  // A lone drill has nothing to trade places with, so it shows no arrows.
+  return (
+    <div className="flex items-center gap-1">
+      <label className="field-label flex-1">{label}</label>
+      {(onUp || onDown || onRemove) && (
+        <>
+          <button type="button" onClick={onUp} disabled={!onUp} className={arrow} aria-label={`Move ${label} up`} title="Move up">
+            ↑
+          </button>
+          <button type="button" onClick={onDown} disabled={!onDown} className={arrow} aria-label={`Move ${label} down`} title="Move down">
+            ↓
+          </button>
+        </>
+      )}
+      {onRemove && (
+        <button type="button" onClick={onRemove} className="ml-1 text-xs font-bold text-gray-400 hover:text-red-700">
+          Remove
+        </button>
+      )}
+    </div>
   )
 }
 
