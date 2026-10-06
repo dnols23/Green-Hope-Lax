@@ -8,7 +8,8 @@ import { addPlayToPlaybook } from '@/lib/playbookActions'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
 import type { PlaybookSpot } from '@/lib/playbookData'
 import { clipLength } from '@/lib/planner'
-import { EMPTY_BOARD, readBoard, type Board, type BoardClip, type BoardFrame } from '@/lib/planner'
+import { EMPTY_BOARD, MAX_PLAY_STEPS, readBoard, type Board, type BoardClip, type BoardFrame, type PlayStep } from '@/lib/planner'
+import { ProgressionPanel } from './Progression'
 
 /**
  * The board you grab in a pinch.
@@ -39,6 +40,9 @@ interface OpenMeta {
   name: string
   openId: string | null
   openName: string
+  /** The progression being built, and which step is on the board. */
+  steps?: PlayStep[] | null
+  active?: number
 }
 
 function loadMeta(plays: SavedPlay[], board: Board): OpenMeta {
@@ -48,12 +52,27 @@ function loadMeta(plays: SavedPlay[], board: Board): OpenMeta {
       // Nothing kept yet (a board from before titles were kept): if the drawing
       // is exactly a saved play, it is that play.
       const same = plays.find((p) => JSON.stringify(p.board) === JSON.stringify(board))
-      return same ? { name: same.name, openId: same.id, openName: same.name } : { name: '', openId: null, openName: '' }
+      return same
+        ? { name: same.name, openId: same.id, openName: same.name, steps: same.steps, active: 0 }
+        : { name: '', openId: null, openName: '' }
     }
     const name = typeof m?.name === 'string' ? m.name : ''
     // A play deleted since is no longer one to update; the name stays as typed.
     const openId = typeof m?.openId === 'string' && plays.some((p) => p.id === m.openId) ? m.openId : null
-    return { name, openId, openName: openId && typeof m?.openName === 'string' ? m.openName : '' }
+    const steps = Array.isArray(m?.steps)
+      ? m.steps.flatMap((x) => {
+          const b = readBoard((x as PlayStep | null)?.board)
+          return b ? [{ board: b, note: typeof x?.note === 'string' ? x.note : '' }] : []
+        }).slice(0, MAX_PLAY_STEPS)
+      : null
+    const active = steps?.length ? Math.min(Math.max(0, Number(m?.active) || 0), steps.length - 1) : 0
+    return {
+      name,
+      openId,
+      openName: openId && typeof m?.openName === 'string' ? m.openName : '',
+      steps: steps?.length ? steps : null,
+      active,
+    }
   } catch {
     return { name: '', openId: null, openName: '' }
   }
@@ -64,6 +83,8 @@ export interface SavedPlay {
   name: string
   board: Board
   clip: BoardClip | null
+  /** A progression: the play as a run of steps. */
+  steps: PlayStep[] | null
   createdBy: string | null
 }
 
@@ -107,6 +128,10 @@ export default function QuickBoard({
   /* The name the open play was saved under. Type a different one and Save
      makes a new play, so the playbook links below stop pointing at the old one. */
   const [openName, setOpenName] = useState(first?.name ?? meta?.openName ?? '')
+  /* The progression, when the play is being built as steps. The board above is
+     always the picked step; drawing on it changes that step. */
+  const [steps, setSteps] = useState<PlayStep[] | null>(first ? first.steps : (meta?.steps ?? null))
+  const [active, setActive] = useState(first ? 0 : (meta?.active ?? 0))
   const [added, setAdded] = useState<Record<string, PlaybookSpot[]>>({})
   const [said, setSaid] = useState<{ ok: boolean; text: string; href?: string; link?: string } | null>(null)
   const [saving, startSaving] = useTransition()
@@ -128,6 +153,7 @@ export default function QuickBoard({
   /** Every change to the board goes through here, so recording is simply on or off. */
   function change(next: Board) {
     setBoard(next)
+    if (steps) setSteps(steps.map((x, i) => (i === active ? { ...x, board: next } : x)))
     if (recording) {
       const at = Date.now() - startedAt.current
       // A take is thirty seconds of drawing, not an afternoon. Past the cap the
@@ -197,11 +223,11 @@ export default function QuickBoard({
 
   useEffect(() => {
     try {
-      localStorage.setItem(SCRATCH_META, JSON.stringify({ name, openId, openName } satisfies OpenMeta))
+      localStorage.setItem(SCRATCH_META, JSON.stringify({ name, openId, openName, steps, active } satisfies OpenMeta))
     } catch {
       // as above
     }
-  }, [name, openId, openName])
+  }, [name, openId, openName, steps, active])
 
   /** The open play, if what is on the glass is still saved under its name. */
   const currentId = openId && openName === name.trim() ? openId : null
@@ -214,13 +240,17 @@ export default function QuickBoard({
     data.set('name', name.trim())
     data.set('board', JSON.stringify(board))
     if (clip) data.set('clip', JSON.stringify(clip))
+    data.set('steps', steps && steps.length > 1 ? JSON.stringify(steps) : '')
     setSaid(null)
     startSaving(async () => {
       const r = await savePlayAction(data)
       if (r?.id) {
         setOpenId(r.id)
         setOpenName(name.trim())
-        setSaid({ ok: true, text: `Saved “${name.trim()}”. It’s under Open and in the Library.` })
+        setSaid({
+          ok: true,
+          text: `Saved “${name.trim()}”${steps && steps.length > 1 ? `, all ${steps.length} steps` : ''}. It’s under Open and in the Library.`,
+        })
       } else setSaid({ ok: false, text: 'That didn’t save. Try again.' })
     })
   }
@@ -237,6 +267,7 @@ export default function QuickBoard({
         name: name.trim(),
         board: JSON.stringify(board),
         clip: clip ? JSON.stringify(clip) : null,
+        steps: steps && steps.length > 1 ? JSON.stringify(steps) : null,
       })
       if (!r.ok) {
         setSaid({ ok: false, text: r.error })
@@ -245,17 +276,78 @@ export default function QuickBoard({
       setOpenId(r.playId)
       setOpenName(name.trim())
       setAdded((x) => ({ ...x, [r.playId]: [...(x[r.playId] ?? []), { team: r.team, pageId: r.pageId }] }))
+      const many = steps && steps.length > 1
       setSaid({
         ok: true,
-        text: `“${name.trim()}” is in the ${teamLabel(r.team)} playbook.`,
+        text: `“${name.trim()}” is in the ${teamLabel(r.team)} playbook${many ? `, ${steps.length} pages` : ''}.${r.note}`,
         href: withTeam(`/admin/playbook/${r.pageId}`, r.team),
-        link: 'Open its page →',
+        link: many ? 'Open the first page →' : 'Open its page →',
       })
     })
   }
 
+  // ── Progression ─────────────────────────────────────────────────────────
+
+  /** Put a step on the board. */
+  function pick(i: number, list: PlayStep[] | null = steps) {
+    if (!list?.[i]) return
+    setActive(i)
+    setBoard(list[i].board)
+    setWatching(false)
+  }
+
+  function startProgression() {
+    setSteps([{ board, note: '' }])
+    setActive(0)
+  }
+
+  /** The next step starts as a copy of this one: move the players, draw what happens next. */
+  function addStep() {
+    if (!steps || steps.length >= MAX_PLAY_STEPS) return
+    const next = [...steps.slice(0, active + 1), { board, note: '' }, ...steps.slice(active + 1)]
+    setSteps(next)
+    pick(active + 1, next)
+  }
+
+  function copyStep(i: number) {
+    if (!steps || steps.length >= MAX_PLAY_STEPS) return
+    const next = [...steps.slice(0, i + 1), { ...steps[i] }, ...steps.slice(i + 1)]
+    setSteps(next)
+    pick(i + 1, next)
+  }
+
+  function moveStep(i: number, to: number) {
+    if (!steps || to < 0 || to >= steps.length) return
+    const next = [...steps]
+    const [s] = next.splice(i, 1)
+    next.splice(to, 0, s)
+    setSteps(next)
+    // The picked step stays picked wherever it went.
+    setActive(active === i ? to : active === to ? i : active)
+  }
+
+  function deleteStep(i: number) {
+    if (!steps || steps.length < 2) return
+    const next = steps.filter((_, k) => k !== i)
+    setSteps(next)
+    pick(Math.min(i === active ? i : active > i ? active - 1 : active, next.length - 1), next)
+  }
+
+  function noteStep(note: string) {
+    if (steps) setSteps(steps.map((x, i) => (i === active ? { ...x, note } : x)))
+  }
+
+  /** Back to one play: the step on the board is what stays. */
+  function endProgression() {
+    if (steps && steps.length > 1 && !window.confirm(`Keep only step ${active + 1} and drop the other ${steps.length - 1}?`)) return
+    setSteps(null)
+    setActive(0)
+  }
+
   function open(play: SavedPlay) {
     setBoard(play.board)
+    setSteps(play.steps)
+    setActive(0)
     setOpenId(play.id)
     setOpenName(play.name)
     setName(play.name)
@@ -288,15 +380,29 @@ export default function QuickBoard({
           const label = playbookTeams.length > 1 ? `${teamLabel(t)} playbook` : 'Playbook'
           const spot = here.find((x) => x.team === t)
           return spot ? (
-            <Link
-              key={t}
-              href={withTeam(`/admin/playbook/${spot.pageId}`, t)}
-              title={`Open its page in the ${teamLabel(t)} playbook`}
-              className="btn btn-ghost !py-1.5 text-sm"
-              style={{ color: 'var(--gh-green)', borderColor: 'var(--gh-green)' }}
-            >
-              ✓ In {label} ↗
-            </Link>
+            <span key={t} className="inline-flex items-center gap-1">
+              <Link
+                href={withTeam(`/admin/playbook/${spot.pageId}`, t)}
+                title={`Open its page in the ${teamLabel(t)} playbook`}
+                className="btn btn-ghost !py-1.5 text-sm"
+                style={{ color: 'var(--gh-green)', borderColor: 'var(--gh-green)' }}
+              >
+                ✓ In {label} ↗
+              </Link>
+              {/* A progression's pages are copies of its steps: this brings them up to date. */}
+              {steps && steps.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => toPlaybook(t)}
+                  disabled={saving || !ready}
+                  title={`Update the ${teamLabel(t)} playbook pages to match these steps`}
+                  className="btn btn-ghost !py-1.5 !px-2.5 text-sm disabled:opacity-50"
+                  aria-label={`Update the ${label} pages`}
+                >
+                  ↻
+                </button>
+              )}
+            </span>
           ) : (
             <button
               key={t}
@@ -314,6 +420,8 @@ export default function QuickBoard({
           type="button"
           onClick={() => {
             setBoard(EMPTY_BOARD)
+            setSteps(null)
+            setActive(0)
             setOpenId(null)
             setOpenName('')
             setSaid(null)
@@ -371,6 +479,9 @@ export default function QuickBoard({
                         <span className="text-[0.65rem] font-black text-gray-400 ml-1.5">
                           ▶ {(clipLength(p.clip) / 1000).toFixed(0)}s
                         </span>
+                      )}
+                      {p.steps && (
+                        <span className="text-[0.65rem] font-black text-gray-400 ml-1.5">{p.steps.length} steps</span>
                       )}
                       {Array.from(new Set(spotsFor(p.id).map((x) => x.team))).map((t) => (
                         <span key={t} className="ml-1.5 text-[0.6rem] font-black uppercase tracking-wide rounded px-1 py-0.5 bg-[#eef6f1] text-[var(--gh-green)]">
@@ -434,7 +545,14 @@ export default function QuickBoard({
       )}
       {shot && <p className="text-xs text-gray-500 -mt-1">{shot}</p>}
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4">
+        <div className="flex-1 min-w-0 min-h-0">
+        {steps && (
+          <p className="text-xs font-bold text-[var(--gh-green)] mb-1">
+            Step {active + 1} of {steps.length}
+            {steps[active]?.note ? ` · ${steps[active].note}` : ''}
+          </p>
+        )}
         {watching && clip ? (
           <ClipPlayer clip={clip} autoPlay />
         ) : (
@@ -475,6 +593,19 @@ export default function QuickBoard({
             }
           />
         )}
+        </div>
+        <ProgressionPanel
+          steps={steps}
+          active={active}
+          onStart={startProgression}
+          onPick={(i) => pick(i)}
+          onAdd={addStep}
+          onMove={moveStep}
+          onCopy={copyStep}
+          onDelete={deleteStep}
+          onNote={noteStep}
+          onEnd={endProgression}
+        />
       </div>
 
       {watching && (

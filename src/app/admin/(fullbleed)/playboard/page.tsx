@@ -37,6 +37,7 @@ export default async function PlayboardPage({
         name: p.name,
         board: p.board,
         clip: p.clip,
+        steps: p.steps,
         createdBy: p.createdBy,
       }))}
     />

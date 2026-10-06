@@ -1,8 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { isPlayerKind, tokenStyle } from '@/lib/planner'
+import { LINE_PRESETS, isPlayerKind, pathLook, tokenStyle } from '@/lib/planner'
+import { clean } from './items'
 import { Icon } from './Icon'
-import { MenuItem, MenuLabel, MenuRule, Popover } from './Popover'
+import { Chip, MenuItem, MenuLabel, MenuRule, Popover } from './Popover'
 import { ArrangeItems } from './PropsBar'
 import type { Editor } from './types'
 
@@ -23,6 +24,10 @@ export function ContextMenu({ ed, at, onClose }: { ed: Editor; at: { x: number; 
   const tokens = ed.items.filter((x) => x.type === 'token').length
   const grouped = ed.items.some((x) => x.it.group)
   const locked = n > 0 && ed.items.every((x) => x.it.locked)
+  const lines = ed.items.filter((x) => x.type === 'path')
+  /* What kind of line it is, named the way coaches say it. Picked lines take the
+     kind's whole look (colour, dash, ends); the line's own path is kept. */
+  const lineLook = lines.length === 1 && lines[0].type === 'path' ? pathLook(lines[0].it) : null
 
   return (
     <Popover anchor={anchor} onClose={onClose} label={n ? 'What to do with it' : 'Board'} width={340}>
@@ -59,6 +64,30 @@ export function ContextMenu({ ed, at, onClose }: { ed: Editor; at: { x: number; 
           <MenuItem icon={<Icon name="trash" size={16} />} keys="Del" danger onClick={run(ed.remove)}>
             Delete
           </MenuItem>
+          {lines.length > 0 && !locked && (
+            <>
+              <MenuRule />
+              <MenuLabel>{lines.length === 1 ? 'This line is a…' : 'These lines are…'}</MenuLabel>
+              <div className="flex flex-wrap gap-1 px-1 pb-1">
+                {LINE_PRESETS.map((p) => (
+                  <Chip
+                    key={p.key}
+                    wide
+                    active={!!lineLook && lineLook.color.toLowerCase() === p.color.toLowerCase() && (lineLook.dash ?? '') === p.dash}
+                    onClick={run(() =>
+                      ed.patch(
+                        { path: (x) => clean({ ...x, kind: p.kind, color: p.color, dash: p.dash, width: p.width, pattern: p.pattern, startCap: 'none', endCap: p.endCap }) },
+                        'preset',
+                      ),
+                    )}
+                  >
+                    <span className="inline-block w-3 h-1 rounded-full" style={{ background: p.color, boxShadow: '0 0 0 1px rgba(0,0,0,.15)' }} />
+                    {p.label}
+                  </Chip>
+                ))}
+              </div>
+            </>
+          )}
           <MenuRule />
           <ArrangeItems ed={ed} n={n} grouped={grouped} locked={locked} onDone={onClose} />
           {tokens > 0 && (

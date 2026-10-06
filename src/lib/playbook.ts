@@ -146,6 +146,10 @@ export interface PlayBlock extends Placed {
   /** This page's own field, when it isn't borrowing one from the Library. */
   board?: Board
   caption?: string
+  /** Which step of the play's progression this page shows (0 is the first).
+   *  Such a page holds its own copy of that step; adding the progression to the
+   *  playbook again brings the copy up to date. */
+  step?: number
 }
 export interface ShotBlock extends Placed {
   kind: 'shot'
@@ -295,7 +299,8 @@ export function readBlock(raw: unknown): SlideBlock | null {
       const board = owns ? readBoard(o.board) ?? EMPTY_BOARD : undefined
       // One or the other, or it is a block pointing at nothing.
       if (!playId && !board) return null
-      return { ...placed, kind: 'play', playId, board, caption: str(o.caption) || undefined }
+      const step = Number.isInteger(o.step) && (o.step as number) >= 0 ? (o.step as number) : undefined
+      return { ...placed, kind: 'play', playId, board, caption: str(o.caption) || undefined, ...(step !== undefined ? { step } : {}) }
     }
     case 'shot': {
       const url = str(o.url)

@@ -4,8 +4,9 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { requireOwner } from './permissions'
 import { readTeam, withTeam, type Team } from './teams'
-import { readBlocks, isLayout, isPageKind, startingBlocks } from './playbook'
-import { addPage, deletePage, getSettings, orderPages, playbookSpots, savePage, writeSettings } from './playbookData'
+import { readBlocks, isLayout, isPageKind, startingBlocks, type PlayBlock, type PlaybookPage } from './playbook'
+import { addPage, deletePage, getSettings, listPages, orderPages, savePage, writeSettings } from './playbookData'
+import { readSteps, type PlayStep } from './planner'
 import { getPlay, savePlay } from './plays'
 
 const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v.trim() : '')
@@ -41,20 +42,93 @@ export async function addPlaybookPage(formData: FormData) {
 }
 
 /**
+ * Put a play in a team's playbook, or bring what is there up to date.
+ *
+ * An ordinary play is one page that borrows the play, so fixing the play fixes
+ * the page. A progression is a run of pages, one per step, each holding its own
+ * copy of that step: adding it again rewrites those copies, adds pages for new
+ * steps and keeps the run together in the deck. Pages for steps that no longer
+ * exist are left for the coach to delete (counted in `extra`).
+ */
+async function placeInPlaybook(
+  team: Team,
+  play: { id: string; name: string; steps: PlayStep[] | null },
+  by: string,
+): Promise<{ pageId: string; extra: number } | null> {
+  const all = await listPages(team)
+  const blockOf = (pg: PlaybookPage) =>
+    pg.blocks.find((b): b is PlayBlock => b.kind === 'play' && b.playId === play.id) ?? null
+  const mine = all.filter((pg) => blockOf(pg))
+
+  if (!play.steps) {
+    if (mine[0]) return { pageId: mine[0].id, extra: 0 }
+    const id = await addPage(team, play.name, by, startingBlocks('field', { playId: play.id }), 'field')
+    return id ? { pageId: id, extra: 0 } : null
+  }
+
+  const steps = play.steps
+  const byStep = new Map<number, PlaybookPage>()
+  for (const pg of mine) {
+    const step = blockOf(pg)?.step
+    if (step !== undefined && !byStep.has(step)) byStep.set(step, pg)
+  }
+  // The play's own page from before it was a progression becomes step 1.
+  const plain = mine.find((pg) => blockOf(pg)?.step === undefined)
+  if (plain && !byStep.has(0)) byStep.set(0, plain)
+
+  const run: string[] = []
+  for (let i = 0; i < steps.length; i++) {
+    const title = `${play.name} · ${i + 1} of ${steps.length}`
+    const caption = steps[i].note || undefined
+    const block: PlayBlock = { kind: 'play', id: 'b1', playId: play.id, board: steps[i].board, caption, step: i }
+    const pg = byStep.get(i)
+    if (pg) {
+      const old = blockOf(pg)!
+      await savePage(pg.id, { title, blocks: pg.blocks.map((b) => (b === old ? { ...block, id: old.id, frame: old.frame, z: old.z } : b)) })
+      run.push(pg.id)
+    } else {
+      const id = await addPage(team, title, by, [block], 'field')
+      if (id) run.push(id)
+    }
+  }
+  if (!run.length) return null
+
+  // Keep the run together, in step order, where its first page already sat.
+  const inRun = new Set(run)
+  const firstAt = all.findIndex((pg) => inRun.has(pg.id))
+  const rest = all.map((pg) => pg.id).filter((id) => !inRun.has(id))
+  const at = firstAt < 0 ? rest.length : all.slice(0, firstAt).filter((pg) => !inRun.has(pg.id)).length
+  await orderPages([...rest.slice(0, at), ...run, ...rest.slice(at)])
+
+  const extra = [...byStep.keys()].filter((k) => k >= steps.length).length
+  return { pageId: run[0], extra }
+}
+
+function revalidateAll() {
+  revalidatePath('/admin/playboard')
+  revalidatePath('/admin/library')
+  revalidatePath('/admin/playbook')
+}
+
+const extraNote = (extra: number) =>
+  extra ? ` ${extra} page${extra === 1 ? '' : 's'} for steps you removed ${extra === 1 ? 'is' : 'are'} still there — delete ${extra === 1 ? 'it' : 'them'} in the playbook.` : ''
+
+/**
  * Straight off the board into the deck.
  *
  * The Library keeps everything; this is the other button — the one that says
  * we are running it. The play is saved first (to the head coach's own shelf,
- * the same one Save uses), then it gets a page at the end of that team's
- * playbook — unless it already has one there, in which case that page is the
- * answer. The coach stays on the board; the button turns into a link to the page.
+ * the same one Save uses), then placed in that team's playbook. The coach stays
+ * on the board; the button turns into a link to the page.
  */
 export async function addPlayToPlaybook(input: {
   team: string
   name: string
   board: string
   clip: string | null
-}): Promise<{ ok: true; playId: string; pageId: string; team: Team } | { ok: false; error: string }> {
+  /** The progression's steps (JSON), or null for an ordinary play. */
+  steps?: string | null
+}): Promise<{ ok: true; playId: string; pageId: string; team: Team; note: string } | { ok: false; error: string }> {
   const owner = await requireOwner()
   const team = readTeam(input.team)
   const name = String(input.name ?? '').trim().slice(0, 200)
@@ -62,45 +136,38 @@ export async function addPlayToPlaybook(input: {
 
   let board: unknown = {}
   let clip: unknown = null
+  let rawSteps: unknown = null
   try {
     board = JSON.parse(input.board || '{}')
     clip = input.clip ? JSON.parse(input.clip) : null
+    rawSteps = input.steps ? JSON.parse(input.steps) : null
   } catch {
     return { ok: false, error: 'That board could not be read. Try again.' }
   }
 
   const by = owner.name || owner.email
-  const playId = await savePlay(name, board, by, clip, owner.email)
+  const playId = await savePlay(name, board, by, clip, owner.email, rawSteps)
   if (!playId) return { ok: false, error: 'The play would not save. Try again.' }
 
-  const already = (await playbookSpots())[playId]?.find((s) => s.team === team)
-  const pageId = already?.pageId ?? (await addPage(team, name, by, startingBlocks('field', { playId }), 'field'))
-  if (!pageId) return { ok: false, error: 'Saved the play, but the playbook page would not make. Try again.' }
-
-  revalidatePath('/admin/playboard')
-  revalidatePath('/admin/library')
-  revalidatePath('/admin/playbook')
-  return { ok: true, playId, pageId, team }
+  const placed = await placeInPlaybook(team, { id: playId, name, steps: readSteps(rawSteps) }, by)
+  if (!placed) return { ok: false, error: 'Saved the play, but the playbook page would not make. Try again.' }
+  revalidateAll()
+  return { ok: true, playId, pageId: placed.pageId, team, note: extraNote(placed.extra) }
 }
 
-/** A play already on a shelf (the Library), onto a page of a team's playbook. */
+/** A play already on a shelf (the Library), into a team's playbook. */
 export async function addSavedPlayToPlaybook(input: {
   playId: string
   team: string
-}): Promise<{ ok: true; pageId: string; team: Team } | { ok: false; error: string }> {
+}): Promise<{ ok: true; pageId: string; team: Team; note: string } | { ok: false; error: string }> {
   const owner = await requireOwner()
   const team = readTeam(input.team)
   const play = await getPlay(String(input.playId ?? ''))
   if (!play) return { ok: false, error: 'That play is gone.' }
-  const already = (await playbookSpots())[play.id]?.find((s) => s.team === team)
-  const pageId =
-    already?.pageId ??
-    (await addPage(team, play.name, owner.name || owner.email, startingBlocks('field', { playId: play.id }), 'field'))
-  if (!pageId) return { ok: false, error: 'The playbook page would not make. Try again.' }
-  revalidatePath('/admin/library')
-  revalidatePath('/admin/playboard')
-  revalidatePath('/admin/playbook')
-  return { ok: true, pageId, team }
+  const placed = await placeInPlaybook(team, play, owner.name || owner.email)
+  if (!placed) return { ok: false, error: 'The playbook page would not make. Try again.' }
+  revalidateAll()
+  return { ok: true, pageId: placed.pageId, team, note: extraNote(placed.extra) }
 }
 
 export async function savePlaybookPage(formData: FormData) {

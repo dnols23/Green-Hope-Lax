@@ -1,5 +1,5 @@
 import { createServiceClient } from './supabase-server'
-import { EMPTY_BOARD, readBoard, readClip, type Board, type BoardClip } from './planner'
+import { EMPTY_BOARD, readBoard, readClip, readSteps, type Board, type BoardClip, type PlayStep } from './planner'
 
 /**
  * Plays the staff have drawn and kept.
@@ -17,6 +17,8 @@ export interface Play {
   board: Board
   /** The take, if the coach recorded himself drawing it. */
   clip: BoardClip | null
+  /** A progression: the play as a run of steps. Null for an ordinary play. */
+  steps: PlayStep[] | null
   createdBy: string | null
   updatedAt: string
 }
@@ -46,6 +48,7 @@ export async function listPlays(owner?: string | null): Promise<Play[]> {
     name: String(row.name ?? ''),
     board: readBoard(row.board) ?? EMPTY_BOARD,
     clip: readClip(row.clip),
+    steps: readSteps(row.steps),
     ownerEmail: (row.owner_email as string) ?? null,
     createdBy: (row.created_by as string) ?? null,
     updatedAt: String(row.updated_at ?? ''),
@@ -62,10 +65,14 @@ export async function savePlay(
   by: string | null,
   clip?: unknown,
   /** Whose shelf it goes on. Their login, so a rename doesn't orphan it. */
-  owner?: string | null
+  owner?: string | null,
+  /** The progression, or null for none. Left out, the steps already saved stay. */
+  steps?: unknown
 ): Promise<string | null> {
   const svc = createServiceClient()
-  const clean = readBoard(board) ?? EMPTY_BOARD
+  const run = steps === undefined ? undefined : readSteps(steps)
+  // A progression's play is its first step, so every list and thumbnail has a picture.
+  const clean = run ? run[0].board : readBoard(board) ?? EMPTY_BOARD
   const take = readClip(clip)
   /* The same name twice on the same shelf is that play brought up to date.
      The same name on somebody else's shelf is somebody else's play. */
@@ -87,7 +94,11 @@ export async function savePlay(
     // Saving a still over a recorded play keeps the recording: a coach nudging
     // one disc and hitting Update did not mean to throw the take away.
     const id = (existing as { id: string }).id
-    const stamped: Record<string, unknown> = { board: clean, updated_at: new Date().toISOString() }
+    const stamped: Record<string, unknown> = {
+      board: clean,
+      updated_at: new Date().toISOString(),
+      ...(run !== undefined ? { steps: run } : {}),
+    }
     const { error } = await svc
       .from('plays')
       .update(take ? { ...stamped, clip: take } : stamped)
@@ -95,7 +106,7 @@ export async function savePlay(
     if (withoutClip(error)) await svc.from('plays').update(stamped).eq('id', id)
     return id
   }
-  const row: Record<string, unknown> = { name, board: clean, created_by: by, owner_email: owner ?? null }
+  const row: Record<string, unknown> = { name, board: clean, created_by: by, owner_email: owner ?? null, ...(run ? { steps: run } : {}) }
   const insert = (r: Record<string, unknown>) => svc.from('plays').insert(r).select('id').maybeSingle()
   const idOf = (d: unknown) => (d as { id?: string } | null)?.id ?? null
   const first = await insert(take ? { ...row, clip: take } : row)
@@ -108,11 +119,14 @@ export async function savePlay(
 }
 
 /** One play by its id. */
-export async function getPlay(id: string): Promise<{ id: string; name: string } | null> {
+export async function getPlay(id: string): Promise<{ id: string; name: string; steps: PlayStep[] | null } | null> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null
-  const { data } = await createServiceClient().from('plays').select('id, name').eq('id', id).maybeSingle()
-  const row = data as { id?: string; name?: string } | null
-  return row?.id ? { id: String(row.id), name: String(row.name ?? '') } : null
+  const svc = createServiceClient()
+  let { data, error } = await svc.from('plays').select('id, name, steps').eq('id', id).maybeSingle()
+  // Before the progressions column: a play is just a play.
+  if (error) ({ data, error } = await svc.from('plays').select('id, name').eq('id', id).maybeSingle())
+  const row = data as { id?: string; name?: string; steps?: unknown } | null
+  return row?.id ? { id: String(row.id), name: String(row.name ?? ''), steps: readSteps(row.steps) } : null
 }
 
 /** Throw away the recording but keep the play as it ended up. */

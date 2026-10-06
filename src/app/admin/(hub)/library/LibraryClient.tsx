@@ -30,6 +30,8 @@ export interface LibraryPlay {
   name: string
   board: Board
   clip: BoardClip | null
+  /** How many steps, when the play is a progression (0 when it isn't). */
+  steps: number
   createdBy: string | null
   updatedAt: string
 }
@@ -70,8 +72,10 @@ export function LibraryClient({
     setAdding(`${play.id}:${team}`)
     setAddError(null)
     const r = await addSavedPlayToPlaybook({ playId: play.id, team })
-    if (r.ok) setAdded((x) => ({ ...x, [play.id]: [...(x[play.id] ?? []), { team: r.team, pageId: r.pageId }] }))
-    else setAddError(r.error)
+    if (r.ok) {
+      setAdded((x) => ({ ...x, [play.id]: [...(x[play.id] ?? []), { team: r.team, pageId: r.pageId }] }))
+      if (r.note) setAddError(r.note.trim())
+    } else setAddError(r.error)
     setAdding(null)
   }
   const [picked, setPicked] = useState<string[]>([])
@@ -307,6 +311,14 @@ export function LibraryClient({
                           style={{ background: '#e8f2ea', color: 'var(--gh-green-dk)' }}
                         >
                           Rec · {(clipLength(p.clip) / 1000).toFixed(0)}s
+                        </span>
+                      )}
+                      {p.steps > 1 && (
+                        <span
+                          className="text-[0.6rem] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0"
+                          style={{ background: '#eef2f7', color: '#2F5D8C' }}
+                        >
+                          {p.steps} steps
                         </span>
                       )}
                       <span className="text-xs text-gray-400 ml-auto shrink-0">{when(p.updatedAt)}</span>

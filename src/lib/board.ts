@@ -238,6 +238,8 @@ export const LINE_PRESETS: LinePreset[] = [
   { key: 'dodge', label: 'Dodge', kind: 'run', color: '#ffffff', dash: '', width: 0.8, endCap: 'arrow' },
   { key: 'carry', label: 'Carry', kind: 'run', color: '#17222e', dash: '', width: 0.6, endCap: 'arrow', pattern: 'wavy' },
   { key: 'zigzag', label: 'Zig-zag', kind: 'run', color: '#17222e', dash: '', width: 0.6, endCap: 'arrow', pattern: 'zigzag' },
+  // Movement away from the ball — a player getting open, clearing space, a back-side cut.
+  { key: 'offball', label: 'Off ball', kind: 'run', color: '#6E4BA3', dash: '', width: 0.6, endCap: 'arrow' },
   { key: 'pass', label: 'Pass', kind: 'pass', color: '#2F5D8C', dash: '3 2', width: 0.7, endCap: 'arrow' },
   { key: 'shot', label: 'Shot', kind: 'shot', color: '#7A1F2B', dash: '6 2', width: 0.8, endCap: 'arrow' },
   // A pick: from the screener to the man being picked, ending in a bold flat bar where the screen lands.
@@ -661,6 +663,31 @@ function weight(b: Board): number {
  * Read a stored clip. A clip of one still frame is a drawing, not a recording,
  * so it reads back as nothing — the board itself already holds that.
  */
+/**
+ * One step of a play progression: the field at that moment, and a few words on
+ * what happens in it ("M sets the pick").
+ */
+export interface PlayStep {
+  board: Board
+  note: string
+}
+
+/** The most steps a progression keeps. */
+export const MAX_PLAY_STEPS = 20
+
+/** A progression as stored, cleaned. Fewer than two steps is not a progression. */
+export function readSteps(raw: unknown): PlayStep[] | null {
+  if (!Array.isArray(raw)) return null
+  const steps: PlayStep[] = []
+  for (const s of raw.slice(0, MAX_PLAY_STEPS)) {
+    const row = (s ?? {}) as { board?: unknown; note?: unknown }
+    const board = readBoard(row.board)
+    if (!board) continue
+    steps.push({ board, note: typeof row.note === 'string' ? row.note.trim().slice(0, 140) : '' })
+  }
+  return steps.length >= 2 ? steps : null
+}
+
 export function readClip(raw: unknown): BoardClip | null {
   if (!raw || typeof raw !== 'object') return null
   const frames = (raw as { frames?: unknown }).frames

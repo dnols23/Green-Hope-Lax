@@ -71,6 +71,7 @@ export default async function LibraryPage({
           name: p.name,
           board: p.board,
           clip: p.clip,
+          steps: p.steps?.length ?? 0,
           createdBy: p.createdBy,
           updatedAt: p.updatedAt,
         }))}

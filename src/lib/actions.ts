@@ -1270,7 +1270,16 @@ export async function savePlayAction(formData: FormData) {
   } catch {
     clip = null
   }
-  const id = await savePlay(name, board, viewer.name || viewer.email, clip, viewer.email)
+  // The progression, when the board is one. Sent empty when it isn't, which clears any old one.
+  let steps: unknown = undefined
+  if (formData.has('steps')) {
+    try {
+      steps = JSON.parse(str(formData.get('steps')) || 'null')
+    } catch {
+      steps = null
+    }
+  }
+  const id = await savePlay(name, board, viewer.name || viewer.email, clip, viewer.email, steps)
   revalidatePath('/admin/playboard')
   revalidatePath('/admin/library')
   return { id }
