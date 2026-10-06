@@ -5,8 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { requireOwner } from './permissions'
 import { readTeam, withTeam, type Team } from './teams'
 import { readBlocks, isLayout, isPageKind, startingBlocks } from './playbook'
-import { addPage, deletePage, getSettings, orderPages, savePage, writeSettings } from './playbookData'
-import { findPlayByName, savePlay } from './plays'
+import { addPage, deletePage, getSettings, orderPages, playbookSpots, savePage, writeSettings } from './playbookData'
+import { getPlay, savePlay } from './plays'
 
 const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v.trim() : '')
 
@@ -44,40 +44,63 @@ export async function addPlaybookPage(formData: FormData) {
  * Straight off the board into the deck.
  *
  * The Library keeps everything; this is the other button — the one that says
- * we are running it. The play is saved first, because a page pointing at a play
- * that was never saved is a page with a hole in it, then a page is made with
- * the play already on it and opened for the words to go round it.
+ * we are running it. The play is saved first (to the head coach's own shelf,
+ * the same one Save uses), then it gets a page at the end of that team's
+ * playbook — unless it already has one there, in which case that page is the
+ * answer. The coach stays on the board; the button turns into a link to the page.
  */
-export async function playToPlaybook(formData: FormData) {
+export async function addPlayToPlaybook(input: {
+  team: string
+  name: string
+  board: string
+  clip: string | null
+}): Promise<{ ok: true; playId: string; pageId: string; team: Team } | { ok: false; error: string }> {
   const owner = await requireOwner()
-  const team = readTeam(formData.get('team'))
-  const name = str(formData.get('name'))
-  if (!name) return
+  const team = readTeam(input.team)
+  const name = String(input.name ?? '').trim().slice(0, 200)
+  if (!name) return { ok: false, error: 'Name the play first.' }
 
   let board: unknown = {}
-  try {
-    board = JSON.parse(str(formData.get('board')) || '{}')
-  } catch {
-    return
-  }
   let clip: unknown = null
   try {
-    const raw = str(formData.get('clip'))
-    clip = raw ? JSON.parse(raw) : null
+    board = JSON.parse(input.board || '{}')
+    clip = input.clip ? JSON.parse(input.clip) : null
   } catch {
-    clip = null
+    return { ok: false, error: 'That board could not be read. Try again.' }
   }
 
   const by = owner.name || owner.email
-  await savePlay(name, board, by, clip)
-  const playId = await findPlayByName(name)
-  if (!playId) return
+  const playId = await savePlay(name, board, by, clip, owner.email)
+  if (!playId) return { ok: false, error: 'The play would not save. Try again.' }
 
-  const id = await addPage(team, name, by, startingBlocks('field', { playId }), 'field')
+  const already = (await playbookSpots())[playId]?.find((s) => s.team === team)
+  const pageId = already?.pageId ?? (await addPage(team, name, by, startingBlocks('field', { playId }), 'field'))
+  if (!pageId) return { ok: false, error: 'Saved the play, but the playbook page would not make. Try again.' }
+
   revalidatePath('/admin/playboard')
   revalidatePath('/admin/library')
   revalidatePath('/admin/playbook')
-  redirect(id ? withTeam(`/admin/playbook/${id}`, team) : withTeam('/admin/playbook', team))
+  return { ok: true, playId, pageId, team }
+}
+
+/** A play already on a shelf (the Library), onto a page of a team's playbook. */
+export async function addSavedPlayToPlaybook(input: {
+  playId: string
+  team: string
+}): Promise<{ ok: true; pageId: string; team: Team } | { ok: false; error: string }> {
+  const owner = await requireOwner()
+  const team = readTeam(input.team)
+  const play = await getPlay(String(input.playId ?? ''))
+  if (!play) return { ok: false, error: 'That play is gone.' }
+  const already = (await playbookSpots())[play.id]?.find((s) => s.team === team)
+  const pageId =
+    already?.pageId ??
+    (await addPage(team, play.name, owner.name || owner.email, startingBlocks('field', { playId: play.id }), 'field'))
+  if (!pageId) return { ok: false, error: 'The playbook page would not make. Try again.' }
+  revalidatePath('/admin/library')
+  revalidatePath('/admin/playboard')
+  revalidatePath('/admin/playbook')
+  return { ok: true, pageId, team }
 }
 
 export async function savePlaybookPage(formData: FormData) {

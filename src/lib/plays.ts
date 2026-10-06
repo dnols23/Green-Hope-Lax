@@ -63,7 +63,7 @@ export async function savePlay(
   clip?: unknown,
   /** Whose shelf it goes on. Their login, so a rename doesn't orphan it. */
   owner?: string | null
-): Promise<void> {
+): Promise<string | null> {
   const svc = createServiceClient()
   const clean = readBoard(board) ?? EMPTY_BOARD
   const take = readClip(clip)
@@ -93,26 +93,26 @@ export async function savePlay(
       .update(take ? { ...stamped, clip: take } : stamped)
       .eq('id', id)
     if (withoutClip(error)) await svc.from('plays').update(stamped).eq('id', id)
-    return
+    return id
   }
   const row: Record<string, unknown> = { name, board: clean, created_by: by, owner_email: owner ?? null }
-  const { error } = await svc.from('plays').insert(take ? { ...row, clip: take } : row)
-  if (error) {
-    // Shed the newer columns one at a time rather than lose the play.
-    const { owner_email: _o, ...noOwner } = row
-    const second = await svc.from('plays').insert(take ? { ...noOwner, clip: take } : noOwner)
-    if (second.error) await svc.from('plays').insert(noOwner)
-  }
+  const insert = (r: Record<string, unknown>) => svc.from('plays').insert(r).select('id').maybeSingle()
+  const idOf = (d: unknown) => (d as { id?: string } | null)?.id ?? null
+  const first = await insert(take ? { ...row, clip: take } : row)
+  if (!first.error) return idOf(first.data)
+  // Shed the newer columns one at a time rather than lose the play.
+  const { owner_email: _o, ...noOwner } = row
+  const second = await insert(take ? { ...noOwner, clip: take } : noOwner)
+  if (!second.error) return idOf(second.data)
+  return idOf((await insert(noOwner)).data)
 }
 
-/** The play saved under this name, if there is one. */
-export async function findPlayByName(name: string): Promise<string | null> {
-  const { data } = await createServiceClient()
-    .from('plays')
-    .select('id')
-    .eq('name', name)
-    .maybeSingle()
-  return (data as { id?: string } | null)?.id ?? null
+/** One play by its id. */
+export async function getPlay(id: string): Promise<{ id: string; name: string } | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+  const { data } = await createServiceClient().from('plays').select('id, name').eq('id', id).maybeSingle()
+  const row = data as { id?: string; name?: string } | null
+  return row?.id ? { id: String(row.id), name: String(row.name ?? '') } : null
 }
 
 /** Throw away the recording but keep the play as it ended up. */

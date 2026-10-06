@@ -1,4 +1,5 @@
-import { requireSection } from '@/lib/permissions'
+import { requireSection, teamsFor } from '@/lib/permissions'
+import { playbookSpots } from '@/lib/playbookData'
 import { listStaff } from '@/lib/staff'
 import { listPlays, playsReady } from '@/lib/plays'
 import { listShots, libraryReady } from '@/lib/library'
@@ -33,11 +34,12 @@ export default async function LibraryPage({
     ? staff.find((s) => s.email === whose)?.name ?? whose
     : null
 
-  const [plays, shots, hasPlays, hasShots] = await Promise.all([
+  const [plays, shots, hasPlays, hasShots, spots] = await Promise.all([
     playsReady().then((ok) => (ok ? listPlays(whose) : [])),
     libraryReady().then((ok) => (ok ? listShots(whose) : [])),
     playsReady(),
     libraryReady(),
+    playbookSpots(),
   ])
 
   return (
@@ -74,6 +76,8 @@ export default async function LibraryPage({
         }))}
         shots={shots}
         ready={hasPlays && hasShots}
+        spots={spots}
+        playbookTeams={viewer.isOwner ? teamsFor(viewer) : []}
       />
     </>
   )

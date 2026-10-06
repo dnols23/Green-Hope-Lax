@@ -4,8 +4,9 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { FieldBoard } from '@/components/planner/FieldBoard'
 import { ClipPlayer } from '@/components/planner/ClipPlayer'
 import { savePlayAction, deletePlayAction, saveShotAction } from '@/lib/actions'
-import { playToPlaybook } from '@/lib/playbookActions'
-import { teamLabel, type Team } from '@/lib/teams'
+import { addPlayToPlaybook } from '@/lib/playbookActions'
+import { teamLabel, withTeam, type Team } from '@/lib/teams'
+import type { PlaybookSpot } from '@/lib/playbookData'
 import { clipLength } from '@/lib/planner'
 import { EMPTY_BOARD, readBoard, type Board, type BoardClip, type BoardFrame } from '@/lib/planner'
 
@@ -47,19 +48,38 @@ function loadScratch(): Board {
   }
 }
 
+/** A play asked for in the address (?play=…), from the Library's Open button. */
+function askedFor(plays: SavedPlay[]): SavedPlay | null {
+  try {
+    const id = new URLSearchParams(window.location.search).get('play')
+    return (id && plays.find((p) => p.id === id)) || null
+  } catch {
+    return null
+  }
+}
+
 export default function QuickBoard({
   plays,
   ready,
   playbookTeams = [],
+  spots = {},
 }: {
   plays: SavedPlay[]
   ready: boolean
   /** The decks this coach may add to — empty for everyone but the head coach. */
   playbookTeams?: Team[]
+  /** Play id → the playbook pages it is already on. */
+  spots?: Record<string, PlaybookSpot[]>
 }) {
-  const [board, setBoard] = useState<Board>(loadScratch)
-  const [name, setName] = useState('')
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [first] = useState(() => askedFor(plays))
+  const [board, setBoard] = useState<Board>(() => first?.board ?? loadScratch())
+  const [name, setName] = useState(first?.name ?? '')
+  const [openId, setOpenId] = useState<string | null>(first?.id ?? null)
+  /* The name the open play was saved under. Type a different one and Save
+     makes a new play, so the playbook links below stop pointing at the old one. */
+  const [openName, setOpenName] = useState(first?.name ?? '')
+  const [added, setAdded] = useState<Record<string, PlaybookSpot[]>>({})
+  const [said, setSaid] = useState<{ ok: boolean; text: string; href?: string; link?: string } | null>(null)
   const [saving, startSaving] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -67,7 +87,7 @@ export default function QuickBoard({
      millisecond it happened, which is the whole recording — no timer, no
      frames anybody has to think about. */
   const [recording, setRecording] = useState(false)
-  const [clip, setClip] = useState<BoardClip | null>(null)
+  const [clip, setClip] = useState<BoardClip | null>(first?.clip ?? null)
   const [watching, setWatching] = useState(false)
   const frames = useRef<BoardFrame[]>([])
   const startedAt = useRef(0)
@@ -146,35 +166,63 @@ export default function QuickBoard({
     }
   }, [board])
 
+  /** The open play, if what is on the glass is still saved under its name. */
+  const currentId = openId && openName === name.trim() ? openId : null
+  const spotsFor = (id: string | null) => (id ? [...(spots[id] ?? []), ...(added[id] ?? [])] : [])
+  const here = spotsFor(currentId)
+
   function save() {
     if (!name.trim() || !ready) return
     const data = new FormData()
     data.set('name', name.trim())
     data.set('board', JSON.stringify(board))
     if (clip) data.set('clip', JSON.stringify(clip))
+    setSaid(null)
     startSaving(async () => {
-      await savePlayAction(data)
-      setName('')
+      const r = await savePlayAction(data)
+      if (r?.id) {
+        setOpenId(r.id)
+        setOpenName(name.trim())
+        setSaid({ ok: true, text: `Saved “${name.trim()}”. It’s under Open and in the Library.` })
+      } else setSaid({ ok: false, text: 'That didn’t save. Try again.' })
     })
   }
 
-  /* The other button. The Library is a shelf; the playbook is what we run — so
-     sending a play there saves it and opens the page it now sits on, for the
-     reads and the coaching points to go round it. */
+  /* The other button. The Library is a shelf; the playbook is what we run.
+     Saves the play, gives it a page at the end of that team's playbook (or
+     finds the one it already has), and stays here with a link to it. */
   function toPlaybook(team: Team) {
     if (!name.trim() || !ready) return
-    const data = new FormData()
-    data.set('team', team)
-    data.set('name', name.trim())
-    data.set('board', JSON.stringify(board))
-    if (clip) data.set('clip', JSON.stringify(clip))
-    startSaving(() => playToPlaybook(data))
+    setSaid(null)
+    startSaving(async () => {
+      const r = await addPlayToPlaybook({
+        team,
+        name: name.trim(),
+        board: JSON.stringify(board),
+        clip: clip ? JSON.stringify(clip) : null,
+      })
+      if (!r.ok) {
+        setSaid({ ok: false, text: r.error })
+        return
+      }
+      setOpenId(r.playId)
+      setOpenName(name.trim())
+      setAdded((x) => ({ ...x, [r.playId]: [...(x[r.playId] ?? []), { team: r.team, pageId: r.pageId }] }))
+      setSaid({
+        ok: true,
+        text: `“${name.trim()}” is in the ${teamLabel(r.team)} playbook.`,
+        href: withTeam(`/admin/playbook/${r.pageId}`, r.team),
+        link: 'Open its page →',
+      })
+    })
   }
 
   function open(play: SavedPlay) {
     setBoard(play.board)
     setOpenId(play.id)
+    setOpenName(play.name)
     setName(play.name)
+    setSaid(null)
     setClip(play.clip)
     setWatching(false)
     setOpenList(false)
@@ -197,25 +245,41 @@ export default function QuickBoard({
           disabled={!name.trim() || saving || !ready}
           className="btn btn-primary !py-1.5 text-sm disabled:opacity-50"
         >
-          {saving ? 'Saving…' : openId && plays.some((p) => p.id === openId && p.name === name.trim()) ? 'Update' : 'Save'}
+          {saving ? 'Saving…' : currentId ? 'Update' : 'Save'}
         </button>
-        {playbookTeams.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => toPlaybook(t)}
-            disabled={!name.trim() || saving || !ready}
-            title={`Save it and start a ${teamLabel(t)} playbook page`}
-            className="btn btn-ghost !py-1.5 text-sm disabled:opacity-50"
-          >
-            📘 {playbookTeams.length > 1 ? `${teamLabel(t)} playbook` : 'Playbook'}
-          </button>
-        ))}
+        {playbookTeams.map((t) => {
+          const label = playbookTeams.length > 1 ? `${teamLabel(t)} playbook` : 'Playbook'
+          const spot = here.find((x) => x.team === t)
+          return spot ? (
+            <Link
+              key={t}
+              href={withTeam(`/admin/playbook/${spot.pageId}`, t)}
+              title={`Open its page in the ${teamLabel(t)} playbook`}
+              className="btn btn-ghost !py-1.5 text-sm"
+              style={{ color: 'var(--gh-green)', borderColor: 'var(--gh-green)' }}
+            >
+              ✓ In {label} ↗
+            </Link>
+          ) : (
+            <button
+              key={t}
+              type="button"
+              onClick={() => toPlaybook(t)}
+              disabled={!name.trim() || saving || !ready}
+              title={name.trim() ? `Save it and add it to the ${teamLabel(t)} playbook` : 'Name the play first'}
+              className="btn btn-ghost !py-1.5 text-sm disabled:opacity-50"
+            >
+              📘 Add to {label}
+            </button>
+          )
+        })}
         <button
           type="button"
           onClick={() => {
             setBoard(EMPTY_BOARD)
             setOpenId(null)
+            setOpenName('')
+            setSaid(null)
             setName('')
             setClip(null)
             setWatching(false)
@@ -251,9 +315,9 @@ export default function QuickBoard({
                 style={{ maxHeight: '60vh', overflowY: 'auto' }}
               >
                 <div className="px-3 pt-2 pb-1 text-[0.65rem] font-black tracking-wider uppercase text-gray-400">
-                  Recent
+                  Your plays · newest first
                 </div>
-                {plays.slice(0, 12).map((p) => (
+                {plays.map((p) => (
                   <div
                     key={p.id}
                     className="flex items-center gap-1 px-1.5 hover:bg-gray-50"
@@ -271,6 +335,11 @@ export default function QuickBoard({
                           ▶ {(clipLength(p.clip) / 1000).toFixed(0)}s
                         </span>
                       )}
+                      {Array.from(new Set(spotsFor(p.id).map((x) => x.team))).map((t) => (
+                        <span key={t} className="ml-1.5 text-[0.6rem] font-black uppercase tracking-wide rounded px-1 py-0.5 bg-[#eef6f1] text-[var(--gh-green)]">
+                          {teamLabel(t)}
+                        </span>
+                      ))}
                     </button>
                     <form
                       ref={formRef}
@@ -315,6 +384,17 @@ export default function QuickBoard({
       </div>
 
 
+      {said && (
+        <p className={`text-sm font-semibold -mt-1 ${said.ok ? 'text-[var(--gh-green)]' : 'text-red-700'}`} role="status">
+          {said.ok && '✓ '}
+          {said.text}
+          {said.href && (
+            <Link href={said.href} className="ml-2 underline">
+              {said.link}
+            </Link>
+          )}
+        </p>
+      )}
       {shot && <p className="text-xs text-gray-500 -mt-1">{shot}</p>}
 
       <div className="flex-1 min-h-0">

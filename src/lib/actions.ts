@@ -1270,9 +1270,10 @@ export async function savePlayAction(formData: FormData) {
   } catch {
     clip = null
   }
-  await savePlay(name, board, viewer.name || viewer.email, clip, viewer.email)
+  const id = await savePlay(name, board, viewer.name || viewer.email, clip, viewer.email)
   revalidatePath('/admin/playboard')
   revalidatePath('/admin/library')
+  return { id }
 }
 
 /**

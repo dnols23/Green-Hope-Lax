@@ -2,6 +2,7 @@
 import dynamic from 'next/dynamic'
 import type { SavedPlay } from './QuickBoard'
 import type { Team } from '@/lib/teams'
+import type { PlaybookSpot } from '@/lib/playbookData'
 
 /**
  * The board is a browser-only thing.
@@ -23,10 +24,12 @@ export function PlayboardClient({
   plays,
   ready,
   playbookTeams,
+  spots,
 }: {
   plays: SavedPlay[]
   ready: boolean
   playbookTeams: Team[]
+  spots: Record<string, PlaybookSpot[]>
 }) {
-  return <QuickBoard plays={plays} ready={ready} playbookTeams={playbookTeams} />
+  return <QuickBoard plays={plays} ready={ready} playbookTeams={playbookTeams} spots={spots} />
 }

@@ -1,10 +1,14 @@
 'use client'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import dynamicImport from 'next/dynamic'
+import Link from 'next/link'
 import { deleteLibraryAction, clearPlayClipAction, saveShotAction } from '@/lib/actions'
 import { clipLength, type Board, type BoardClip } from '@/lib/planner'
 import { mailtoFor, pickedLabel } from '@/lib/share'
 import type { LibraryShot } from '@/lib/library'
+import type { PlaybookSpot } from '@/lib/playbookData'
+import { addSavedPlayToPlaybook } from '@/lib/playbookActions'
+import { teamLabel, withTeam, type Team } from '@/lib/teams'
 
 /**
  * The shelf.
@@ -42,12 +46,34 @@ export function LibraryClient({
   plays,
   shots,
   ready,
+  spots = {},
+  playbookTeams = [],
 }: {
   plays: LibraryPlay[]
   shots: LibraryShot[]
   ready: boolean
+  /** Play id → the playbook pages it is on. */
+  spots?: Record<string, PlaybookSpot[]>
+  /** The decks this coach may add to — the head coach's, nobody else's. */
+  playbookTeams?: Team[]
 }) {
-  const [openId, setOpenId] = useState<string | null>(null)
+  /** The play whose recording is playing in its card, instead of the still. */
+  const [watching, setWatching] = useState<string | null>(null)
+  const [find, setFind] = useState('')
+  const [added, setAdded] = useState<Record<string, PlaybookSpot[]>>({})
+  const [adding, setAdding] = useState<string | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
+  const spotsFor = (id: string) => [...(spots[id] ?? []), ...(added[id] ?? [])]
+  const shown = find.trim() ? plays.filter((p) => p.name.toLowerCase().includes(find.trim().toLowerCase())) : plays
+
+  async function addTo(play: LibraryPlay, team: Team) {
+    setAdding(`${play.id}:${team}`)
+    setAddError(null)
+    const r = await addSavedPlayToPlaybook({ playId: play.id, team })
+    if (r.ok) setAdded((x) => ({ ...x, [play.id]: [...(x[play.id] ?? []), { team: r.team, pageId: r.pageId }] }))
+    else setAddError(r.error)
+    setAdding(null)
+  }
   const [picked, setPicked] = useState<string[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   /** Set once the plays have been drawn and there is a message ready to send. */
@@ -59,7 +85,6 @@ export function LibraryClient({
   const darkroom = useRef<HTMLDivElement>(null)
   const waiting = useRef<((url: string | null) => void) | null>(null)
 
-  const open = plays.find((p) => p.id === openId) ?? null
   const isPicked = (id: string) => picked.includes(id)
   const toggle = (id: string) => {
     setMailHref(null)
@@ -199,7 +224,7 @@ export function LibraryClient({
     startDeleting(async () => {
       await deleteLibraryAction(data)
       setPicked([])
-      setOpenId(null)
+      setWatching(null)
     })
   }
 
@@ -210,9 +235,8 @@ export function LibraryClient({
       <div>
         <h1 className="text-xl font-black mb-1">Library</h1>
         <p className="text-gray-500 text-sm">
-          Every play the staff has drawn, every take of one being drawn, and every screenshot off
-          the board. Tick what you want to send or throw away — and anything here drops into a
-          practice plan, a note or a game plan from the Library button inside a block.
+          Every play you&rsquo;ve saved on the Playboard, and every screenshot. Open one to keep
+          drawing, put it in a playbook, or tick a few to send or delete.
         </p>
       </div>
 
@@ -232,61 +256,115 @@ export function LibraryClient({
           Plays {plays.length > 0 && <span className="text-gray-300">· {plays.length}</span>}
         </h2>
 
+        {plays.length > 6 && (
+          <input
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+            placeholder="Find a play"
+            aria-label="Find a play"
+            className="field !py-1.5 text-sm mb-3 max-w-xs"
+          />
+        )}
+        {addError && <p className="text-sm font-semibold text-red-700 mb-2" role="alert">{addError}</p>}
+
         {plays.length === 0 ? (
           <p className="text-sm text-gray-400">
-            Nothing yet. Draw one on the Playboard and give it a name.
+            Nothing yet. Draw one on the <Link href="/admin/playboard" className="font-bold text-[var(--gh-green)]">Playboard</Link>, name it and hit Save.
           </p>
+        ) : shown.length === 0 ? (
+          <p className="text-sm text-gray-400">No play called that.</p>
         ) : (
-          <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
-            {plays.map((p) => (
-              <div key={p.id} className="px-4 py-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <input
-                    type="checkbox"
-                    checked={isPicked(p.id)}
-                    onChange={() => toggle(p.id)}
-                    aria-label={`Select ${p.name}`}
-                    className="w-4 h-4 accent-[var(--gh-green)] shrink-0"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setOpenId(openId === p.id ? null : p.id)}
-                    className="font-bold text-sm hover:text-[var(--gh-green)] text-left"
-                  >
-                    {p.name}
-                  </button>
-
-                  {p.clip && (
-                    <span
-                      className="text-[0.65rem] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
-                      style={{ background: '#e8f2ea', color: 'var(--gh-green-dk)' }}
-                    >
-                      Recording · {(clipLength(p.clip) / 1000).toFixed(0)}s
-                    </span>
-                  )}
-
-                  <span className="text-xs text-gray-400 ml-auto">
-                    {p.createdBy ? `${p.createdBy} · ` : ''}
-                    {when(p.updatedAt)}
-                  </span>
-
-                  {p.clip && (
-                    <form action={clearPlayClipAction}>
-                      <input type="hidden" name="id" value={p.id} />
-                      <button type="submit" className="text-xs font-semibold text-gray-400 hover:text-gray-700">
-                        Drop the recording
-                      </button>
-                    </form>
-                  )}
-                </div>
-
-                {openId === p.id && open && (
-                  <div className="mt-3">
-                    {open.clip ? <ClipPlayer clip={open.clip} /> : <FieldBoard board={open.board} readOnly />}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {shown.map((p) => {
+              const here = spotsFor(p.id)
+              return (
+                <div
+                  key={p.id}
+                  className="rounded-xl border-2 bg-white overflow-hidden flex flex-col"
+                  style={{ borderColor: isPicked(p.id) ? 'var(--gh-green)' : 'var(--color-gray-200, #e5e7eb)' }}
+                >
+                  {/* The play itself. Double-tap it for full screen. */}
+                  <div>
+                    {watching === p.id && p.clip ? (
+                      <ClipPlayer clip={p.clip} autoPlay />
+                    ) : (
+                      <FieldBoard board={p.board} readOnly zoomable={false} title={p.name} />
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
+                  <div className="px-3 py-2.5 space-y-2 mt-auto">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isPicked(p.id)}
+                        onChange={() => toggle(p.id)}
+                        aria-label={`Select ${p.name}`}
+                        className="w-4 h-4 accent-[var(--gh-green)] shrink-0"
+                      />
+                      <span className="font-bold truncate">{p.name}</span>
+                      {p.clip && (
+                        <span
+                          className="text-[0.6rem] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0"
+                          style={{ background: '#e8f2ea', color: 'var(--gh-green-dk)' }}
+                        >
+                          Rec · {(clipLength(p.clip) / 1000).toFixed(0)}s
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400 ml-auto shrink-0">{when(p.updatedAt)}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm font-bold">
+                      <Link href={`/admin/playboard?play=${p.id}`} className="text-[var(--gh-green)]">
+                        Open on the Playboard
+                      </Link>
+                      {p.clip && (
+                        <button
+                          type="button"
+                          onClick={() => setWatching(watching === p.id ? null : p.id)}
+                          className="text-gray-600 hover:text-gray-900"
+                        >
+                          {watching === p.id ? 'Show the play' : '▶ Watch it drawn'}
+                        </button>
+                      )}
+                    </div>
+                    {(playbookTeams.length > 0 || here.length > 0) && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {Array.from(new Set([...playbookTeams, ...here.map((x) => x.team)])).map((t) => {
+                          const spot = here.find((x) => x.team === t)
+                          const label = `${teamLabel(t)} playbook`
+                          return spot ? (
+                            <Link
+                              key={t}
+                              href={withTeam(`/admin/playbook/${spot.pageId}`, t)}
+                              className="text-xs font-bold rounded-full px-2.5 py-1 border"
+                              style={{ color: 'var(--gh-green)', borderColor: 'var(--gh-green)', background: '#eef6f1' }}
+                            >
+                              ✓ In {label} ↗
+                            </Link>
+                          ) : playbookTeams.includes(t) ? (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => addTo(p, t)}
+                              disabled={!!adding}
+                              className="text-xs font-bold rounded-full px-2.5 py-1 border border-gray-200 text-gray-700 hover:border-gray-400 disabled:opacity-50"
+                            >
+                              {adding === `${p.id}:${t}` ? 'Adding…' : `📘 Add to ${label}`}
+                            </button>
+                          ) : null
+                        })}
+                      </div>
+                    )}
+                    {p.clip && (
+                      <form action={clearPlayClipAction}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <button type="submit" className="text-xs font-semibold text-gray-400 hover:text-gray-700">
+                          Drop the recording
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </section>

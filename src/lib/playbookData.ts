@@ -1,7 +1,8 @@
 import { createServiceClient } from './supabase-server'
-import { DEFAULT_TEAM, type Team } from './teams'
+import { DEFAULT_TEAM, isTeam, type Team } from './teams'
 import {
   DEFAULT_SETTINGS,
+  readBlocks,
   readPage,
   readSettings,
   settingsKey,
@@ -30,6 +31,31 @@ export async function listPages(team: Team = DEFAULT_TEAM): Promise<PlaybookPage
     .order('sort_order', { ascending: true })
   if (error) return []
   return ((data ?? []) as Record<string, unknown>[]).map(readPage)
+}
+
+/** Where a play sits in the playbooks: one entry per page that shows it. */
+export interface PlaybookSpot {
+  team: Team
+  pageId: string
+}
+
+/** Play id → the playbook pages it is on, across both decks. */
+export async function playbookSpots(): Promise<Record<string, PlaybookSpot[]>> {
+  const { data, error } = await createServiceClient()
+    .from('playbook_pages')
+    .select('id, team, blocks')
+    .order('sort_order', { ascending: true })
+  if (error) return {}
+  const out: Record<string, PlaybookSpot[]> = {}
+  for (const row of (data ?? []) as { id: string; team: unknown; blocks: unknown }[]) {
+    if (!isTeam(row.team)) continue
+    for (const b of readBlocks(row.blocks)) {
+      if (b.kind !== 'play' || !b.playId) continue
+      const spots = (out[b.playId] ??= [])
+      if (!spots.some((x) => x.pageId === row.id)) spots.push({ team: row.team, pageId: String(row.id) })
+    }
+  }
+  return out
 }
 
 export async function getPage(id: string): Promise<PlaybookPage | null> {
