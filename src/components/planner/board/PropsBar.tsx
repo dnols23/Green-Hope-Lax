@@ -381,8 +381,8 @@ export function PropsBar({ ed }: { ed: Editor }) {
                     active={!sel && ed.linePen.preset === p.key}
                     onClick={() =>
                       apply(
-                        { path: (x) => clean({ ...x, kind: p.kind, color: p.color, dash: p.dash, width: p.width, pattern: p.pattern, endCap: p.endCap }) },
-                        { line: { preset: p.key, kind: p.kind, color: p.color, dash: p.dash, width: p.width, pattern: p.pattern, endCap: p.endCap } },
+                        { path: (x) => clean({ ...x, kind: p.kind, color: p.color, dash: p.dash, width: p.width, pattern: p.pattern, startCap: 'none', endCap: p.endCap }) },
+                        { line: { preset: p.key, kind: p.kind, color: p.color, dash: p.dash, width: p.width, pattern: p.pattern, startCap: 'none', endCap: p.endCap } },
                         'preset',
                       )
                     }
@@ -588,7 +588,7 @@ function CapIcon({ cap, flip }: { cap: EndCap; flip: boolean }) {
     : cap === 'open' ? <path d="M15 4 L21 8 L15 12" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     : cap === 'dot' ? <circle cx={19} cy={8} r={3} fill="currentColor" />
     : cap === 'circle' ? <circle cx={19} cy={8} r={2.8} fill="#fff" stroke="currentColor" strokeWidth={1.5} />
-    : cap === 'bar' ? <rect x={19} y={3} width={2.2} height={10} fill="currentColor" />
+    : cap === 'bar' ? <rect x={18.5} y={1.5} width={3} height={13} fill="currentColor" />
     : cap === 'square' ? <rect x={16} y={5} width={6} height={6} fill="currentColor" />
     : null
   return (

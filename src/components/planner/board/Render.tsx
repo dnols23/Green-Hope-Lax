@@ -58,9 +58,10 @@ export function CapMarkers({ colors }: { colors: string[] }) {
               markerWidth="2.6" markerHeight="2.6" orient="auto">
               <circle cx="5" cy="5" r="3.6" fill="none" stroke={color} strokeWidth="1.5" />
             </marker>
+            {/* The screen: a bold flat bar square across the line where the pick lands. */}
             <marker id={capId('bar', end, color)} viewBox="0 0 10 10" refX="5" refY="5"
-              markerWidth="2.4" markerHeight="2.4" orient="auto">
-              <rect x="4" y="0" width="2.5" height="10" fill={color} />
+              markerWidth="4.2" markerHeight="4.2" orient="auto">
+              <rect x="3.6" y="0" width="2.8" height="10" rx="0.6" fill={color} />
             </marker>
             <marker id={capId('square', end, color)} viewBox="0 0 10 10" refX="5" refY="5"
               markerWidth="2" markerHeight="2" orient="auto">

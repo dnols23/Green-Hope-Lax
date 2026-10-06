@@ -240,7 +240,8 @@ export const LINE_PRESETS: LinePreset[] = [
   { key: 'zigzag', label: 'Zig-zag', kind: 'run', color: '#17222e', dash: '', width: 0.6, endCap: 'arrow', pattern: 'zigzag' },
   { key: 'pass', label: 'Pass', kind: 'pass', color: '#2F5D8C', dash: '3 2', width: 0.7, endCap: 'arrow' },
   { key: 'shot', label: 'Shot', kind: 'shot', color: '#7A1F2B', dash: '6 2', width: 0.8, endCap: 'arrow' },
-  { key: 'pick', label: 'Pick', kind: 'screen', color: '#B4823A', dash: '1 2', width: 0.7, endCap: 'bar' },
+  // A pick: from the screener to the man being picked, ending in a bold flat bar where the screen lands.
+  { key: 'pick', label: 'Pick', kind: 'screen', color: '#B4823A', dash: '', width: 0.7, endCap: 'bar' },
 ]
 
 // ── Words ───────────────────────────────────────────────────────────────────

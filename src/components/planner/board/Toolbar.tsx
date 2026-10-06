@@ -290,7 +290,7 @@ export function Toolbar({ ed, extraTools }: { ed: Editor; extraTools?: ReactNode
                 key={p.key}
                 type="button"
                 onClick={() => {
-                  ed.setLinePen({ preset: p.key, kind: p.kind, color: p.color, dash: p.dash, width: p.width, pattern: p.pattern, endCap: p.endCap })
+                  ed.setLinePen({ preset: p.key, kind: p.kind, color: p.color, dash: p.dash, width: p.width, pattern: p.pattern, startCap: 'none', endCap: p.endCap })
                   pick(tool.t === 'line' ? tool : { t: 'line', geo: 'straight' })
                 }}
                 className="min-h-9 flex items-center gap-2 px-2 rounded-lg border text-xs font-bold text-left"
