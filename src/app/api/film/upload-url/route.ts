@@ -41,7 +41,26 @@ export async function POST(req: NextRequest) {
     },
   })
   if (res.status !== 201) {
-    return NextResponse.json({ error: 'Cloudflare rejected the upload.' }, { status: 502 })
+    // Say why, in words a coach can act on. Cloudflare's own message goes to
+    // the server log and, briefly, to the screen, so a wrong setting can be
+    // fixed without guessing.
+    let detail = ''
+    try {
+      const j = (await res.json()) as { errors?: { code?: number; message?: string }[] }
+      detail = (j.errors ?? []).map((e) => `${e.message ?? ''}${e.code ? ` (${e.code})` : ''}`).filter(Boolean).join('; ')
+    } catch {
+      detail = (await res.text().catch(() => '')).slice(0, 200)
+    }
+    console.error('film upload-url: Cloudflare said', res.status, detail)
+    const hint =
+      res.status === 401 || res.status === 403
+        ? 'The Cloudflare API token can’t upload. In Vercel, check CLOUDFLARE_STREAM_API_TOKEN is the token with Stream: Edit, then redeploy.'
+        : res.status === 404
+          ? 'Cloudflare can’t find that account. In Vercel, check CLOUDFLARE_ACCOUNT_ID, then redeploy.'
+          : /quota|storage|minutes|capacity/i.test(detail)
+            ? 'The Cloudflare Stream plan is out of storage minutes. Delete old film or add minutes in Cloudflare.'
+            : 'Cloudflare rejected the upload.'
+    return NextResponse.json({ error: detail ? `${hint} Cloudflare said: ${detail}` : hint }, { status: 502 })
   }
   const uploadURL = res.headers.get('location')
   const uid = res.headers.get('stream-media-id')
