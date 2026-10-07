@@ -7,6 +7,7 @@ import { DeleteButton } from '@/components/admin/DeleteButton'
 import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
 import { DrillSearch } from './DrillSearch'
+import { SubmitButton } from '@/components/SubmitButton'
 import { GroupOrder } from './GroupOrder'
 import { DrillGroupList } from './DrillGroupList'
 import { DrillTabs } from './DrillTabs'
@@ -113,7 +114,7 @@ export default async function DrillBankPage() {
               placeholder="What it teaches, and what good looks like" />
           </div>
           <div className="sm:col-span-6">
-            <button type="submit" className="btn btn-primary">Add drill</button>
+            <SubmitButton className="btn btn-primary" pendingText="Adding…">Add drill</SubmitButton>
           </div>
         </form>
       </details>
@@ -241,7 +242,7 @@ function DrillRow({ d }: { d: Drill }) {
               placeholder="What it teaches, and what good looks like" />
           </div>
           <div className="sm:col-span-6 flex items-center gap-3">
-            <button type="submit" className="btn btn-primary !py-1.5 text-sm">Save</button>
+            <SubmitButton className="btn btn-primary !py-1.5 text-sm" pendingText="Saving…">Save</SubmitButton>
           </div>
         </form>
         <div className="flex items-center gap-3">

@@ -21,7 +21,7 @@ export function DeleteButton({
       }}
       className="text-xs font-bold text-red-600 hover:text-red-800 disabled:opacity-50"
     >
-      {pending ? '…' : label}
+      {pending ? 'Deleting…' : label}
     </button>
   )
 }

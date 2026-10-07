@@ -21,17 +21,28 @@ export function DrillGroupList({
   canMove: boolean
 }) {
   const router = useRouter()
-  const [list, setList] = useState(groups)
+  /* Only the order is held here, and only while a drag is being saved. The
+     groups themselves always come from the page, so a drill added or deleted
+     shows the moment the page refreshes. (Holding the groups in state froze
+     the list at first load: new drills never appeared, deleted ones never left.) */
+  const [moved, setMoved] = useState<string[] | null>(null)
   const [, start] = useTransition()
+  const list = moved
+    ? [
+        ...moved.map((id) => groups.find((g) => g.id === id)).filter((g): g is (typeof groups)[number] => !!g),
+        ...groups.filter((g) => !moved.includes(g.id)),
+      ]
+    : groups
 
   function reorder(ids: string[]) {
-    setList(ids.map((id) => list.find((g) => g.id === id)!).filter(Boolean))
+    setMoved(ids)
     // Shown groups take their new order; the hidden ones keep their spots around them.
     const shown = new Set(ids)
     const queue = [...ids]
     const full = order.map((k) => (shown.has(k) ? queue.shift()! : k))
     start(async () => {
       await saveDrillOrder(full)
+      // The new order comes back as a new key on this list, which starts it fresh.
       router.refresh()
     })
   }

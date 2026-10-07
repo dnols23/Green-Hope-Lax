@@ -2332,9 +2332,25 @@ export async function upsertDrill(formData: FormData) {
   const variations = str(formData.get('variations')) || null
 
   const svc = createServiceClient()
+  /* Add pressed twice (a slow phone, a second tap to be sure) is one drill: the
+     same name from the same coach in the last ten minutes updates that drill
+     instead of making a copy. */
+  let target = id
+  if (!target) {
+    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+    const { data: twin } = await svc
+      .from('drills')
+      .select('id')
+      .ilike('name', payload.name.replace(/[%_\\]/g, '\\$&'))
+      .eq('created_by', viewer?.email ?? '')
+      .gte('created_at', since)
+      .limit(1)
+      .maybeSingle()
+    target = (twin as { id?: string } | null)?.id ?? ''
+  }
   const write = async (row: Record<string, unknown>) =>
-    id
-      ? await svc.from('drills').update(row).eq('id', id)
+    target
+      ? await svc.from('drills').update(row).eq('id', target)
       : await svc.from('drills').insert({ ...row, created_by: viewer?.email ?? null })
 
   // Newest columns first; a database a migration or two behind still saves the rest.
