@@ -35,6 +35,8 @@ export const HUB_MODES: HubMode[] = [
   { key: 'calendar',  label: 'Calendar',         section: 'calendar', icon: '📅', href: '/admin/calendar', fixed: true },
   { key: 'wall',      label: 'On the Wall',      section: 'wall',     icon: '🔊', href: '/admin/wall' },
   { key: 'schedule',  label: 'Games',            section: 'schedule', icon: '🏟', href: '/admin/schedule' },
+  // Track a game live, then the box score, analysis and the printable report — tabs on the page.
+  { key: 'stats',     label: 'Stats',            section: 'stats',    icon: '📊', href: '/admin/stats' },
   { key: 'film',      label: 'Film Room',        section: 'film',     icon: '🎬', href: '/admin/film' },
   { key: 'inventory', label: 'Inventory',        section: 'inventory',icon: '📦', href: '/admin/inventory' },
   { key: 'wishlist',  label: 'Wish List',        section: 'wishlist', icon: '🎁', href: '/admin/wishlist' },
