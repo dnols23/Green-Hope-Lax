@@ -466,7 +466,7 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
           )}
           <button
             type="button"
-            className={`${styles.iconBtn} ${shortcutsOpen ? styles.iconBtnOn : ''}`}
+            className={`${styles.iconBtn} ${styles.shortcutsBtn} ${shortcutsOpen ? styles.iconBtnOn : ''}`}
             title="Keyboard shortcuts"
             onClick={() => setShortcutsOpen((o) => !o)}
           >

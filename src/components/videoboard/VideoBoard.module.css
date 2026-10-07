@@ -224,6 +224,15 @@
   padding: 10px 12px;
   z-index: 60;
 }
+/* On a phone the tool group wraps to the left edge, so the popover hangs
+   from the left and never wider than the screen. */
+@media (max-width: 760px) {
+  .shortcutsPop { right: auto; left: 0; max-width: calc(100vw - 24px); }
+}
+/* A touchscreen with no keyboard has no use for keyboard shortcuts. */
+@media (hover: none) and (pointer: coarse) {
+  .shortcutsBtn, .shortcutsPop { display: none; }
+}
 .shortcutsTitle {
   font-size: 0.68rem;
   font-weight: 800;
