@@ -115,7 +115,7 @@ export function ProgressionPanel({
         />
       </div>
       <p className="text-xs text-gray-400 leading-relaxed">
-        Save keeps every step. Add to playbook puts each step in as its own page, in order.
+        Save keeps every step. In a playbook each step is its own page, in order, and Update keeps them current.
       </p>
     </aside>
   )

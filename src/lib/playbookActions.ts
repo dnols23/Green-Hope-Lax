@@ -4,8 +4,18 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { getViewer, requireOwner } from './permissions'
 import { readTeam, withTeam, type Team } from './teams'
-import { readBlocks, isLayout, isPageKind, startingBlocks, type PlayBlock, type PlaybookPage } from './playbook'
-import { addPage, deletePage, getSettings, listPages, orderPages, playbookSpots, savePage, writeSettings } from './playbookData'
+import {
+  readBlocks,
+  isLayout,
+  isPageKind,
+  isPlaybookSection,
+  startingBlocks,
+  type PageKind,
+  type PlayBlock,
+  type PlaybookPage,
+  type PlaybookSection,
+} from './playbook'
+import { addPage, deletePage, getPage, getSettings, listPages, orderPages, playbookSpots, savePage, writeSettings } from './playbookData'
 import { readSteps, type PlayStep } from './planner'
 import { getPlay, savePlay } from './plays'
 
@@ -54,6 +64,8 @@ async function placeInPlaybook(
   team: Team,
   play: { id: string; name: string; steps: PlayStep[] | null },
   by: string,
+  /** The section new pages go in. Pages already in the deck keep theirs. */
+  section: PlaybookSection | null = null,
 ): Promise<{ pageId: string; extra: number } | null> {
   const all = await listPages(team)
   const blockOf = (pg: PlaybookPage) =>
@@ -62,7 +74,7 @@ async function placeInPlaybook(
 
   if (!play.steps) {
     if (mine[0]) return { pageId: mine[0].id, extra: 0 }
-    const id = await addPage(team, play.name, by, startingBlocks('field', { playId: play.id }), 'field')
+    const id = await addPage(team, play.name, by, startingBlocks('field', { playId: play.id }), 'field', section)
     return id ? { pageId: id, extra: 0 } : null
   }
 
@@ -87,7 +99,8 @@ async function placeInPlaybook(
       await savePage(pg.id, { title, blocks: pg.blocks.map((b) => (b === old ? { ...block, id: old.id, frame: old.frame, z: old.z } : b)) })
       run.push(pg.id)
     } else {
-      const id = await addPage(team, title, by, [block], 'field')
+      // A new step joins its progression's section (its first page's), else the one asked for.
+      const id = await addPage(team, title, by, [block], 'field', byStep.get(0)?.section ?? section)
       if (id) run.push(id)
     }
   }
@@ -128,6 +141,8 @@ export async function addPlayToPlaybook(input: {
   clip: string | null
   /** The progression's steps (JSON), or null for an ordinary play. */
   steps?: string | null
+  /** Where new pages go; pages already in the deck keep their section. */
+  section?: string | null
 }): Promise<{ ok: true; playId: string; pageId: string; team: Team; note: string } | { ok: false; error: string }> {
   const owner = await requireOwner()
   const team = readTeam(input.team)
@@ -149,7 +164,8 @@ export async function addPlayToPlaybook(input: {
   const playId = await savePlay(name, board, by, clip, owner.email, rawSteps)
   if (!playId) return { ok: false, error: 'The play would not save. Try again.' }
 
-  const placed = await placeInPlaybook(team, { id: playId, name, steps: readSteps(rawSteps) }, by)
+  const section = isPlaybookSection(input.section) ? input.section : null
+  const placed = await placeInPlaybook(team, { id: playId, name, steps: readSteps(rawSteps) }, by, section)
   if (!placed) return { ok: false, error: 'Saved the play, but the playbook page would not make. Try again.' }
   revalidateAll()
   return { ok: true, playId, pageId: placed.pageId, team, note: extraNote(placed.extra) }
@@ -159,12 +175,13 @@ export async function addPlayToPlaybook(input: {
 export async function addSavedPlayToPlaybook(input: {
   playId: string
   team: string
+  section?: string | null
 }): Promise<{ ok: true; pageId: string; team: Team; note: string } | { ok: false; error: string }> {
   const owner = await requireOwner()
   const team = readTeam(input.team)
   const play = await getPlay(String(input.playId ?? ''))
   if (!play) return { ok: false, error: 'That play is gone.' }
-  const placed = await placeInPlaybook(team, play, owner.name || owner.email)
+  const placed = await placeInPlaybook(team, play, owner.name || owner.email, isPlaybookSection(input.section) ? input.section : null)
   if (!placed) return { ok: false, error: 'The playbook page would not make. Try again.' }
   revalidateAll()
   return { ok: true, pageId: placed.pageId, team, note: extraNote(placed.extra) }
@@ -242,4 +259,146 @@ export async function savePlaybookSettings(formData: FormData) {
   })
   revalidatePath('/admin/playbook')
   revalidatePath('/team/playbook')
+}
+
+// ── Slides: the editor's actions ────────────────────────────────────────────
+//
+// The deck screen and the slide editor work like Google Slides: changes save
+// as you go and nothing navigates away, so these return a result instead of
+// redirecting. Every one is the head coach's alone, like the rest of the
+// playbook.
+
+type Done<T = object> = ({ ok: true } & T) | { ok: false; error: string }
+
+const ids = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x)).slice(0, 500) : []
+
+/** The pages, if they all belong to one team. */
+async function pagesOf(list: string[]): Promise<PlaybookPage[] | null> {
+  const pages = (await Promise.all(list.map((id) => getPage(id)))).filter((p): p is PlaybookPage => !!p)
+  if (pages.length !== list.length) return null
+  return pages
+}
+
+/** Save one slide as it stands (the editor calls this as you work). */
+export async function saveSlide(input: {
+  id: string
+  title?: string
+  blocks?: unknown
+  layout?: string
+  notes?: string | null
+  section?: string | null
+}): Promise<Done> {
+  await requireOwner()
+  const [page] = ids([input.id])
+  if (!page || !(await getPage(page))) return { ok: false, error: 'That page is gone.' }
+  await savePage(page, {
+    ...(input.title !== undefined ? { title: String(input.title).slice(0, 200) } : {}),
+    ...(input.blocks !== undefined ? { blocks: readBlocks(input.blocks) } : {}),
+    ...(input.layout !== undefined && isLayout(input.layout) ? { layout: input.layout } : {}),
+    ...(input.notes !== undefined ? { notes: input.notes ? String(input.notes).slice(0, 4000) : null } : {}),
+    ...(input.section !== undefined ? { section: isPlaybookSection(input.section) ? input.section : null } : {}),
+  })
+  // No revalidatePath: the editor already shows what it saved, and the
+  // playbook pages are rendered fresh on every visit (force-dynamic), so a
+  // refresh here would only re-render the editor on every keystroke's save.
+  return { ok: true }
+}
+
+/**
+ * A new slide: a field (whole or one end), words, or a picture, in a section,
+ * right after the page given (else at the end of the deck).
+ */
+export async function createSlide(input: {
+  team: string
+  kind: 'field' | 'field-half' | 'words' | 'picture'
+  section?: string | null
+  title?: string
+  afterId?: string | null
+  /** Start the field from a saved play (a page that borrows it). */
+  playId?: string | null
+}): Promise<Done<{ id: string }>> {
+  const owner = await requireOwner()
+  const team = readTeam(input.team)
+  const half = input.kind === 'field-half'
+  const kind: PageKind = half ? 'field' : isPageKind(input.kind) ? input.kind : 'field'
+  const playId = ids([input.playId])[0]
+  const title =
+    String(input.title ?? '').trim().slice(0, 200) ||
+    (kind === 'words' ? 'New section' : kind === 'picture' ? 'Picture' : half ? 'Half field' : 'New play')
+  const section = isPlaybookSection(input.section) ? input.section : null
+  const id = await addPage(team, title, owner.name || owner.email, startingBlocks(kind, { half, playId }), kind, section)
+  if (!id) return { ok: false, error: 'That page didn’t save. Try again.' }
+  const after = ids([input.afterId])[0]
+  if (after) {
+    const order = (await listPages(team)).map((p) => p.id).filter((x) => x !== id)
+    const at = order.indexOf(after)
+    if (at >= 0) await orderPages([...order.slice(0, at + 1), id, ...order.slice(at + 1)])
+  }
+  revalidatePath('/admin/playbook', 'layout')
+  return { ok: true, id }
+}
+
+/** Copies of these slides, each right after its original. */
+export async function duplicateSlides(input: { ids: string[] }): Promise<Done<{ ids: string[] }>> {
+  const owner = await requireOwner()
+  const pages = await pagesOf(ids(input.ids))
+  if (!pages || !pages.length) return { ok: false, error: 'Those pages are gone.' }
+  const team = pages[0].team
+  if (pages.some((p) => p.team !== team)) return { ok: false, error: 'Pick pages from one playbook.' }
+  const made: string[] = []
+  let order = (await listPages(team)).map((p) => p.id)
+  for (const p of pages) {
+    // A copy is the page's own: it no longer counts as a step of the
+    // progression, so adding the progression again won't overwrite it.
+    const blocks = p.blocks.map((b) => {
+      if (b.kind !== 'play' || b.step === undefined) return b
+      const { step: _step, ...rest } = b
+      return rest
+    })
+    const id = await addPage(team, `${p.title} (copy)`.slice(0, 200), owner.name || owner.email, blocks, p.layout, p.section)
+    if (!id) continue
+    if (p.notes) await savePage(id, { notes: p.notes })
+    order = order.filter((x) => x !== id)
+    const at = order.indexOf(p.id)
+    order = [...order.slice(0, at + 1), id, ...order.slice(at + 1)]
+    made.push(id)
+  }
+  await orderPages(order)
+  revalidatePath('/admin/playbook', 'layout')
+  return { ok: true, ids: made }
+}
+
+/** Take slides out of the playbook. The plays they show stay in the Library. */
+export async function deleteSlides(input: { ids: string[] }): Promise<Done> {
+  await requireOwner()
+  const list = ids(input.ids)
+  if (!list.length) return { ok: true }
+  await Promise.all(list.map((id) => deletePage(id)))
+  revalidatePath('/admin/playbook', 'layout')
+  return { ok: true }
+}
+
+/**
+ * The deck after a drag: the whole team's order, and optionally new sections
+ * for pages that moved between them.
+ */
+export async function arrangeSlides(input: {
+  team: string
+  order: string[]
+  sections?: Record<string, string | null>
+}): Promise<Done> {
+  await requireOwner()
+  const team = readTeam(input.team)
+  const current = (await listPages(team)).map((p) => p.id)
+  const asked = ids(input.order).filter((id) => current.includes(id))
+  // Anything the screen didn't know about (added elsewhere meanwhile) keeps its place at the end.
+  const order = [...asked, ...current.filter((id) => !asked.includes(id))]
+  await orderPages(order)
+  for (const [id, sec] of Object.entries(input.sections ?? {})) {
+    if (!current.includes(id)) continue
+    await savePage(id, { section: isPlaybookSection(sec) ? sec : null })
+  }
+  revalidatePath('/admin/playbook', 'layout')
+  return { ok: true }
 }

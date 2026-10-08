@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { listPlays } from '@/lib/plays'
 import { getSettings, listPages } from '@/lib/playbookData'
 import { TEAMS, readTeam, teamLabel, withTeam } from '@/lib/teams'
-import { SlideView } from '@/components/playbook/SlideView'
+import { Study } from './Study'
 
 export const metadata = { title: 'Playbook' }
 export const dynamic = 'force-dynamic'
@@ -40,14 +40,21 @@ export default async function TeamPlaybook({
     )
   }
 
-  const [pages, plays] = await Promise.all([listPages(team), listPlays()])
-  const playMap = Object.fromEntries(plays.map((p) => [p.id, { id: p.id, name: p.name, board: p.board }]))
+  const [all, plays] = await Promise.all([listPages(team), listPlays()])
+  // Built without `notes` (what the coach says is not a player's page) or who made each page.
+  const pages = all.map((p) => ({ ...p, notes: null, createdBy: null }))
+  // Only the plays the playbook shows, not every play on the staff's shelves.
+  const used = new Set(pages.flatMap((p) => p.blocks.flatMap((b) => (b.kind === 'play' && b.playId ? [b.playId] : []))))
+  const playMap = Object.fromEntries(
+    plays.filter((p) => used.has(p.id)).map((p) => [p.id, { id: p.id, name: p.name, board: p.board }])
+  )
+  const title = `${teamLabel(team)} ${settings.title}`
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
+    <div className="max-w-3xl mx-auto px-4 pt-8 pb-16">
       <Link href="/team" className="text-sm font-bold" style={{ color: 'var(--gh-green)' }}>← Team Hub</Link>
       <div className="flex items-center gap-2 mt-2 mb-1 flex-wrap">
-        <h1 className="page-title">{teamLabel(team)} {settings.title}</h1>
+        <h1 className="page-title">{title}</h1>
         {others.map((o) => (
           <Link
             key={o.key}
@@ -58,22 +65,12 @@ export default async function TeamPlaybook({
           </Link>
         ))}
       </div>
-      <p className="text-gray-500 text-sm mb-6">
-        What we run, in the order we install it. {pages.length} page{pages.length === 1 ? '' : 's'}.
-      </p>
+      <p className="text-gray-500 text-sm mb-5">What we run, in order. Tap a slide to see it full screen.</p>
 
       {pages.length === 0 ? (
         <div className="card p-6 text-sm text-gray-500">Nothing in it yet.</div>
       ) : (
-        <div className="space-y-5">
-          {pages.map((page, i) => (
-            <section key={page.id} className="card p-5">
-              <div className="text-xs font-black text-gray-300 tabular-nums mb-2">{i + 1}</div>
-              {/* Built without `notes` — what the coach says is not a player's page. */}
-              <SlideView page={{ ...page, notes: null }} plays={playMap} />
-            </section>
-          ))}
-        </div>
+        <Study pages={pages} plays={playMap} title={title} />
       )}
     </div>
   )

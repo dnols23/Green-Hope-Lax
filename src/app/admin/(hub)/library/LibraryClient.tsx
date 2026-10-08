@@ -7,8 +7,10 @@ import { clipLength, type Board, type BoardClip } from '@/lib/planner'
 import { mailtoFor, pickedLabel } from '@/lib/share'
 import type { LibraryShot } from '@/lib/library'
 import type { PlaybookSpot } from '@/lib/playbookData'
+import type { PlaybookSection } from '@/lib/playbook'
 import { addSavedPlayToPlaybook } from '@/lib/playbookActions'
-import { teamLabel, withTeam, type Team } from '@/lib/teams'
+import type { Team } from '@/lib/teams'
+import { PlaybookPicker, SpotLink, teamSpots } from './PlaybookPicker'
 
 /**
  * The shelf.
@@ -36,6 +38,17 @@ export interface LibraryPlay {
   updatedAt: string
 }
 
+/** Ways to narrow the shelf. Screenshots only show under All. */
+type Filter = 'all' | 'steps' | 'in' | 'out' | 'rec'
+
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'steps', label: 'Progressions' },
+  { key: 'in', label: 'In a playbook' },
+  { key: 'out', label: 'Not in a playbook' },
+  { key: 'rec', label: 'Recordings' },
+]
+
 function when(iso: string): string {
   if (!iso) return ''
   const d = new Date(iso)
@@ -43,6 +56,8 @@ function when(iso: string): string {
     ? ''
     : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+const TAG = 'text-[0.6rem] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap'
 
 export function LibraryClient({
   plays,
@@ -62,22 +77,52 @@ export function LibraryClient({
   /** The play whose recording is playing in its card, instead of the still. */
   const [watching, setWatching] = useState<string | null>(null)
   const [find, setFind] = useState('')
+  const [filter, setFilter] = useState<Filter>('all')
+  const [sort, setSort] = useState<'new' | 'az'>('new')
+  /** Pages made from here, until the server's list catches up. */
   const [added, setAdded] = useState<Record<string, PlaybookSpot[]>>({})
-  const [adding, setAdding] = useState<string | null>(null)
-  const [addError, setAddError] = useState<string | null>(null)
-  const spotsFor = (id: string) => [...(spots[id] ?? []), ...(added[id] ?? [])]
-  const shown = find.trim() ? plays.filter((p) => p.name.toLowerCase().includes(find.trim().toLowerCase())) : plays
-
-  async function addTo(play: LibraryPlay, team: Team) {
-    setAdding(`${play.id}:${team}`)
-    setAddError(null)
-    const r = await addSavedPlayToPlaybook({ playId: play.id, team })
-    if (r.ok) {
-      setAdded((x) => ({ ...x, [play.id]: [...(x[play.id] ?? []), { team: r.team, pageId: r.pageId }] }))
-      if (r.note) setAddError(r.note.trim())
-    } else setAddError(r.error)
-    setAdding(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const spotsFor = (id: string) => {
+    const all = [...(spots[id] ?? []), ...(added[id] ?? [])]
+    return all.filter((s, i) => all.findIndex((x) => x.pageId === s.pageId) === i)
   }
+
+  const q = find.trim().toLowerCase()
+  const matches = (title: string) => !q || title.toLowerCase().includes(q)
+  const fits = (p: LibraryPlay, f: Filter) =>
+    f === 'steps' ? p.steps > 1
+    : f === 'in' ? spotsFor(p.id).length > 0
+    : f === 'out' ? spotsFor(p.id).length === 0
+    : f === 'rec' ? !!p.clip
+    : true
+  const count = (f: Filter) => plays.filter((p) => fits(p, f)).length
+  /* Newest first is how they come; A–Z reads "1-4-1 pop" before "2-3-1 dodge"
+     and "Clear 2" before "Clear 10". */
+  function sorted<T>(list: T[], title: (x: T) => string, at: (x: T) => string): T[] {
+    return [...list].sort((a, b) =>
+      sort === 'az'
+        ? title(a).localeCompare(title(b), undefined, { sensitivity: 'base', numeric: true })
+        : at(b).localeCompare(at(a))
+    )
+  }
+  const shown = sorted(plays.filter((p) => matches(p.name) && fits(p, filter)), (p) => p.name, (p) => p.updatedAt)
+  // Screenshots aren't plays: a play filter puts them away; a search looks through them too.
+  const shotsShown = filter === 'all' ? sorted(shots.filter((s) => matches(s.title)), (s) => s.title, (s) => s.createdAt) : []
+  const narrowed = !!q || filter !== 'all'
+  function widen() {
+    setFind('')
+    setFilter('all')
+  }
+
+  async function addTo(play: LibraryPlay, team: Team, section: PlaybookSection): Promise<string | null> {
+    setNotice(null)
+    const r = await addSavedPlayToPlaybook({ playId: play.id, team, section })
+    if (!r.ok) return r.error
+    setAdded((x) => ({ ...x, [play.id]: [...(x[play.id] ?? []), { team: r.team, pageId: r.pageId, section }] }))
+    if (r.note) setNotice(r.note.trim())
+    return null
+  }
+
   const [picked, setPicked] = useState<string[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   /** Set once the plays have been drawn and there is a message ready to send. */
@@ -222,6 +267,8 @@ export function LibraryClient({
   }
 
   function deletePicked() {
+    const many = picked.length
+    if (!window.confirm(`Delete ${many === 1 ? 'it' : `these ${many}`}? This can’t be undone.`)) return
     const data = new FormData()
     data.set('shots', pickedShots.map((s) => s.id).join(','))
     data.set('plays', pickedPlays.map((p) => p.id).join(','))
@@ -255,40 +302,94 @@ export function LibraryClient({
         </div>
       )}
 
+      {/* Find, narrow, order. Always here: the shelf only gets longer. */}
+      {(plays.length > 0 || shots.length > 0) && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              value={find}
+              onChange={(e) => setFind(e.target.value)}
+              placeholder="Find a play or screenshot"
+              aria-label="Find a play or screenshot"
+              className="field !py-1.5 text-sm flex-1 min-w-0 sm:max-w-xs"
+            />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value === 'az' ? 'az' : 'new')}
+              aria-label="Order"
+              className="field !py-1.5 !w-auto text-sm shrink-0"
+            >
+              <option value="new">Newest</option>
+              <option value="az">A–Z</option>
+            </select>
+          </div>
+          {plays.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Show">
+              {FILTERS.map((f) => {
+                const n = count(f.key)
+                // A filter with nothing in it is clutter — unless it's the one you're on.
+                if (f.key !== 'all' && n === 0 && filter !== f.key) return null
+                const on = filter === f.key
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setFilter(f.key)}
+                    aria-pressed={on}
+                    className="shrink-0 min-h-8 px-3 rounded-full border text-xs font-bold whitespace-nowrap transition"
+                    style={
+                      on
+                        ? { borderColor: 'var(--gh-green)', background: '#eef6f1', color: 'var(--gh-green)' }
+                        : { borderColor: '#e5e7eb', color: '#4b5563', background: '#fff' }
+                    }
+                  >
+                    {f.label} <span className={on ? 'opacity-70' : 'text-gray-400'}>{n}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       <section>
         <h2 className="text-[0.7rem] font-black tracking-[0.15em] uppercase text-gray-400 mb-2">
-          Plays {plays.length > 0 && <span className="text-gray-300">· {plays.length}</span>}
+          Plays{' '}
+          {plays.length > 0 && (
+            <span className="text-gray-300">· {narrowed ? `${shown.length} of ${plays.length}` : plays.length}</span>
+          )}
         </h2>
 
-        {plays.length > 6 && (
-          <input
-            value={find}
-            onChange={(e) => setFind(e.target.value)}
-            placeholder="Find a play"
-            aria-label="Find a play"
-            className="field !py-1.5 text-sm mb-3 max-w-xs"
-          />
+        {notice && (
+          <p className="text-sm font-semibold text-amber-800 mb-2" role="status">
+            {notice}
+          </p>
         )}
-        {addError && <p className="text-sm font-semibold text-red-700 mb-2" role="alert">{addError}</p>}
 
         {plays.length === 0 ? (
           <p className="text-sm text-gray-400">
             Nothing yet. Draw one on the <Link href="/admin/playboard" className="font-bold text-[var(--gh-green)]">Playboard</Link>, name it and hit Save.
           </p>
         ) : shown.length === 0 ? (
-          <p className="text-sm text-gray-400">No play called that.</p>
+          <p className="text-sm text-gray-400">
+            No play fits that.{' '}
+            <button type="button" onClick={widen} className="font-bold text-[var(--gh-green)]">
+              Show them all
+            </button>
+          </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {shown.map((p) => {
-              const here = spotsFor(p.id)
+              const here = teamSpots(spotsFor(p.id))
               return (
                 <div
                   key={p.id}
-                  className="rounded-xl border-2 bg-white overflow-hidden flex flex-col"
+                  className="rounded-xl border-2 bg-white flex flex-col"
                   style={{ borderColor: isPicked(p.id) ? 'var(--gh-green)' : 'var(--color-gray-200, #e5e7eb)' }}
                 >
                   {/* The play itself. Double-tap it for full screen. */}
-                  <div>
+                  <div className="rounded-t-[10px] overflow-hidden">
                     {watching === p.id && p.clip ? (
                       <ClipPlayer clip={p.clip} autoPlay />
                     ) : (
@@ -305,25 +406,29 @@ export function LibraryClient({
                         className="w-4 h-4 accent-[var(--gh-green)] shrink-0"
                       />
                       <span className="font-bold truncate">{p.name}</span>
-                      {p.clip && (
-                        <span
-                          className="text-[0.6rem] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0"
-                          style={{ background: '#e8f2ea', color: 'var(--gh-green-dk)' }}
-                        >
-                          Rec · {(clipLength(p.clip) / 1000).toFixed(0)}s
-                        </span>
-                      )}
-                      {p.steps > 1 && (
-                        <span
-                          className="text-[0.6rem] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0"
-                          style={{ background: '#eef2f7', color: '#2F5D8C' }}
-                        >
-                          {p.steps} steps
-                        </span>
-                      )}
                       <span className="text-xs text-gray-400 ml-auto shrink-0">{when(p.updatedAt)}</span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm font-bold">
+
+                    {/* What it is, and where it already is. */}
+                    {(p.steps > 1 || p.clip || here.length > 0) && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {p.steps > 1 && (
+                          <span className={TAG} style={{ background: '#eef2f7', color: '#2F5D8C' }}>
+                            {p.steps} steps
+                          </span>
+                        )}
+                        {p.clip && (
+                          <span className={TAG} style={{ background: '#e8f2ea', color: 'var(--gh-green-dk)' }}>
+                            Rec · {(clipLength(p.clip) / 1000).toFixed(0)}s
+                          </span>
+                        )}
+                        {here.map((s) => (
+                          <SpotLink key={s.team} spot={s} />
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold">
                       <Link href={`/admin/playboard?play=${p.id}`} className="text-[var(--gh-green)]">
                         Open on the Playboard
                       </Link>
@@ -336,37 +441,26 @@ export function LibraryClient({
                           {watching === p.id ? 'Show the play' : '▶ Watch it drawn'}
                         </button>
                       )}
+                      {playbookTeams.length > 0 && (
+                        <PlaybookPicker
+                          teams={playbookTeams}
+                          spots={here}
+                          steps={p.steps}
+                          showSpots={false}
+                          onAdd={(team, section) => addTo(p, team, section)}
+                        />
+                      )}
                     </div>
-                    {(playbookTeams.length > 0 || here.length > 0) && (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {Array.from(new Set([...playbookTeams, ...here.map((x) => x.team)])).map((t) => {
-                          const spot = here.find((x) => x.team === t)
-                          const label = `${teamLabel(t)} playbook`
-                          return spot ? (
-                            <Link
-                              key={t}
-                              href={withTeam(`/admin/playbook/${spot.pageId}`, t)}
-                              className="text-xs font-bold rounded-full px-2.5 py-1 border"
-                              style={{ color: 'var(--gh-green)', borderColor: 'var(--gh-green)', background: '#eef6f1' }}
-                            >
-                              ✓ In {label} ↗
-                            </Link>
-                          ) : playbookTeams.includes(t) ? (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => addTo(p, t)}
-                              disabled={!!adding}
-                              className="text-xs font-bold rounded-full px-2.5 py-1 border border-gray-200 text-gray-700 hover:border-gray-400 disabled:opacity-50"
-                            >
-                              {adding === `${p.id}:${t}` ? 'Adding…' : `📘 Add to ${label}`}
-                            </button>
-                          ) : null
-                        })}
-                      </div>
-                    )}
-                    {p.clip && (
-                      <form action={clearPlayClipAction}>
+
+                    {/* Only while it's playing: the take is what you'd be throwing away. */}
+                    {p.clip && watching === p.id && (
+                      <form
+                        action={clearPlayClipAction}
+                        onSubmit={(e) => {
+                          if (!window.confirm('Drop the recording? The play stays.')) e.preventDefault()
+                          else setWatching(null)
+                        }}
+                      >
                         <input type="hidden" name="id" value={p.id} />
                         <button type="submit" className="text-xs font-semibold text-gray-400 hover:text-gray-700">
                           Drop the recording
@@ -381,58 +475,65 @@ export function LibraryClient({
         )}
       </section>
 
-      <section>
-        <h2 className="text-[0.7rem] font-black tracking-[0.15em] uppercase text-gray-400 mb-2">
-          Screenshots {shots.length > 0 && <span className="text-gray-300">· {shots.length}</span>}
-        </h2>
+      {filter === 'all' && (
+        <section>
+          <h2 className="text-[0.7rem] font-black tracking-[0.15em] uppercase text-gray-400 mb-2">
+            Screenshots{' '}
+            {shots.length > 0 && (
+              <span className="text-gray-300">· {q ? `${shotsShown.length} of ${shots.length}` : shots.length}</span>
+            )}
+          </h2>
 
-        {shots.length === 0 ? (
-          <p className="text-sm text-gray-400">
-            Nothing yet. Hit Screenshot on the Playboard and the picture lands here.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {shots.map((s) => (
-              <figure
-                key={s.id}
-                className="rounded-xl border-2 bg-white overflow-hidden"
-                style={{ borderColor: isPicked(s.id) ? 'var(--gh-green)' : 'var(--color-gray-200, #e5e7eb)' }}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggle(s.id)}
-                  aria-pressed={isPicked(s.id)}
-                  className="block w-full text-left"
-                  title="Tap to pick it"
+          {shots.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              Nothing yet. Hit Screenshot on the Playboard and the picture lands here.
+            </p>
+          ) : shotsShown.length === 0 ? (
+            <p className="text-sm text-gray-400">No screenshot called that.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {shotsShown.map((s) => (
+                <figure
+                  key={s.id}
+                  className="rounded-xl border-2 bg-white overflow-hidden"
+                  style={{ borderColor: isPicked(s.id) ? 'var(--gh-green)' : 'var(--color-gray-200, #e5e7eb)' }}
                 >
-                  {/* Our own bucket, and a flat PNG — nothing to resize. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={s.url} alt={s.title} className="w-full block bg-gray-50" />
-                </button>
-                <figcaption className="px-3 py-2 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={isPicked(s.id)}
-                    onChange={() => toggle(s.id)}
-                    aria-label={`Select ${s.title}`}
-                    className="w-4 h-4 accent-[var(--gh-green)] shrink-0"
-                  />
-                  <span className="text-sm font-semibold truncate">{s.title}</span>
-                  <span className="text-xs text-gray-400 ml-auto shrink-0">{when(s.createdAt)}</span>
-                  <a
-                    href={s.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-semibold text-gray-400 hover:text-gray-700 shrink-0"
+                  <button
+                    type="button"
+                    onClick={() => toggle(s.id)}
+                    aria-pressed={isPicked(s.id)}
+                    className="block w-full text-left"
+                    title="Tap to pick it"
                   >
-                    Open
-                  </a>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        )}
-      </section>
+                    {/* Our own bucket, and a flat PNG — nothing to resize. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={s.url} alt={s.title} className="w-full block bg-gray-50" />
+                  </button>
+                  <figcaption className="px-3 py-2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isPicked(s.id)}
+                      onChange={() => toggle(s.id)}
+                      aria-label={`Select ${s.title}`}
+                      className="w-4 h-4 accent-[var(--gh-green)] shrink-0"
+                    />
+                    <span className="text-sm font-semibold truncate">{s.title}</span>
+                    <span className="text-xs text-gray-400 ml-auto shrink-0">{when(s.createdAt)}</span>
+                    <a
+                      href={s.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-gray-400 hover:text-gray-700 shrink-0"
+                    >
+                      Open
+                    </a>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Where a play gets drawn so it can be photographed. Off the side of the
           page rather than hidden: a board with no size takes a blank picture. */}

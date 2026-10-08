@@ -2,11 +2,13 @@ import { createServiceClient } from './supabase-server'
 import { DEFAULT_TEAM, isTeam, type Team } from './teams'
 import {
   DEFAULT_SETTINGS,
+  isPlaybookSection,
   readBlocks,
   readPage,
   readSettings,
   settingsKey,
   type PlaybookPage,
+  type PlaybookSection,
   type PlaybookSettings,
 } from './playbook'
 
@@ -37,22 +39,24 @@ export async function listPages(team: Team = DEFAULT_TEAM): Promise<PlaybookPage
 export interface PlaybookSpot {
   team: Team
   pageId: string
+  section: PlaybookSection | null
 }
 
 /** Play id → the playbook pages it is on, across both decks. */
 export async function playbookSpots(): Promise<Record<string, PlaybookSpot[]>> {
   const { data, error } = await createServiceClient()
     .from('playbook_pages')
-    .select('id, team, blocks')
+    .select('id, team, blocks, section')
     .order('sort_order', { ascending: true })
   if (error) return {}
   const out: Record<string, PlaybookSpot[]> = {}
-  for (const row of (data ?? []) as { id: string; team: unknown; blocks: unknown }[]) {
+  for (const row of (data ?? []) as { id: string; team: unknown; blocks: unknown; section: unknown }[]) {
     if (!isTeam(row.team)) continue
     for (const b of readBlocks(row.blocks)) {
       if (b.kind !== 'play' || !b.playId) continue
       const spots = (out[b.playId] ??= [])
-      if (!spots.some((x) => x.pageId === row.id)) spots.push({ team: row.team, pageId: String(row.id) })
+      if (!spots.some((x) => x.pageId === row.id))
+        spots.push({ team: row.team, pageId: String(row.id), section: isPlaybookSection(row.section) ? row.section : null })
     }
   }
   return out
@@ -88,7 +92,8 @@ export async function addPage(
   title: string,
   by: string | null,
   blocks: unknown[] = [],
-  layout = 'field'
+  layout = 'field',
+  section: PlaybookSection | null = null,
 ): Promise<string | null> {
   const svc = createServiceClient()
   const { data: last } = await svc
@@ -101,7 +106,7 @@ export async function addPage(
   const sort_order = (Number((last as { sort_order?: number })?.sort_order) || 0) + 1
   const { data } = await svc
     .from('playbook_pages')
-    .insert({ team, title, sort_order, blocks, layout, created_by: by })
+    .insert({ team, title, sort_order, blocks, layout, created_by: by, section })
     .select('id')
     .maybeSingle()
   return (data as { id?: string } | null)?.id ?? null
@@ -109,9 +114,10 @@ export async function addPage(
 
 export async function savePage(
   id: string,
-  next: { title?: string; blocks?: unknown; layout?: string; notes?: string | null }
+  next: { title?: string; blocks?: unknown; layout?: string; notes?: string | null; section?: PlaybookSection | null }
 ): Promise<void> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (next.section !== undefined) patch.section = next.section
   if (next.title !== undefined) patch.title = next.title
   if (next.blocks !== undefined) patch.blocks = next.blocks
   if (next.layout !== undefined) patch.layout = next.layout

@@ -223,10 +223,37 @@ export const SHAPES: { key: ShapeKind; label: string }[] = [
   { key: 'line', label: 'Line' },
 ]
 
+/**
+ * Where a page sits in the playbook. The deck is one ordered list; sections
+ * group it the way a coach thinks about it, and a page can be moved between
+ * them. A page with no section is "not sorted yet".
+ */
+export type PlaybookSection = 'offense' | 'defense' | 'man_up' | 'man_down' | 'transition' | 'faceoffs' | 'other'
+
+export const PLAYBOOK_SECTIONS: { key: PlaybookSection; label: string; icon: string }[] = [
+  { key: 'offense', label: 'Offense', icon: '⚔️' },
+  { key: 'defense', label: 'Defense', icon: '🛡' },
+  { key: 'man_up', label: 'Man-up', icon: '➕' },
+  { key: 'man_down', label: 'Man-down', icon: '➖' },
+  { key: 'transition', label: 'Clears & rides', icon: '↔️' },
+  { key: 'faceoffs', label: 'Faceoffs', icon: '🎯' },
+  { key: 'other', label: 'Other', icon: '📎' },
+]
+
+export function isPlaybookSection(v: unknown): v is PlaybookSection {
+  return PLAYBOOK_SECTIONS.some((s) => s.key === v)
+}
+
+export function sectionLabel(s: PlaybookSection | null): string {
+  return PLAYBOOK_SECTIONS.find((x) => x.key === s)?.label ?? 'Not sorted'
+}
+
 export interface PlaybookPage {
   id: string
   team: Team
   sortOrder: number
+  /** Null: not sorted into a section yet. */
+  section: PlaybookSection | null
   title: string
   blocks: SlideBlock[]
   layout: PageLayout
@@ -404,6 +431,7 @@ export function readPage(row: Record<string, unknown>): PlaybookPage {
     id: String(row.id),
     team: isTeam(row.team) ? row.team : DEFAULT_TEAM,
     sortOrder: Number(row.sort_order) || 0,
+    section: isPlaybookSection(row.section) ? row.section : null,
     title: str(row.title),
     blocks: readBlocks(row.blocks),
     layout: isLayout(row.layout) ? row.layout : 'split',
@@ -466,4 +494,58 @@ export function reorder(ids: string[], from: number, to: number): string[] {
   const next = [...ids]
   next.splice(to, 0, next.splice(from, 1)[0])
   return next
+}
+
+/**
+ * A run of the deck: one page, or every page of one play progression in a
+ * row (the pages "Add to playbook" made from its steps). The deck screen and
+ * the editor's filmstrip show a run as one stack that moves together.
+ */
+export interface DeckRun {
+  /** The progression's play, or null for a single page. */
+  playId: string | null
+  pages: PlaybookPage[]
+}
+
+/** Which step of which progression a page shows, if it is one. */
+export function stepOf(page: PlaybookPage): { playId: string; step: number } | null {
+  const b = page.blocks.find((x): x is PlayBlock => x.kind === 'play' && !!x.playId && x.step !== undefined)
+  return b ? { playId: b.playId, step: b.step! } : null
+}
+
+/** The deck as runs, in deck order. A progression's pages only group while they sit next to each other. */
+export function deckRuns(pages: PlaybookPage[]): DeckRun[] {
+  const out: DeckRun[] = []
+  for (const p of pages) {
+    const s = stepOf(p)
+    const last = out[out.length - 1]
+    if (s && last && last.playId === s.playId && (last.pages[0].section ?? null) === (p.section ?? null)) last.pages.push(p)
+    else out.push({ playId: s ? s.playId : null, pages: [p] })
+  }
+  return out
+}
+
+/**
+ * The playbook in reading order: section by section (Offense first, "not
+ * sorted" last), deck order within each. The deck screen, the editor's
+ * filmstrip, Present and the players' view all show it this way, and a drag
+ * writes the flattened order back with arrangeSlides.
+ */
+export function orderedDeck(pages: PlaybookPage[]): PlaybookPage[] {
+  const rank = (s: PlaybookSection | null) => {
+    const i = PLAYBOOK_SECTIONS.findIndex((x) => x.key === s)
+    return i < 0 ? PLAYBOOK_SECTIONS.length : i
+  }
+  return [...pages].sort((a, b) => rank(a.section) - rank(b.section) || a.sortOrder - b.sortOrder)
+}
+
+/** The deck by section, in reading order; empty sections left out. */
+export function deckSections(pages: PlaybookPage[]): { section: PlaybookSection | null; pages: PlaybookPage[] }[] {
+  const out: { section: PlaybookSection | null; pages: PlaybookPage[] }[] = []
+  for (const p of orderedDeck(pages)) {
+    const last = out[out.length - 1]
+    if (last && last.section === p.section) last.pages.push(p)
+    else out.push({ section: p.section, pages: [p] })
+  }
+  return out
 }

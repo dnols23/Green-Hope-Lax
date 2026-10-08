@@ -1,14 +1,17 @@
 'use client'
 import Link from 'next/link'
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { FieldBoard } from '@/components/planner/FieldBoard'
 import { ClipPlayer } from '@/components/planner/ClipPlayer'
 import { savePlayAction, deletePlayAction, saveShotAction } from '@/lib/actions'
 import { addPlayToPlaybook } from '@/lib/playbookActions'
+import { sectionLabel, type PlaybookSection } from '@/lib/playbook'
 import { teamLabel, withTeam, type Team } from '@/lib/teams'
 import type { PlaybookSpot } from '@/lib/playbookData'
 import { clipLength } from '@/lib/planner'
 import { EMPTY_BOARD, MAX_PLAY_STEPS, readBoard, type Board, type BoardClip, type BoardFrame, type PlayStep } from '@/lib/planner'
+import { PlaybookPicker, spotLabel, teamSpots } from '@/app/admin/(hub)/library/PlaybookPicker'
+import { Popover } from '@/app/admin/(hub)/library/Popover'
 import { ProgressionPanel } from './Progression'
 
 /**
@@ -43,6 +46,8 @@ interface OpenMeta {
   /** The progression being built, and which step is on the board. */
   steps?: PlayStep[] | null
   active?: number
+  /** The fingerprint of what was last saved or opened — anything else on the glass is unsaved. */
+  saved?: number
 }
 
 function loadMeta(plays: SavedPlay[], board: Board): OpenMeta {
@@ -72,6 +77,7 @@ function loadMeta(plays: SavedPlay[], board: Board): OpenMeta {
       openName: openId && typeof m?.openName === 'string' ? m.openName : '',
       steps: steps?.length ? steps : null,
       active,
+      saved: typeof m?.saved === 'number' ? m.saved : undefined,
     }
   } catch {
     return { name: '', openId: null, openName: '' }
@@ -97,14 +103,125 @@ function loadScratch(): Board {
   }
 }
 
-/** A play asked for in the address (?play=…), from the Library's Open button. */
-function askedFor(plays: SavedPlay[]): SavedPlay | null {
+/**
+ * A fingerprint of what Save would keep: the name, and the drawing (or every
+ * step of a progression). Each board is read back the way storage reads it, so
+ * the same play fingerprints the same after a trip through this device's
+ * storage or the database. A one-step progression saves as a plain play, so it
+ * counts as one.
+ */
+function fingerprint(name: string, board: Board, steps: PlayStep[] | null): number {
+  const clean = (b: Board) => readBoard(b) ?? b
+  const run = steps && steps.length > 1 ? steps.map((s) => ({ board: clean(s.board), note: s.note })) : null
+  const text = JSON.stringify([name.trim(), run ?? clean(board)])
+  // FNV-1a: small, quick, and plenty to tell "the same" from "changed".
+  let h = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return h >>> 0
+}
+
+const BLANK = fingerprint('', EMPTY_BOARD, null)
+
+/** What the board opens to. */
+interface Start {
+  board: Board
+  name: string
+  openId: string | null
+  openName: string
+  steps: PlayStep[] | null
+  active: number
+  clip: BoardClip | null
+  saved: number
+  /** A play asked for in the address while the board had unsaved work: open it only on a yes. */
+  ask: SavedPlay | null
+  /** Where "Back to the playbook" goes, when the board was opened from a playbook page. */
+  back: string | null
+  /** Something to say on arrival. */
+  note: string | null
+}
+
+function fromPlay(p: SavedPlay): Pick<Start, 'board' | 'name' | 'openId' | 'openName' | 'steps' | 'active' | 'clip' | 'saved'> {
+  const board = p.steps?.[0]?.board ?? p.board
+  return {
+    board,
+    name: p.name,
+    openId: p.id,
+    openName: p.name,
+    steps: p.steps,
+    active: 0,
+    clip: p.clip,
+    saved: fingerprint(p.name, board, p.steps),
+  }
+}
+
+/** Only back to a playbook page on this site — never anywhere an address could be talked into. */
+function backFrom(params: URLSearchParams): string | null {
+  const raw = params.get('back')
+  if (!raw) return null
   try {
-    const id = new URLSearchParams(window.location.search).get('play')
-    return (id && plays.find((p) => p.id === id)) || null
+    const u = new URL(raw, window.location.origin)
+    if (u.origin !== window.location.origin || !/^\/admin\/playbook(\/|$)/.test(u.pathname)) return null
+    return u.pathname + u.search + u.hash
   } catch {
     return null
   }
+}
+
+/**
+ * The board on the glass when you arrive: whatever you left on it — brought up
+ * to date if it was a saved play you hadn't touched since — unless the address
+ * asks for a play (?play=, from the Library or a playbook page). That one opens,
+ * but never over unsaved work without asking.
+ */
+function startingPoint(plays: SavedPlay[]): Start {
+  const scratch = loadScratch()
+  const meta = loadMeta(plays, scratch)
+  const kept = plays.find((p) => p.id === meta.openId) ?? null
+  const steps = meta.steps ?? null
+  const now = fingerprint(meta.name, scratch, steps)
+  // A board from before fingerprints were kept: clean if it is a saved play or nothing at all.
+  const clean = meta.saved === undefined ? !!kept || now === BLANK : meta.saved === now || now === BLANK
+
+  let start: Start = {
+    board: scratch,
+    name: meta.name,
+    openId: meta.openId,
+    openName: meta.openName,
+    steps,
+    active: meta.active ?? 0,
+    clip: kept?.clip ?? null,
+    // Unsaved work stays unsaved across a reload; -1 matches nothing.
+    saved: clean ? now : meta.saved ?? -1,
+    ask: null,
+    back: null,
+    note: null,
+  }
+  // Untouched since it was saved: show the play as it is saved now (another device may have moved it on).
+  if (clean && kept) {
+    const fresh = fromPlay(kept)
+    start = { ...start, ...fresh, active: fresh.steps ? Math.min(start.active, fresh.steps.length - 1) : 0 }
+    start.board = fresh.steps?.[start.active]?.board ?? fresh.board
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search)
+    start.back = backFrom(params)
+    const id = params.get('play')
+    if (id) {
+      const asked = plays.find((p) => p.id === id)
+      if (!asked) start.note = 'That play isn’t on your shelf any more.'
+      // Nothing unsaved on the board, or it already is that play exactly: just open it.
+      else if (clean || fingerprint(start.name, start.board, start.steps) === fromPlay(asked).saved)
+        start = { ...start, ...fromPlay(asked) }
+      else start.ask = asked
+    }
+  } catch {
+    // No address to read is no play asked for.
+  }
+  return start
 }
 
 export default function QuickBoard({
@@ -120,28 +237,34 @@ export default function QuickBoard({
   /** Play id → the playbook pages it is already on. */
   spots?: Record<string, PlaybookSpot[]>
 }) {
-  const [first] = useState(() => askedFor(plays))
-  const [board, setBoard] = useState<Board>(() => first?.board ?? loadScratch())
-  const [meta] = useState(() => (first ? null : loadMeta(plays, board)))
-  const [name, setName] = useState(first?.name ?? meta?.name ?? '')
-  const [openId, setOpenId] = useState<string | null>(first?.id ?? meta?.openId ?? null)
+  const [start] = useState(() => startingPoint(plays))
+  const [board, setBoard] = useState<Board>(start.board)
+  const [name, setName] = useState(start.name)
+  const [openId, setOpenId] = useState<string | null>(start.openId)
   /* The name the open play was saved under. Type a different one and Save
      makes a new play, so the playbook links below stop pointing at the old one. */
-  const [openName, setOpenName] = useState(first?.name ?? meta?.openName ?? '')
+  const [openName, setOpenName] = useState(start.openName)
   /* The progression, when the play is being built as steps. The board above is
      always the picked step; drawing on it changes that step. */
-  const [steps, setSteps] = useState<PlayStep[] | null>(first ? first.steps : (meta?.steps ?? null))
-  const [active, setActive] = useState(first ? 0 : (meta?.active ?? 0))
+  const [steps, setSteps] = useState<PlayStep[] | null>(start.steps)
+  const [active, setActive] = useState(start.active)
+  /** The fingerprint of what was last saved or opened. */
+  const [saved, setSaved] = useState(start.saved)
+  /** A take recorded since the last save — the fingerprint doesn't cover takes. */
+  const [newTake, setNewTake] = useState(false)
+  const [ask, setAsk] = useState<SavedPlay | null>(start.ask)
+  const back = start.back
   const [added, setAdded] = useState<Record<string, PlaybookSpot[]>>({})
-  const [said, setSaid] = useState<{ ok: boolean; text: string; href?: string; link?: string } | null>(null)
+  const [said, setSaid] = useState<{ ok: boolean; text: string; href?: string; link?: string; primary?: boolean } | null>(
+    start.note ? { ok: false, text: start.note } : null
+  )
   const [saving, startSaving] = useTransition()
-  const formRef = useRef<HTMLFormElement>(null)
 
   /* The take. While recording, every change to the board lands in here with the
      millisecond it happened, which is the whole recording — no timer, no
      frames anybody has to think about. */
   const [recording, setRecording] = useState(false)
-  const [clip, setClip] = useState<BoardClip | null>(first?.clip ?? null)
+  const [clip, setClip] = useState<BoardClip | null>(start.clip)
   const [watching, setWatching] = useState(false)
   const frames = useRef<BoardFrame[]>([])
   const startedAt = useRef(0)
@@ -149,6 +272,10 @@ export default function QuickBoard({
   /* The recent saves, behind one button. A row of chips was fine at two plays
      and a wall at twenty. */
   const [openList, setOpenList] = useState(false)
+  const [find, setFind] = useState('')
+
+  const now = useMemo(() => fingerprint(name, board, steps), [name, board, steps])
+  const dirty = newTake || (now !== saved && now !== BLANK)
 
   /** Every change to the board goes through here, so recording is simply on or off. */
   function change(next: Board) {
@@ -179,6 +306,7 @@ export default function QuickBoard({
       return
     }
     setClip({ frames: [...taken, { at: Date.now() - startedAt.current, board }] })
+    setNewTake(true)
   }
 
   /** A picture of the field, straight into the Library. */
@@ -204,14 +332,18 @@ export default function QuickBoard({
     }
   }
 
+  /* The play asked for in the address has been dealt with (opened, or the
+     board kept): take it out, so a reload doesn't ask again. ?back= stays. */
   useEffect(() => {
-    if (!openList) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenList(false)
+    try {
+      const url = new URL(window.location.href)
+      if (!url.searchParams.has('play')) return
+      url.searchParams.delete('play')
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+    } catch {
+      // Leaving the address alone is harmless.
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [openList])
+  }, [])
 
   useEffect(() => {
     try {
@@ -223,70 +355,94 @@ export default function QuickBoard({
 
   useEffect(() => {
     try {
-      localStorage.setItem(SCRATCH_META, JSON.stringify({ name, openId, openName, steps, active } satisfies OpenMeta))
+      localStorage.setItem(SCRATCH_META, JSON.stringify({ name, openId, openName, steps, active, saved } satisfies OpenMeta))
     } catch {
       // as above
     }
-  }, [name, openId, openName, steps, active])
+  }, [name, openId, openName, steps, active, saved])
 
   /** The open play, if what is on the glass is still saved under its name. */
   const currentId = openId && openName === name.trim() ? openId : null
-  const spotsFor = (id: string | null) => (id ? [...(spots[id] ?? []), ...(added[id] ?? [])] : [])
+  const spotsFor = (id: string | null) => {
+    if (!id) return []
+    const all = [...(spots[id] ?? []), ...(added[id] ?? [])]
+    return all.filter((s, i) => all.findIndex((x) => x.pageId === s.pageId) === i)
+  }
   const here = spotsFor(currentId)
+  const many = steps && steps.length > 1 ? steps.length : 0
+
+  /** What is about to be kept, as of this tap. */
+  function snapshot() {
+    return { name: name.trim(), print: now, many }
+  }
 
   function save() {
     if (!name.trim() || !ready) return
+    const was = snapshot()
     const data = new FormData()
-    data.set('name', name.trim())
+    data.set('name', was.name)
     data.set('board', JSON.stringify(board))
     if (clip) data.set('clip', JSON.stringify(clip))
-    data.set('steps', steps && steps.length > 1 ? JSON.stringify(steps) : '')
+    data.set('steps', many ? JSON.stringify(steps) : '')
     setSaid(null)
     startSaving(async () => {
       const r = await savePlayAction(data)
-      if (r?.id) {
-        setOpenId(r.id)
-        setOpenName(name.trim())
-        const books = (r.playbooks ?? []).map((t) => `${teamLabel(t)} playbook`).join(' and ')
-        setSaid({
-          ok: true,
-          text: `Saved “${name.trim()}”${steps && steps.length > 1 ? `, all ${steps.length} steps` : ''}. ${
-            books ? `The ${books} ${r.playbooks!.length > 1 ? 'are' : 'is'} up to date too.` : 'It’s under Open and in the Library.'
-          }`,
-        })
-      } else setSaid({ ok: false, text: 'That didn’t save. Try again.' })
+      if (!r?.id) {
+        setSaid({ ok: false, text: 'That didn’t save. Try again.' })
+        return
+      }
+      setOpenId(r.id)
+      setOpenName(was.name)
+      setSaved(was.print)
+      setNewTake(false)
+      setAsk(null)
+      const books = r.playbooks ?? []
+      if (back && books.length) {
+        setSaid({ ok: true, text: 'Updated — the playbook pages are up to date.', href: back, link: 'Back to the page', primary: true })
+        return
+      }
+      const list = books.map((t) => `${teamLabel(t)} playbook`).join(' and ')
+      setSaid({
+        ok: true,
+        text: `Saved “${was.name}”${was.many ? `, all ${was.many} steps` : ''}. ${
+          list ? `The ${list} ${books.length > 1 ? 'are' : 'is'} up to date too.` : 'It’s under Open and in the Library.'
+        }`,
+        ...(back ? { href: back, link: 'Back to the page' } : {}),
+      })
     })
   }
 
   /* The other button. The Library is a shelf; the playbook is what we run.
-     Saves the play, gives it a page at the end of that team's playbook (or
-     finds the one it already has), and stays here with a link to it. */
-  function toPlaybook(team: Team) {
-    if (!name.trim() || !ready) return
+     Saves the play, gives it pages in that team's playbook, in the section
+     picked (or finds the ones it already has), and stays here with a link. */
+  async function toPlaybook(team: Team, section: PlaybookSection): Promise<string | null> {
+    if (!ready) return 'Plays can’t be saved yet.'
+    if (!name.trim()) return 'Name the play first.'
+    const was = snapshot()
     setSaid(null)
-    startSaving(async () => {
-      const r = await addPlayToPlaybook({
-        team,
-        name: name.trim(),
-        board: JSON.stringify(board),
-        clip: clip ? JSON.stringify(clip) : null,
-        steps: steps && steps.length > 1 ? JSON.stringify(steps) : null,
-      })
-      if (!r.ok) {
-        setSaid({ ok: false, text: r.error })
-        return
-      }
-      setOpenId(r.playId)
-      setOpenName(name.trim())
-      setAdded((x) => ({ ...x, [r.playId]: [...(x[r.playId] ?? []), { team: r.team, pageId: r.pageId }] }))
-      const many = steps && steps.length > 1
-      setSaid({
-        ok: true,
-        text: `“${name.trim()}” is in the ${teamLabel(r.team)} playbook${many ? `, ${steps.length} pages` : ''}.${r.note}`,
-        href: withTeam(`/admin/playbook/${r.pageId}`, r.team),
-        link: many ? 'Open the first page →' : 'Open its page →',
-      })
+    const r = await addPlayToPlaybook({
+      team,
+      section,
+      name: was.name,
+      board: JSON.stringify(board),
+      clip: clip ? JSON.stringify(clip) : null,
+      steps: was.many ? JSON.stringify(steps) : null,
     })
+    if (!r.ok) return r.error
+    setOpenId(r.playId)
+    setOpenName(was.name)
+    setSaved(was.print)
+    setNewTake(false)
+    setAdded((x) => ({ ...x, [r.playId]: [...(x[r.playId] ?? []), { team: r.team, pageId: r.pageId, section }] }))
+    setSaid({
+      ok: true,
+      text: `“${was.name}” is in the ${teamLabel(r.team)} playbook, under ${sectionLabel(section)}${
+        was.many ? ` — ${was.many} pages` : ''
+      }.${r.note}`,
+      href: withTeam(`/admin/playbook/${r.pageId}`, r.team),
+      link: was.many ? 'Open the first page →' : 'Open its page →',
+    })
+    return null
   }
 
   // ── Progression ─────────────────────────────────────────────────────────
@@ -347,94 +503,112 @@ export default function QuickBoard({
     setActive(0)
   }
 
+  // ── Opening and clearing ────────────────────────────────────────────────
+
+  /** Unsaved work goes only on a yes. */
+  function mayDiscard(what: string): boolean {
+    return !dirty || window.confirm(`The board has changes you haven’t saved. ${what}`)
+  }
+
   function open(play: SavedPlay) {
-    setBoard(play.board)
-    setSteps(play.steps)
+    const p = fromPlay(play)
+    setBoard(p.board)
+    setSteps(p.steps)
     setActive(0)
-    setOpenId(play.id)
-    setOpenName(play.name)
-    setName(play.name)
+    setOpenId(p.openId)
+    setOpenName(p.openName)
+    setName(p.name)
+    setSaved(p.saved)
+    setNewTake(false)
     setSaid(null)
-    setClip(play.clip)
+    setClip(p.clip)
     setWatching(false)
+    setRecording(false)
+    setAsk(null)
     setOpenList(false)
   }
+
+  function openFromList(play: SavedPlay) {
+    const again = play.id === currentId
+    if (!mayDiscard(again ? `Throw them away and open the saved “${play.name}”?` : `Open “${play.name}” anyway?`)) return
+    open(play)
+  }
+
+  function clearBoard() {
+    if (!mayDiscard('Clear it anyway?')) return
+    setBoard(EMPTY_BOARD)
+    setSteps(null)
+    setActive(0)
+    setOpenId(null)
+    setOpenName('')
+    setSaved(BLANK)
+    setNewTake(false)
+    setSaid(null)
+    setName('')
+    setClip(null)
+    setWatching(false)
+    setRecording(false)
+    setAsk(null)
+  }
+
+  const q = find.trim().toLowerCase()
+  const listed = q ? plays.filter((p) => p.name.toLowerCase().includes(q)) : plays
+  const saveLabel = saving ? 'Saving…' : currentId ? 'Update' : openId && name.trim() ? 'Save as new' : 'Save'
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
+        {back && (
+          <Link href={back} className="text-sm font-bold text-[var(--gh-green)] whitespace-nowrap mr-1">
+            ← Back to the playbook
+          </Link>
+        )}
         <h1 className="font-black text-lg mr-2">Playboard</h1>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); save() } }}
           placeholder="Name this play"
+          aria-label="Play name"
           className="field !py-1.5 !w-44 text-sm"
         />
-        <button
-          type="button"
-          onClick={save}
-          disabled={!name.trim() || saving || !ready}
-          className="btn btn-primary !py-1.5 text-sm disabled:opacity-50"
-        >
-          {saving ? 'Saving…' : currentId ? 'Update' : 'Save'}
-        </button>
-        {playbookTeams.map((t) => {
-          const label = playbookTeams.length > 1 ? `${teamLabel(t)} playbook` : 'Playbook'
-          const spot = here.find((x) => x.team === t)
-          return spot ? (
-            <span key={t} className="inline-flex items-center gap-1">
-              <Link
-                href={withTeam(`/admin/playbook/${spot.pageId}`, t)}
-                title={`Open its page in the ${teamLabel(t)} playbook`}
-                className="btn btn-ghost !py-1.5 text-sm"
-                style={{ color: 'var(--gh-green)', borderColor: 'var(--gh-green)' }}
-              >
-                ✓ In {label} ↗
-              </Link>
-              {/* A progression's pages are copies of its steps: this brings them up to date. */}
-              {steps && steps.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => toPlaybook(t)}
-                  disabled={saving || !ready}
-                  title={`Update the ${teamLabel(t)} playbook pages to match these steps`}
-                  className="btn btn-ghost !py-1.5 !px-2.5 text-sm disabled:opacity-50"
-                  aria-label={`Update the ${label} pages`}
-                >
-                  ↻
-                </button>
-              )}
+        <span className="inline-flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={save}
+            disabled={!name.trim() || saving || !ready}
+            title={
+              currentId
+                ? many && here.length
+                  ? 'Save the changes — its playbook pages update too'
+                  : 'Save the changes'
+                : openId && name.trim()
+                  ? `A new name makes a new play; “${openName}” stays as it was`
+                  : undefined
+            }
+            className="btn btn-primary !py-1.5 text-sm disabled:opacity-50"
+          >
+            {saveLabel}
+          </button>
+          {dirty && !saving && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700" title="Changes you haven’t saved">
+              <span aria-hidden className="w-2 h-2 rounded-full bg-amber-500" />
+              Unsaved
             </span>
-          ) : (
-            <button
-              key={t}
-              type="button"
-              onClick={() => toPlaybook(t)}
-              disabled={!name.trim() || saving || !ready}
-              title={name.trim() ? `Save it and add it to the ${teamLabel(t)} playbook` : 'Name the play first'}
-              className="btn btn-ghost !py-1.5 text-sm disabled:opacity-50"
-            >
-              📘 Add to {label}
-            </button>
-          )
-        })}
-        <button
-          type="button"
-          onClick={() => {
-            setBoard(EMPTY_BOARD)
-            setSteps(null)
-            setActive(0)
-            setOpenId(null)
-            setOpenName('')
-            setSaid(null)
-            setName('')
-            setClip(null)
-            setWatching(false)
-            setRecording(false)
-          }}
-          className="btn btn-ghost !py-1.5 text-sm"
-        >
+          )}
+        </span>
+        {playbookTeams.length > 0 && (
+          <PlaybookPicker
+            size="md"
+            teams={playbookTeams}
+            spots={here}
+            steps={many}
+            onAdd={toPlaybook}
+            blocked={!ready ? 'Run the plays SQL first.' : !name.trim() ? 'Name the play first.' : null}
+            hint={many && here.length ? 'Update keeps its pages current' : undefined}
+          />
+        )}
+        <button type="button" onClick={clearBoard} className="btn btn-ghost !py-1.5 text-sm">
           New
         </button>
         {/* Recent saves, one tap away, newest first. */}
@@ -443,6 +617,7 @@ export default function QuickBoard({
             type="button"
             onClick={() => setOpenList(!openList)}
             aria-expanded={openList}
+            aria-haspopup="dialog"
             disabled={plays.length === 0}
             className="btn btn-ghost !py-1.5 text-sm disabled:opacity-40"
             title={plays.length ? 'Open a play you saved' : 'Nothing saved yet'}
@@ -450,75 +625,70 @@ export default function QuickBoard({
             Open{plays.length > 0 && <span className="text-gray-400"> · {plays.length}</span>} ▾
           </button>
 
-          {openList && (
-            <>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpenList(false)}
-                className="fixed inset-0 z-40 cursor-default"
-              />
+          <Popover open={openList} onClose={() => setOpenList(false)} label="Your plays">
+            <div className="sticky top-0 bg-white px-3 pt-2.5 pb-2 border-b border-gray-100 space-y-2">
+              <div className="text-[0.65rem] font-black tracking-wider uppercase text-gray-400">Your plays · newest first</div>
+              {plays.length > 8 && (
+                <input
+                  type="search"
+                  value={find}
+                  onChange={(e) => setFind(e.target.value)}
+                  placeholder="Find a play"
+                  aria-label="Find a play"
+                  className="field !py-1.5 text-sm"
+                />
+              )}
+            </div>
+            {listed.length === 0 && <p className="px-3 py-3 text-sm text-gray-400">No play called that.</p>}
+            {listed.map((p) => (
               <div
-                className="absolute left-0 top-full mt-1 z-50 w-72 rounded-xl border border-gray-200 bg-white shadow-2xl overflow-hidden"
-                style={{ maxHeight: '60vh', overflowY: 'auto' }}
+                key={p.id}
+                className="flex items-center gap-1 px-1.5 hover:bg-gray-50"
+                style={{ background: openId === p.id ? '#f0f4f1' : undefined }}
               >
-                <div className="px-3 pt-2 pb-1 text-[0.65rem] font-black tracking-wider uppercase text-gray-400">
-                  Your plays · newest first
-                </div>
-                {plays.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-1 px-1.5 hover:bg-gray-50"
-                    style={{ background: openId === p.id ? '#f0f4f1' : undefined }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => open(p)}
-                      title={p.createdBy ? `Drawn by ${p.createdBy}` : undefined}
-                      className="flex-1 text-left px-2 py-2 text-sm font-semibold truncate"
-                    >
-                      {p.name}
-                      {p.clip && (
-                        <span className="text-[0.65rem] font-black text-gray-400 ml-1.5">
-                          ▶ {(clipLength(p.clip) / 1000).toFixed(0)}s
-                        </span>
-                      )}
-                      {p.steps && (
-                        <span className="text-[0.65rem] font-black text-gray-400 ml-1.5">{p.steps.length} steps</span>
-                      )}
-                      {Array.from(new Set(spotsFor(p.id).map((x) => x.team))).map((t) => (
-                        <span key={t} className="ml-1.5 text-[0.6rem] font-black uppercase tracking-wide rounded px-1 py-0.5 bg-[#eef6f1] text-[var(--gh-green)]">
-                          {teamLabel(t)}
-                        </span>
-                      ))}
-                    </button>
-                    <form
-                      ref={formRef}
-                      action={deletePlayAction}
-                      onSubmit={() => { if (openId === p.id) setOpenId(null) }}
-                    >
-                      <input type="hidden" name="id" value={p.id} />
-                      <button
-                        type="submit"
-                        aria-label={`Delete ${p.name}`}
-                        className="px-2 py-2 text-gray-300 hover:text-[var(--gh-maroon)]"
-                      >
-                        ×
-                      </button>
-                    </form>
-                  </div>
-                ))}
-                <Link
-                  href="/admin/library"
-                  onClick={() => setOpenList(false)}
-                  className="block px-3 py-2.5 text-sm font-bold border-t border-gray-100"
-                  style={{ color: 'var(--gh-green)' }}
+                <button
+                  type="button"
+                  onClick={() => openFromList(p)}
+                  title={p.createdBy ? `Drawn by ${p.createdBy}` : undefined}
+                  className="flex-1 min-w-0 text-left px-2 py-2"
                 >
-                  Everything in the Library →
-                </Link>
+                  <span className="block text-sm font-semibold truncate">{p.name}</span>
+                  <PlayTags play={p} spots={teamSpots(spotsFor(p.id))} />
+                </button>
+                <form
+                  action={deletePlayAction}
+                  onSubmit={(e) => {
+                    if (!window.confirm(`Delete “${p.name}”? It comes out of the Library too.`)) {
+                      e.preventDefault()
+                      return
+                    }
+                    if (openId === p.id) {
+                      // Still on the glass, but no longer saved anywhere.
+                      setOpenId(null)
+                      setSaved(-1)
+                    }
+                  }}
+                >
+                  <input type="hidden" name="id" value={p.id} />
+                  <button
+                    type="submit"
+                    aria-label={`Delete ${p.name}`}
+                    className="w-9 h-9 text-gray-300 hover:text-[var(--gh-maroon)]"
+                  >
+                    ×
+                  </button>
+                </form>
               </div>
-            </>
-          )}
+            ))}
+            <Link
+              href="/admin/library"
+              onClick={() => setOpenList(false)}
+              className="block px-3 py-2.5 text-sm font-bold border-t border-gray-100"
+              style={{ color: 'var(--gh-green)' }}
+            >
+              Everything in the Library →
+            </Link>
+          </Popover>
         </div>
 
         <Link
@@ -529,22 +699,42 @@ export default function QuickBoard({
           Library
         </Link>
 
-        <span className="text-xs text-gray-400 ml-auto">
+        <span className="hidden md:inline text-xs text-gray-400 ml-auto">
           {ready ? 'Saved plays open on any device, for every coach' : 'Run the plays SQL to save plays'}
         </span>
       </div>
 
+      {ask && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 flex flex-wrap items-center gap-2" role="alert">
+          <p className="text-sm font-semibold text-amber-900 flex-1 min-w-[12rem]">
+            {ask.id === openId
+              ? `You have changes to “${ask.name}” you haven’t saved.`
+              : `The board has changes you haven’t saved${name.trim() ? ` (“${name.trim()}”)` : ''}.`}
+          </p>
+          <button type="button" onClick={() => open(ask)} className="btn btn-primary !py-1.5 text-sm">
+            {ask.id === openId ? 'Open the saved one' : `Open “${ask.name}”`}
+          </button>
+          <button type="button" onClick={() => setAsk(null)} className="btn btn-ghost !py-1.5 text-sm">
+            {ask.id === openId ? 'Keep my changes' : 'Keep my board'}
+          </button>
+        </div>
+      )}
 
       {said && (
-        <p className={`text-sm font-semibold -mt-1 ${said.ok ? 'text-[var(--gh-green)]' : 'text-red-700'}`} role="status">
-          {said.ok && '✓ '}
-          {said.text}
+        <div
+          className={`text-sm font-semibold -mt-1 flex flex-wrap items-center gap-x-2 gap-y-1.5 ${said.ok ? 'text-[var(--gh-green)]' : 'text-red-700'}`}
+          role="status"
+        >
+          <span>
+            {said.ok && '✓ '}
+            {said.text}
+          </span>
           {said.href && (
-            <Link href={said.href} className="ml-2 underline">
+            <Link href={said.href} className={said.primary ? 'btn btn-primary !py-1 text-sm' : 'underline'}>
               {said.link}
             </Link>
           )}
-        </p>
+        </div>
       )}
       {shot && <p className="text-xs text-gray-500 -mt-1">{shot}</p>}
 
@@ -621,5 +811,31 @@ export default function QuickBoard({
         </button>
       )}
     </div>
+  )
+}
+
+/** The small print under a play in the Open list: its take, its steps, where it is in the playbook. */
+function PlayTags({ play, spots }: { play: SavedPlay; spots: PlaybookSpot[] }) {
+  const tags = [
+    ...(play.steps && play.steps.length > 1 ? [`${play.steps.length} steps`] : []),
+    ...(play.clip ? [`▶ ${(clipLength(play.clip) / 1000).toFixed(0)}s`] : []),
+  ]
+  if (!tags.length && !spots.length) return null
+  return (
+    <span className="mt-0.5 flex flex-wrap items-center gap-1">
+      {tags.map((t) => (
+        <span key={t} className="text-[0.65rem] font-black text-gray-400 mr-1">
+          {t}
+        </span>
+      ))}
+      {spots.map((s) => (
+        <span
+          key={s.team}
+          className="text-[0.6rem] font-black uppercase tracking-wide rounded px-1 py-0.5 bg-[#eef6f1] text-[var(--gh-green)]"
+        >
+          {spotLabel(s)}
+        </span>
+      ))}
+    </span>
   )
 }
