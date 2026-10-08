@@ -55,11 +55,7 @@ function SlidePage({ page, plays, scale = 'full' }: SlideProps) {
   if (isFree(page)) {
     return (
       <Stage className="rounded-lg">
-        {page.title && (
-          <div style={{ position: 'absolute', left: 48, top: 28, right: 48, fontSize: 44, fontWeight: 900, lineHeight: 1.1 }}>
-            {page.title}
-          </div>
-        )}
+        {/* No drawn title here: on an arranged slide the title is one of its text boxes (titleBox). */}
         {inZOrder(page.blocks).map((b) => (
           <div
             key={b.id}

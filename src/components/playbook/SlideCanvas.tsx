@@ -4,7 +4,7 @@ import { BlockArt, type SlidePlay } from './BlockArt'
 import { Stage } from './Stage'
 import { BoardViewer, useDoubleTap } from '@/components/planner/BoardViewer'
 import type { Board } from '@/lib/planner'
-import { SLIDE_H, SLIDE_W, clampFrame, inZOrder, type Frame, type SlideBlock } from '@/lib/playbook'
+import { SIZE_PT, SLIDE_H, SLIDE_W, clampFrame, inZOrder, type Frame, type SlideBlock } from '@/lib/playbook'
 
 /** Which corner or edge is being pulled. */
 type Grip = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w'
@@ -89,6 +89,7 @@ export function SlideCanvas({
   onChange,
   onDelete,
   onDuplicate,
+  onText,
 }: {
   blocks: SlideBlock[]
   plays: Record<string, SlidePlay>
@@ -98,6 +99,8 @@ export function SlideCanvas({
   onChange: (id: string, frame: Frame) => void
   onDelete: (id: string) => void
   onDuplicate: (id: string) => void
+  /** Given, a text box is typed in right on the slide: double-click it, or Enter when it's picked. */
+  onText?: (id: string, body: string) => void
 }) {
   const scaleRef = useRef(1)
   // Also kept as state, so the handles can be drawn at a size a thumb can hit.
@@ -110,9 +113,17 @@ export function SlideCanvas({
      anywhere else a board is shown — the box itself is what gets the taps here,
      since the board inside it is only a picture while it is being arranged. */
   const [viewing, setViewing] = useState<{ board: Board; title: string } | null>(null)
+  /** The text box being typed in on the slide, if any. */
+  const [typing, setTyping] = useState<string | null>(null)
   const pressed = useRef<SlideBlock | null>(null)
   const doubleTap = useDoubleTap(() => {
     const b = pressed.current
+    // Double-click words to type in them, the way every slide program works.
+    if (b?.kind === 'text' && onText) {
+      setDrag(null)
+      setTyping(b.id)
+      return
+    }
     if (b?.kind !== 'play') return
     const board = b.board ?? plays[b.playId]?.board
     if (board) setViewing({ board, title: b.caption ?? plays[b.playId]?.name ?? title })
@@ -124,6 +135,8 @@ export function SlideCanvas({
   }, [])
 
   const begin = (e: React.PointerEvent, block: SlideBlock, grip: Grip | null) => {
+    // While typing in a box, a press inside it places the caret; it doesn't move the box.
+    if (typing === block.id && !grip) return
     e.stopPropagation()
     e.preventDefault()
     onSelect(block.id)
@@ -182,12 +195,13 @@ export function SlideCanvas({
       else if (e.key === 'ArrowUp') { e.preventDefault(); onChange(selected, clampFrame({ ...f, y: f.y - step })) }
       else if (e.key === 'ArrowDown') { e.preventDefault(); onChange(selected, clampFrame({ ...f, y: f.y + step })) }
       else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); onDelete(selected) }
+      else if (e.key === 'Enter' && block.kind === 'text' && onText) { e.preventDefault(); setTyping(block.id) }
       else if (e.key === 'Escape') onSelect(null)
       else if ((e.key === 'd' || e.key === 'D') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onDuplicate(selected) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selected, blocks, onChange, onDelete, onDuplicate, onSelect])
+  }, [selected, blocks, onChange, onDelete, onDuplicate, onSelect, onText])
 
   return (
     <Stage
@@ -197,11 +211,7 @@ export function SlideCanvas({
       clip={false}
       className="rounded-lg border border-gray-200 select-none touch-none"
     >
-      {title && (
-        <div style={{ position: 'absolute', left: 48, top: 28, right: 48, fontSize: 44, fontWeight: 900, lineHeight: 1.1, pointerEvents: 'none', color: '#111' }}>
-          {title}
-        </div>
-      )}
+      {/* No drawn title: on an arranged slide the title is one of its text boxes. */}
 
       {inZOrder(blocks).map((b) => {
         if (!b.frame) return null
@@ -221,9 +231,42 @@ export function SlideCanvas({
               outlineOffset: 2,
             }}
           >
-            <div className="w-full h-full pointer-events-none">
-              <BlockArt block={b} plays={plays} editing />
-            </div>
+            {typing === b.id && b.kind === 'text' ? (
+              <textarea
+                autoFocus
+                value={b.body}
+                onChange={(e) => onText?.(b.id, e.target.value)}
+                onBlur={() => setTyping(null)}
+                onKeyDown={(e) => {
+                  // Escape (or ⌘/Ctrl+Enter) finishes typing; the box stays picked.
+                  if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
+                    e.preventDefault()
+                    e.currentTarget.blur()
+                  }
+                  e.stopPropagation()
+                }}
+                onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+                placeholder="Type here"
+                aria-label="Text"
+                className="w-full h-full resize-none outline-none border-0 whitespace-pre-wrap"
+                style={{
+                  fontSize: b.pt ?? SIZE_PT[b.size],
+                  lineHeight: 1.25,
+                  color: b.color ?? '#111111',
+                  fontWeight: b.bold || b.size === 'heading' ? 900 : 400,
+                  fontStyle: b.italic ? 'italic' : undefined,
+                  textAlign: b.align ?? 'left',
+                  background: b.fill ?? 'rgba(255,255,255,0.6)',
+                  borderRadius: b.fill ? 10 : undefined,
+                  padding: b.fill ? 12 : 0,
+                  cursor: 'text',
+                }}
+              />
+            ) : (
+              <div className="w-full h-full pointer-events-none">
+                <BlockArt block={b} plays={plays} editing />
+              </div>
+            )}
 
             {on &&
               GRIPS.map((g) => {

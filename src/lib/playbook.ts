@@ -421,6 +421,21 @@ export function autoFrames(blocks: SlideBlock[], layout: PageLayout): SlideBlock
   return blocks.map((b, i) => ({ ...b, z: b.z ?? i, frame: b.frame ?? clampFrame(out.get(b.id) ?? { x: 48, y: top, w: 320, h: 120 }) }))
 }
 
+/**
+ * The page's title as a text box at the top of an arranged slide. On a slide
+ * placed by hand the title is just another box — moved, resized, retyped or
+ * deleted like anything else — so it is put there as one when the page
+ * becomes arranged. (Elsewhere the page title is only the page's name.)
+ */
+export function titleBox(title: string): TextBlock {
+  return { kind: 'text', id: blockId(), body: title, size: 'heading', bold: true, frame: { x: 48, y: 24, w: SLIDE_W - 96, h: 72 } }
+}
+
+/** An arranged page's blocks with the title box on top, when there is a title to show. */
+export function withTitleBox(blocks: SlideBlock[], title: string): SlideBlock[] {
+  return title.trim() ? [titleBox(title.trim()), ...blocks] : blocks
+}
+
 export function readBlocks(raw: unknown): SlideBlock[] {
   if (!Array.isArray(raw)) return []
   return raw.map(readBlock).filter((b): b is SlideBlock => b !== null)

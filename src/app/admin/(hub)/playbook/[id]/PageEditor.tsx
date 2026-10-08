@@ -23,6 +23,7 @@ import {
   SLIDE_COLORS,
   TEXT_SIZES,
   autoFrames,
+  withTitleBox,
   blockId,
   clampFrame,
   emptyBlock,
@@ -100,7 +101,10 @@ export function PageEditor({
   /* Touching anything is a decision to place this page by hand. A page laid
      out for you that you then rearrange is a page you rearranged. */
   const takeOver = () => {
-    if (layout !== 'free') setLayout('free')
+    if (layout === 'free') return
+    setLayout('free')
+    // The title comes along as a text box of its own, so it can be moved or deleted.
+    setBlocks((bs) => withTitleBox(autoFrames(bs, 'free'), title))
   }
 
   /* Changing what sort of page it is keeps what is already on it, and makes
@@ -113,7 +117,7 @@ export function PageEditor({
     if (next === 'words' && !firstOf(blocks, 'text')) {
       setBlocks((bs) => [...bs, { kind: 'text', id: blockId(), body: '', size: 'body' }])
     }
-    if (next === 'free') setBlocks((bs) => autoFrames(bs, 'free'))
+    if (next === 'free') setBlocks((bs) => withTitleBox(autoFrames(bs, 'free'), title))
     onSelect(null)
     setLayout(next)
   }
@@ -177,6 +181,7 @@ export function PageEditor({
             onChange={setFrame}
             onDelete={drop}
             onDuplicate={duplicate}
+            onText={(id, body) => patch(id, { body } as Partial<SlideBlock>)}
           />
 
           <div className="flex items-center gap-2 flex-wrap mt-2">
