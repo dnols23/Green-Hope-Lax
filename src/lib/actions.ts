@@ -42,6 +42,7 @@ import { isDrillSetting, parseDrillPaste, primarySetting, type DrillSetting } fr
 import { listDrills } from './drillsData'
 import { signOut, markReturned, markOutAgain, deleteAssignment } from './equipment'
 import { savePlay, deletePlay, clearPlayClip } from './plays'
+import { refreshPlaybooksFor } from './playbookActions'
 import { saveShot, renameShot, deleteShot } from './library'
 import { readTeam, withTeam } from './teams'
 import {
@@ -1280,9 +1281,12 @@ export async function savePlayAction(formData: FormData) {
     }
   }
   const id = await savePlay(name, board, viewer.name || viewer.email, clip, viewer.email, steps)
+  // A play already in a playbook takes its pages with it: a progression's
+  // steps go in (or are brought up to date) as soon as it is saved.
+  const playbooks = id ? await refreshPlaybooksFor(id) : []
   revalidatePath('/admin/playboard')
   revalidatePath('/admin/library')
-  return { id }
+  return { id, playbooks }
 }
 
 /**

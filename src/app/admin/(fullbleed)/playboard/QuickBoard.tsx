@@ -247,9 +247,12 @@ export default function QuickBoard({
       if (r?.id) {
         setOpenId(r.id)
         setOpenName(name.trim())
+        const books = (r.playbooks ?? []).map((t) => `${teamLabel(t)} playbook`).join(' and ')
         setSaid({
           ok: true,
-          text: `Saved “${name.trim()}”${steps && steps.length > 1 ? `, all ${steps.length} steps` : ''}. It’s under Open and in the Library.`,
+          text: `Saved “${name.trim()}”${steps && steps.length > 1 ? `, all ${steps.length} steps` : ''}. ${
+            books ? `The ${books} ${r.playbooks!.length > 1 ? 'are' : 'is'} up to date too.` : 'It’s under Open and in the Library.'
+          }`,
         })
       } else setSaid({ ok: false, text: 'That didn’t save. Try again.' })
     })

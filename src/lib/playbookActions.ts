@@ -2,10 +2,10 @@
 
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { requireOwner } from './permissions'
+import { getViewer, requireOwner } from './permissions'
 import { readTeam, withTeam, type Team } from './teams'
 import { readBlocks, isLayout, isPageKind, startingBlocks, type PlayBlock, type PlaybookPage } from './playbook'
-import { addPage, deletePage, getSettings, listPages, orderPages, savePage, writeSettings } from './playbookData'
+import { addPage, deletePage, getSettings, listPages, orderPages, playbookSpots, savePage, writeSettings } from './playbookData'
 import { readSteps, type PlayStep } from './planner'
 import { getPlay, savePlay } from './plays'
 
@@ -168,6 +168,24 @@ export async function addSavedPlayToPlaybook(input: {
   if (!placed) return { ok: false, error: 'The playbook page would not make. Try again.' }
   revalidateAll()
   return { ok: true, pageId: placed.pageId, team, note: extraNote(placed.extra) }
+}
+
+/**
+ * After a play is saved: bring every playbook it is already in up to date —
+ * a progression's step pages rewritten, new steps given pages. Only the head
+ * coach writes the playbook, so for anyone else this does nothing. Returns
+ * the teams whose pages were brought up to date.
+ */
+export async function refreshPlaybooksFor(playId: string): Promise<Team[]> {
+  const viewer = await getViewer()
+  if (!viewer?.isOwner) return []
+  const play = await getPlay(playId)
+  if (!play) return []
+  const spots = (await playbookSpots())[play.id] ?? []
+  const teams = [...new Set(spots.map((s) => s.team))]
+  for (const team of teams) await placeInPlaybook(team, play, viewer.name || viewer.email)
+  if (teams.length) revalidatePath('/admin/playbook')
+  return teams
 }
 
 export async function savePlaybookPage(formData: FormData) {
