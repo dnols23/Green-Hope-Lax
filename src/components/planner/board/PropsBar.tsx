@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react'
 import {
   BOARD_FONTS,
   DASH_STYLES,
+  TEXT_SIZE,
   END_CAPS,
   LINE_PRESETS,
   TOKEN_MARKS,
@@ -515,7 +516,7 @@ function TextStyle({
   const underline = t0 ? !!t0.underline : false
   const align: TextAlign = t0 ? (t0.align ?? 'middle') : ed.textPen.align
   const setSize = (n: number) => {
-    const s = Math.max(1, Math.min(12, r1(n)))
+    const s = Math.max(TEXT_SIZE.min, Math.min(TEXT_SIZE.max, r1(n)))
     apply({ text: (x) => ({ ...x, size: s }) }, { text: { size: s } }, 'size')
   }
   return (
@@ -526,15 +527,29 @@ function TextStyle({
         </MenuItem>
       )}
       <MenuRow label="Size">
-        <Chip onClick={() => setSize(size - 0.5)} title="Smaller">−</Chip>
+        {/* Bigger words take bigger steps, so the top of the range is a few taps away. */}
+        <Chip onClick={() => setSize(size - (size > 10 ? 2 : 0.5))} title="Smaller">−</Chip>
         <span className="text-sm tabular-nums w-10 text-center">{size.toFixed(1)}</span>
-        <Chip onClick={() => setSize(size + 0.5)} title="Bigger">+</Chip>
-        {[2.5, 4, 6, 9].map((n) => (
+        <Chip onClick={() => setSize(size + (size >= 10 ? 2 : 0.5))} title="Bigger">+</Chip>
+      </MenuRow>
+      <MenuRow>
+        <span className="w-12 shrink-0" aria-hidden />
+        {(
+          [
+            [2.5, 'S'],
+            [4, 'M'],
+            [6, 'L'],
+            [9, 'XL'],
+            [14, '2XL'],
+            [22, 'Huge'],
+          ] as const
+        ).map(([n, label]) => (
           <Chip key={n} active={size === n} onClick={() => setSize(n)} title={`Size ${n}`}>
-            {n === 2.5 ? 'S' : n === 4 ? 'M' : n === 6 ? 'L' : 'XL'}
+            {label}
           </Chip>
         ))}
       </MenuRow>
+      <p className="text-xs text-gray-400 px-1 -mt-1">Or drag the corner handle on the words to size them by hand.</p>
       <MenuRow label="Style">
         <Chip active={bold} title="Bold" onClick={() => apply({ text: (x) => ({ ...x, bold: !bold }) }, { text: { bold: !bold } }, 'bold')}>
           <b className="font-black">B</b>
@@ -561,22 +576,23 @@ function TextStyle({
           </Chip>
         ))}
       </MenuRow>
-      {t0 && (
-        <MenuRow label="Font">
-          <select
-            value={t0.font ?? 'sans'}
-            onChange={(e) => apply({ text: (x) => clean({ ...x, font: e.target.value === 'sans' ? undefined : e.target.value }) }, {}, 'font')}
-            className="field !py-1 text-sm flex-1 min-h-9"
-            aria-label="Font"
-          >
-            {BOARD_FONTS.map((f) => (
-              <option key={f.key} value={f.key} style={{ fontFamily: f.stack }}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </MenuRow>
-      )}
+      <MenuRow label="Font">
+        <select
+          value={(t0 ? t0.font : ed.textPen.font) ?? 'sans'}
+          onChange={(e) => {
+            const f = e.target.value === 'sans' ? undefined : e.target.value
+            apply({ text: (x) => clean({ ...x, font: f }) }, { text: { font: f } }, 'font')
+          }}
+          className="field !py-1 text-sm flex-1 min-h-9"
+          aria-label="Font"
+        >
+          {BOARD_FONTS.map((f) => (
+            <option key={f.key} value={f.key} style={{ fontFamily: f.stack }}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </MenuRow>
     </>
   )
 }

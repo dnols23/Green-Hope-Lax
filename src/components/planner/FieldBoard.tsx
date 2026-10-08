@@ -4,6 +4,7 @@ import {
   FIELD,
   newId,
   readBoard,
+  TEXT_SIZE,
   type Board,
   type BoardHalf,
   type BoardPath,
@@ -539,6 +540,7 @@ export function FieldBoard({
       italic: pen.italic,
       align: pen.align === 'middle' ? undefined : pen.align,
       bg: pen.bg,
+      font: pen.font && pen.font !== 'sans' ? pen.font : undefined,
     })
     const key = newId('edit')
     history.commit(addBundle(board, { ...emptyBundle(), texts: [text] }), key, Infinity)
@@ -1107,7 +1109,7 @@ export function FieldBoard({
         return mapItems(base, [hit.id], { token: (t) => clean({ ...t, size: s === 1 ? undefined : s }) })
       }
       if (item.type === 'text') {
-        const s = Math.round(Math.max(1, Math.min(12, item.it.size * ratio)) * 10) / 10
+        const s = Math.round(Math.max(TEXT_SIZE.min, Math.min(TEXT_SIZE.max, item.it.size * ratio)) * 10) / 10
         return mapItems(base, [hit.id], { text: (t) => ({ ...t, size: s }) })
       }
     }

@@ -260,7 +260,16 @@ export const BOARD_FONTS: { key: string; label: string; stack: string }[] = [
   { key: 'serif',     label: 'Serif',     stack: 'Georgia, "Times New Roman", Times, serif' },
   { key: 'mono',      label: 'Mono',      stack: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
   { key: 'condensed', label: 'Condensed', stack: '"Arial Narrow", "Helvetica Neue", Impact, sans-serif' },
+  // The scoreboard look: big, heavy, all business.
+  { key: 'block',     label: 'Block',     stack: 'Impact, Haettenschweiler, "Arial Black", "Franklin Gothic Bold", sans-serif-condensed, sans-serif' },
+  // A whiteboard marker.
+  { key: 'marker',    label: 'Marker',    stack: '"Marker Felt", "Chalkboard SE", "Comic Sans MS", "Segoe Print", cursive' },
+  { key: 'rounded',   label: 'Rounded',   stack: 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Varela Round", system-ui, sans-serif' },
+  { key: 'heavy',     label: 'Heavy',     stack: '"Arial Black", "Helvetica Neue", Helvetica, Arial, sans-serif' },
 ]
+
+/** How big a word on the field can be: cap height in yards. A half field is about 60 yards across. */
+export const TEXT_SIZE = { min: 1, max: 30 } as const
 
 export function fontStack(key: string | undefined): string {
   return (BOARD_FONTS.find((f) => f.key === key) ?? BOARD_FONTS[0]).stack
@@ -537,7 +546,7 @@ export function readBoard(raw: unknown): Board | null {
         x: X(text.x),
         y: Y(text.y),
         text: typeof text.text === 'string' ? text.text.slice(0, BOARD_LIMITS.text) : '',
-        size: Number.isFinite(size) && size > 0 ? Math.min(size, 12) : 3,
+        size: Number.isFinite(size) && size > 0 ? Math.min(Math.max(size, TEXT_SIZE.min), TEXT_SIZE.max) : 3,
         color: hex(text.color) ?? '#17222e',
         bold: text.bold === true,
         italic: text.italic === true,

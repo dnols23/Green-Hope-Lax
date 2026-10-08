@@ -49,6 +49,8 @@ export interface TextPen {
   italic: boolean
   bg?: string
   align: TextAlign
+  /** A key from BOARD_FONTS; absent is the plain sans. */
+  font?: string
 }
 
 export const DEFAULT_LINE_PEN: LinePen = {
