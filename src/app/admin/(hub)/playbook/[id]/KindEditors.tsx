@@ -75,6 +75,8 @@ export function FieldEditor({
   function startFrom(playId: string) {
     const play = playMap[playId]
     if (!play) return
+    // Already showing exactly that play: nothing to replace, so nothing to ask.
+    if (JSON.stringify(board) === JSON.stringify(play.board)) return
     const hasDrawing = boardItemCount(board) > 0
     if (hasDrawing && !window.confirm(`Replace what is on this field with “${play.name}”?`)) return
     setBlocks((bs) => {
