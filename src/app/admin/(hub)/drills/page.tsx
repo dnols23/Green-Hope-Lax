@@ -2,7 +2,7 @@ import { requireSection } from '@/lib/permissions'
 import { isSandboxed } from '@/lib/sections'
 import { drillsReady, listDrillGroups, listDrills, recentDrillIds } from '@/lib/drillsData'
 import { upsertDrill, deleteDrill, toggleDrillFavorite } from '@/lib/actions'
-import { DRILL_CATEGORIES, DRILL_SETTINGS, SETTING_LABELS, categoryFor, isHomework, isShortcutGroup, type Drill, type DrillSetting } from '@/lib/drills'
+import { DRILL_CATEGORIES, DRILL_SETTINGS, SETTING_LABELS, categoryFor, isHomework, isShortcutGroup, recentlyAdded, type Drill, type DrillSetting } from '@/lib/drills'
 import { DeleteButton } from '@/components/admin/DeleteButton'
 import { DrillLink } from '@/components/admin/DrillLink'
 import { DrillImport } from './DrillImport'
@@ -52,6 +52,8 @@ export default async function DrillBankPage() {
       ? recent.map((id) => drills.find((d) => d.id === id)).filter((d): d is Drill => !!d)
       : key === 'favorites'
       ? drills.filter((d) => d.is_favorite)
+      : key === 'added'
+      ? recentlyAdded(drills)
       : drills.filter((d) => d.category === key)
 
   return (

@@ -21,7 +21,7 @@ import {
   type Plan,
   type PlanBlock,
 } from '@/lib/planner'
-import { DRILL_CATEGORIES, categoryFor, sortDrills, type Drill, type DrillCategory } from '@/lib/drills'
+import { DRILL_CATEGORIES, categoryFor, isShortcutGroup, recentlyAdded, sortDrills, type Drill, type DrillCategory } from '@/lib/drills'
 import { quickAddDrill } from '@/lib/drillActions'
 import { PROGRESSION_POSITIONS, progressionBlock, progressionMinutes, type Progression } from '@/lib/progressions'
 import { BlockCompetition, DrillDetail } from './DrillDetail'
@@ -1338,7 +1338,7 @@ function DrillSelect({
   value: string
   onChange: (id: string, fresh?: Drill) => void
 }) {
-  const cats = groups.filter((g) => g.key !== 'recent' && g.key !== 'favorites')
+  const cats = groups.filter((g) => !isShortcutGroup(g.key))
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [category, setCategory] = useState(cats[0]?.key ?? 'stickwork')
@@ -1394,7 +1394,9 @@ function DrillSelect({
               ? recent.map((id) => drills.find((d) => d.id === id)).filter((d): d is Drill => !!d)
               : c.key === 'favorites'
                 ? drills.filter((d) => d.is_favorite)
-                : drills.filter((d) => d.category === c.key)
+                : c.key === 'added'
+                  ? recentlyAdded(drills)
+                  : drills.filter((d) => d.category === c.key)
           if (!group.length) return null
           return (
             <optgroup key={c.key} label={`${c.icon} ${c.label}`}>

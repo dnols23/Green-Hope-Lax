@@ -153,12 +153,23 @@ export const RECENT_GROUP: DrillCategory = { key: 'recent', label: 'Recent', tag
 /** "Favorites": every starred drill in one place. It moves with the categories too. */
 export const FAVORITES_GROUP: DrillCategory = { key: 'favorites', label: 'Favorites', tag: 'individual', icon: '⭐' }
 
+/** "Recently added": the newest drills in the bank, whatever they're filed under. */
+export const ADDED_GROUP: DrillCategory = { key: 'added', label: 'Recently added', tag: 'individual', icon: '🆕' }
+
+/** How many drills "Recently added" shows. */
+export const RECENTLY_ADDED = 12
+
 /** Groups that repeat drills filed elsewhere — not categories of their own. */
-export const isShortcutGroup = (key: string) => key === 'recent' || key === 'favorites'
+export const isShortcutGroup = (key: string) => key === 'recent' || key === 'favorites' || key === 'added'
+
+/** The newest drills, newest first. */
+export function recentlyAdded<T extends Pick<Drill, 'created_at'>>(drills: T[], limit = RECENTLY_ADDED): T[] {
+  return [...drills].filter((d) => d.created_at).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit)
+}
 
 /** Every group in the staff's order: the saved ones first, anything new after. */
 export function orderGroups(saved: unknown): DrillCategory[] {
-  const all = [FAVORITES_GROUP, RECENT_GROUP, ...DRILL_CATEGORIES]
+  const all = [FAVORITES_GROUP, RECENT_GROUP, ADDED_GROUP, ...DRILL_CATEGORIES]
   const keys = Array.isArray(saved) ? saved.filter((k): k is string => typeof k === 'string') : []
   const picked = [...new Set(keys)].map((k) => all.find((c) => c.key === k)).filter((c): c is DrillCategory => !!c)
   const rest = all.filter((c) => !picked.includes(c))
