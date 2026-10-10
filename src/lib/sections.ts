@@ -118,6 +118,8 @@ export const SECTIONS: AdminSection[] = [
   { key: 'planner',      label: 'Planner',      href: '/admin/planner',      group: 'Coaches Hub', always: true,
     views: [{ audience: 'coach', href: '/admin/hub' }, { audience: 'team', href: '/team' }] },
   { key: 'drills',       label: 'Drill Bank',   href: '/admin/drills',       group: 'Coaches Hub', always: true },
+  // The head coach's philosophy, area by area, for the staff. Only he writes it.
+  { key: 'coaching',     label: 'Coaching Bank', href: '/admin/coaching',    group: 'Coaches Hub', always: true },
   { key: 'playboard',    label: 'Playboard',    href: '/admin/playboard',    group: 'Coaches Hub', always: true },
   { key: 'library',      label: 'Library',      href: '/admin/library',      group: 'Coaches Hub', always: true },
   // The calendar. Every coach reads it and sets their own availability on it;
