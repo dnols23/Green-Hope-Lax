@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
-import { VIDEO_COLUMNS, getCfConfig, getFilmAccess, listFilmGames, mapClipRow, mapVideoRow } from '@/lib/film'
+import { CLIP_COLUMNS, VIDEO_COLUMNS, getCfConfig, getFilmAccess, listFilmGames, mapClipRow, mapVideoRow } from '@/lib/film'
 import { detailColumns } from '@/components/videoboard/filmMeta'
 
 // GET /api/film — the shared team film library + clips.
@@ -21,7 +21,11 @@ export async function GET(req: NextRequest) {
   const sb = createServiceClient()
   const [videosRes, clipsRes, games] = await Promise.all([
     sb.from('team_videos').select(VIDEO_COLUMNS).order('created_at', { ascending: true }),
-    sb.from('team_clips').select('id, video_id, name, start_time, end_time, created_at').order('created_at', { ascending: true }),
+    sb
+      .from('team_clips')
+      .select(CLIP_COLUMNS)
+      .order('position', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true }),
     listFilmGames(sb),
   ])
   if (videosRes.error || clipsRes.error) {

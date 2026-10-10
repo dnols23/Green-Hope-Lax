@@ -728,16 +728,100 @@
   line-height: 1.6;
 }
 
+.clipList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .clipCard {
   background: var(--vb-raise);
   border: 1px solid var(--vb-line-soft);
   border-radius: 9px;
   padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
   transition: border-color 0.12s;
 }
+.clipTop { display: flex; align-items: center; gap: 8px; }
+.clipDragging { position: relative; z-index: 10; }
+.clipDragging .clipCard { border-color: var(--vb-accent); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); background: var(--vb-raise-2); }
+.clipGrip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 28px;
+  margin-left: -4px;
+  color: var(--vb-faint);
+  flex-shrink: 0;
+  border-radius: 5px;
+}
+.clipGrip:hover, .clipGrip:focus-visible { color: var(--vb-text); outline: none; background: rgba(255, 255, 255, 0.06); }
+.clipNameBtn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: text;
+  font-family: inherit;
+}
+.clipNameBtn:hover { text-decoration: underline dotted var(--vb-faint); text-underline-offset: 3px; }
+.clipRename {
+  width: 100%;
+  background: var(--vb-bg);
+  border: 1px solid var(--vb-accent-dk);
+  border-radius: 6px;
+  color: var(--vb-text);
+  font-weight: 600;
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  outline: none;
+}
+.clipNotesToggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 3px 0 0;
+  border: none;
+  border-top: 1px solid var(--vb-line-soft);
+  background: none;
+  color: var(--vb-dim);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.clipNotesToggle:hover { color: var(--vb-text); }
+.clipChevron { display: inline-block; font-size: 0.9rem; line-height: 1; transition: transform 0.15s; }
+.clipChevronOpen { transform: rotate(90deg); }
+.clipNotesPeek {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: var(--vb-faint);
+  margin-left: 4px;
+}
+.clipNotes {
+  width: 100%;
+  margin-top: 6px;
+  background: var(--vb-bg);
+  border: 1px solid var(--vb-line);
+  border-radius: 7px;
+  color: var(--vb-text);
+  font-size: 0.76rem;
+  font-family: inherit;
+  line-height: 1.45;
+  padding: 6px 8px;
+  resize: vertical;
+}
+.clipNotes:focus { outline: none; border-color: var(--vb-accent-dk); }
+.clipNotesText { margin: 6px 0 0; font-size: 0.76rem; line-height: 1.45; color: var(--vb-text); white-space: pre-wrap; }
 .clipCard:hover { border-color: #333b35; }
 
 .clipInfo { flex: 1; min-width: 0; }
@@ -1464,4 +1548,13 @@ select.dlgInput option, select.dlgInput optgroup { background: #1a1e1b; color: #
 .dlgFoot .saveBtn:hover:not(:disabled) { background: #0d905d; }
 @media (max-width: 520px) {
   .dlgRow { grid-template-columns: 1fr; gap: 0; }
+}
+/* Clip names wrap to a second line in the list rather than cut off. */
+.clipCard .clipName {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+  word-break: break-word;
 }

@@ -26,6 +26,7 @@ export function SortableList<T extends { id: string }>({
   renderItem,
   className = '',
   itemClassName = '',
+  dragClassName = 'relative z-10 rounded-lg bg-white shadow-lg ring-1 ring-[var(--gh-green)]',
   label = (item: T) => item.id,
 }: {
   items: T[]
@@ -33,6 +34,8 @@ export function SortableList<T extends { id: string }>({
   renderItem: (item: T, grip: GripProps, dragging: boolean) => ReactNode
   className?: string
   itemClassName?: string
+  /** How the row being slid stands out — a light lift by default. */
+  dragClassName?: string
   /** What a screen reader hears for a row's grip. */
   label?: (item: T) => string
 }) {
@@ -127,7 +130,7 @@ export function SortableList<T extends { id: string }>({
               if (el) rows.current.set(id, el)
               else rows.current.delete(id)
             }}
-            className={`${itemClassName} ${dragId === id ? 'relative z-10 rounded-lg bg-white shadow-lg ring-1 ring-[var(--gh-green)]' : ''}`}
+            className={`${itemClassName} ${dragId === id ? dragClassName : ''}`}
           >
             {renderItem(item, grip, dragId === id)}
           </li>

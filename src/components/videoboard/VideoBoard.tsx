@@ -313,6 +313,46 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
     [notify]
   )
 
+  const updateClip = useCallback(
+    (id: number, patch: { name?: string; notes?: string | null }) => {
+      if (id > 0 && !canManageRef.current) return
+      setClips((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+      if (id < 0 || !configuredRef.current) return
+      fetch(`/api/film/clips/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error()
+        })
+        .catch(() => notify('Could not save the clip — check your connection and try again.'))
+    },
+    [notify]
+  )
+
+  const reorderClips = useCallback(
+    (ids: number[]) => {
+      setClips((cs) => {
+        const byId = new Map(cs.map((c) => [c.id, c]))
+        const placed = ids.map((id) => byId.get(id)).filter((c): c is Clip => !!c)
+        return [...placed, ...cs.filter((c) => !ids.includes(c.id))]
+      })
+      const team = ids.filter((id) => id > 0)
+      if (!team.length || !configuredRef.current || !canManageRef.current) return
+      fetch('/api/film/clips', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: team }),
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error()
+        })
+        .catch(() => notify('Could not save the clip order — try again.'))
+    },
+    [notify]
+  )
+
   // ── Panel registry: lets the toolbar drive all panels at once ────────────
   const registerVideo = useCallback((index: number, el: HTMLVideoElement | null) => {
     if (el) videoElsRef.current.set(index, el)
@@ -555,6 +595,8 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
             autoLoad={i === 0 ? autoLoad : null}
             onSaveClip={saveClip}
             onDeleteClip={deleteClip}
+            onUpdateClip={updateClip}
+            onReorderClips={reorderClips}
             addFiles={addFiles}
             registerVideo={registerVideo}
             onPlayingChange={onPlayingChange}

@@ -32,6 +32,8 @@ export type PanelProps = {
   autoLoad?: { videoId: number; clip?: Clip } | null
   onSaveClip: (clip: { videoId: number; name: string; start: number; end: number }) => void
   onDeleteClip: (id: number) => void
+  onUpdateClip: (id: number, patch: { name?: string; notes?: string | null }) => void
+  onReorderClips: (ids: number[]) => void
   /** Add dropped files to the shared library; returns the created entries. */
   addFiles: (files: Iterable<File>) => LibVideo[]
   registerVideo: (index: number, el: HTMLVideoElement | null) => void
@@ -50,6 +52,8 @@ export function Panel({
   autoLoad,
   onSaveClip,
   onDeleteClip,
+  onUpdateClip,
+  onReorderClips,
   addFiles,
   registerVideo,
   onPlayingChange,
@@ -626,6 +630,8 @@ export function Panel({
         onClose={() => setDrawerOpen(false)}
         onPlay={playClip}
         onDelete={onDeleteClip}
+        onUpdate={onUpdateClip}
+        onReorder={onReorderClips}
       />
     </div>
   )

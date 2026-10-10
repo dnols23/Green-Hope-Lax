@@ -66,7 +66,18 @@ type VideoRow = {
   folder?: string | null
   notes?: string | null
 }
-type ClipRow = { id: number; video_id: number; name: string; start_time: number; end_time: number; created_at?: string }
+type ClipRow = {
+  id: number
+  video_id: number
+  name: string
+  start_time: number
+  end_time: number
+  created_at?: string
+  notes?: string | null
+}
+
+/** The columns mapClipRow reads. */
+export const CLIP_COLUMNS = 'id, video_id, name, start_time, end_time, created_at, notes'
 
 export function mapVideoRow(row: VideoRow, customerCode: string): LibVideo {
   return {
@@ -114,5 +125,6 @@ export function mapClipRow(row: ClipRow): Clip {
     end: row.end_time,
     remote: true,
     createdAt: row.created_at,
+    notes: row.notes ?? null,
   }
 }

@@ -35,6 +35,8 @@ export type Clip = {
   end: number
   remote?: boolean
   createdAt?: string
+  /** What to see in it — opened from the clip list. */
+  notes?: string | null
 }
 
 export const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2] as const
