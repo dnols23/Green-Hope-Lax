@@ -4,6 +4,7 @@
 
 import type { Clip, LibVideo } from '@/components/videoboard/types'
 import { normCuts } from '@/components/videoboard/cuts'
+import { isFilmType, type FilmGame } from '@/components/videoboard/filmMeta'
 import { getViewer } from './permissions'
 import { createClient } from './supabase-server'
 import { isTeamRequest } from './teamAuth'
@@ -54,7 +55,17 @@ export function filmThumbUrl(customerCode: string, uid: string): string {
 
 // ── Row → client shape mappers ───────────────────────────────────────────────
 
-type VideoRow = { id: number; uid: string; name: string; created_at?: string; cuts?: unknown }
+type VideoRow = {
+  id: number
+  uid: string
+  name: string
+  created_at?: string
+  cuts?: unknown
+  category?: unknown
+  game_id?: string | null
+  folder?: string | null
+  notes?: string | null
+}
 type ClipRow = { id: number; video_id: number; name: string; start_time: number; end_time: number; created_at?: string }
 
 export function mapVideoRow(row: VideoRow, customerCode: string): LibVideo {
@@ -67,11 +78,32 @@ export function mapVideoRow(row: VideoRow, customerCode: string): LibVideo {
     remote: true,
     createdAt: row.created_at,
     cuts: normCuts(row.cuts),
+    category: isFilmType(row.category) ? row.category : 'game',
+    gameId: row.game_id ?? null,
+    folder: row.folder ?? null,
+    notes: row.notes ?? null,
   }
 }
 
 /** The columns mapVideoRow reads. */
-export const VIDEO_COLUMNS = 'id, uid, name, created_at, cuts'
+export const VIDEO_COLUMNS = 'id, uid, name, created_at, cuts, category, game_id, folder, notes'
+
+/** Boys' games on the schedule, newest first — for filing film under a game. */
+export async function listFilmGames(sb: ReturnType<typeof import('./supabase-server').createServiceClient>): Promise<FilmGame[]> {
+  const { data } = await sb
+    .from('games')
+    .select('id, game_date, opponent, home_away, level')
+    .eq('gender', 'boys')
+    .order('game_date', { ascending: false })
+    .limit(300)
+  return ((data ?? []) as Record<string, unknown>[]).map((g) => ({
+    id: String(g.id),
+    date: String(g.game_date ?? ''),
+    opponent: String(g.opponent ?? ''),
+    homeAway: g.home_away === 'away' || g.home_away === 'neutral' ? g.home_away : 'home',
+    level: g.level === 'jv' ? 'jv' : 'varsity',
+  }))
+}
 
 export function mapClipRow(row: ClipRow): Clip {
   return {

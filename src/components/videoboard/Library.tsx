@@ -7,14 +7,22 @@ import { IconFilm, IconScissors } from './icons'
 import type { Clip, LibVideo } from './types'
 import { baseName, fmtDuration, fmtTime } from './utils'
 import { TEAM_TIME_ZONE } from '@/lib/format'
+import { FILM_TYPES, filmTypeLabel, gameLabel, type FilmDetails, type FilmGame, type FilmType } from './filmMeta'
+import { FilmDetailsDialog, foldersOf, type DetailsTarget } from './FilmDetailsDialog'
 
-// Hudl-style library: search + filter over all team film and clips, grouped
-// by month, tap to open on the board. Team film only — local files never
-// leave the device, so they can't appear here.
+// Hudl-style library: search + filter over all team film and clips, tap to
+// open on the board. Each film is filed under its folder, else the game it's
+// from, else the month it came in — and its clips sit with it. Team film
+// only — local files never leave the device, so they can't appear here.
+
+type Home = { key: string; label: string; icon: string; rank: number; order: string }
 
 type Item = {
   key: string
   kind: 'film' | 'clip'
+  /** The film's type — a clip takes its film's. */
+  type: FilmType
+  home: Home
   id: number
   title: string
   sub: string
@@ -24,7 +32,10 @@ type Item = {
   href: string
 }
 
-type Filter = 'all' | 'film' | 'clip'
+type Filter = 'all' | 'clip' | FilmType
+
+/** Read only when the details popup opens, never while rendering. */
+const clockNow = () => Date.now()
 
 function monthLabel(iso?: string): string {
   if (!iso) return 'Recently added'
@@ -51,6 +62,8 @@ export function Library({ basePath = '/team/video' }: { basePath?: string } = {}
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [games, setGames] = useState<FilmGame[]>([])
+  const [details, setDetails] = useState<DetailsTarget | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -63,6 +76,7 @@ export function Library({ basePath = '/team/video' }: { basePath?: string } = {}
           setCanManage(!!d.canManage)
           setVideos(d.videos as LibVideo[])
           setClips(d.clips as Clip[])
+          setGames((d.games ?? []) as FilmGame[])
         }
         setLoaded(true)
       })
@@ -80,12 +94,28 @@ export function Library({ basePath = '/team/video' }: { basePath?: string } = {}
   }, [menuFor])
 
   const items = useMemo<Item[]>(() => {
+    const gameById = new Map(games.map((g) => [g.id, g]))
+    // Folders first (A–Z), then games (newest first), then the rest by month.
+    const homeOf = (v: LibVideo | undefined, createdAt?: string): Home => {
+      const folder = v?.folder?.trim()
+      if (folder) return { key: `f:${folder.toLowerCase()}`, label: folder, icon: '📁', rank: 0, order: folder.toLowerCase() }
+      const g = v?.gameId ? gameById.get(v.gameId) : undefined
+      if (g) return { key: `g:${g.id}`, label: gameLabel(g, true), icon: '🥍', rank: 1, order: g.date }
+      const label = monthLabel(v?.createdAt ?? createdAt)
+      return { key: `m:${label}`, label, icon: '', rank: 2, order: v?.createdAt ?? createdAt ?? '' }
+    }
+    const describe = (v: LibVideo) => {
+      const g = v.gameId ? gameById.get(v.gameId) : undefined
+      return [filmTypeLabel(v.category), g && v.folder ? gameLabel(g) : null].filter(Boolean).join(' · ')
+    }
     const films: Item[] = videos.map((v) => ({
       key: `film-${v.id}`,
       kind: 'film',
+      type: v.category ?? 'game',
+      home: homeOf(v),
       id: v.id,
       title: baseName(v.name),
-      sub: 'Game film',
+      sub: describe(v) + (v.notes ? ` · ${v.notes}` : ''),
       thumb: v.thumb,
       createdAt: v.createdAt,
       href: `${basePath}?v=${v.id}`,
@@ -95,6 +125,8 @@ export function Library({ basePath = '/team/video' }: { basePath?: string } = {}
       return {
         key: `clip-${c.id}`,
         kind: 'clip',
+        type: parent?.category ?? 'game',
+        home: homeOf(parent, c.createdAt),
         id: c.id,
         title: c.name,
         sub: `Clip · ${fmtTime(c.start)}–${fmtTime(c.end)} (${fmtDuration(c.end - c.start)})${parent ? ` · ${baseName(parent.name)}` : ''}`,
@@ -104,25 +136,64 @@ export function Library({ basePath = '/team/video' }: { basePath?: string } = {}
         href: `${basePath}?clip=${c.id}`,
       }
     })
+    const q = query.trim().toLowerCase()
     const all = [...films, ...clipItems]
-      .filter((i) => filter === 'all' || i.kind === filter)
-      .filter((i) => i.title.toLowerCase().includes(query.trim().toLowerCase()))
-    // Newest first; undated items sink to the bottom.
-    all.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+      .filter((i) => filter === 'all' || (filter === 'clip' ? i.kind === 'clip' : i.kind === 'film' && i.type === filter))
+      .filter((i) => !q || `${i.title} ${i.sub} ${i.home.label}`.toLowerCase().includes(q))
+    // Within a section: films first, newest first, then their clips.
+    all.sort((a, b) => (a.kind === b.kind ? (b.createdAt ?? '').localeCompare(a.createdAt ?? '') : a.kind === 'film' ? -1 : 1))
     return all
-  }, [videos, clips, filter, query, basePath])
+  }, [videos, clips, games, filter, query, basePath])
 
-  // Group into month sections, preserving the newest-first order.
   const sections = useMemo(() => {
-    const out: Array<{ label: string; items: Item[] }> = []
+    const byHome = new Map<string, { home: Home; items: Item[] }>()
     for (const item of items) {
-      const label = monthLabel(item.createdAt)
-      const last = out[out.length - 1]
-      if (last && last.label === label) last.items.push(item)
-      else out.push({ label, items: [item] })
+      const s = byHome.get(item.home.key) ?? { home: item.home, items: [] }
+      s.items.push(item)
+      byHome.set(item.home.key, s)
     }
-    return out
+    return [...byHome.values()].sort((a, b) =>
+      a.home.rank !== b.home.rank
+        ? a.home.rank - b.home.rank
+        : a.home.rank === 0
+          ? a.home.order.localeCompare(b.home.order)
+          : b.home.order.localeCompare(a.home.order)
+    )
   }, [items])
+
+  // The types there actually is film for, so the chips don't offer empty ones.
+  const typesInUse = FILM_TYPES.filter((t) => videos.some((v) => (v.category ?? 'game') === t.key))
+
+  function openDetails(id: number) {
+    const v = videos.find((x) => x.id === id)
+    if (!v) return
+    setMenuFor(null)
+    setDetails({
+      films: [{ key: v.id, name: baseName(v.name) }],
+      start: { category: v.category ?? 'game', gameId: v.gameId ?? null, folder: v.folder ?? null, notes: v.notes ?? null },
+      at: clockNow(),
+      mode: 'edit',
+    })
+  }
+
+  async function saveDetails(names: Map<number, string>, shared: Omit<FilmDetails, 'name'>) {
+    setDetails(null)
+    for (const [id, name] of names) {
+      try {
+        const res = await fetch(`/api/film/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...shared, name }),
+        })
+        const j = await res.json()
+        if (!res.ok) throw new Error(j.error)
+        const video = j.video as LibVideo
+        setVideos((vs) => vs.map((v) => (v.id === video.id ? video : v)))
+      } catch {
+        window.alert('Could not save the film details. Try again.')
+      }
+    }
+  }
 
   function thumbSrc(item: Item): string | undefined {
     if (!item.thumb) return undefined
@@ -155,7 +226,7 @@ export function Library({ basePath = '/team/video' }: { basePath?: string } = {}
           {(
             [
               ['all', 'All'],
-              ['film', 'Film'],
+              ...typesInUse.map((t) => [t.key, t.plural]),
               ['clip', 'Clips'],
             ] as Array<[Filter, string]>
           ).map(([value, label]) => (
@@ -188,8 +259,11 @@ export function Library({ basePath = '/team/video' }: { basePath?: string } = {}
         </div>
       ) : (
         sections.map((section) => (
-          <section key={section.label}>
-            <div className={styles.monthHdr}>{section.label}</div>
+          <section key={section.home.key}>
+            <div className={styles.monthHdr}>
+              {section.home.icon && <span aria-hidden>{section.home.icon} </span>}
+              {section.home.label}
+            </div>
             {section.items.map((item) => (
               <div key={item.key} className={styles.rowCard}>
                 <Link href={item.href} className={styles.rowLink}>
@@ -227,6 +301,11 @@ export function Library({ basePath = '/team/video' }: { basePath?: string } = {}
                       <Link href={item.href} className={styles.rowMenuItem}>
                         ▶ Open in Film Room
                       </Link>
+                      {canManage && item.kind === 'film' && (
+                        <button type="button" className={styles.rowMenuItem} onClick={() => openDetails(item.id)}>
+                          ✎ Name, type &amp; folder
+                        </button>
+                      )}
                       {canManage && (
                         <button
                           type="button"
@@ -243,6 +322,16 @@ export function Library({ basePath = '/team/video' }: { basePath?: string } = {}
             ))}
           </section>
         ))
+      )}
+
+      {details && (
+        <FilmDetailsDialog
+          target={details}
+          games={games}
+          folders={foldersOf(videos)}
+          onSave={saveDetails}
+          onClose={() => setDetails(null)}
+        />
       )}
     </div>
   )

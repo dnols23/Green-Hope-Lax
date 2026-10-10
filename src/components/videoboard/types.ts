@@ -1,4 +1,5 @@
 import type { Cut } from './cuts'
+import type { FilmType } from './filmMeta'
 
 export type LibVideo = {
   /** Positive = team library row id (Supabase); negative = local session file. */
@@ -18,6 +19,11 @@ export type LibVideo = {
   createdAt?: string
   /** The head coach's edit: stretches skipped when anyone plays it. */
   cuts?: Cut[]
+  /** What it is and where it's kept (team film only). */
+  category?: FilmType
+  gameId?: string | null
+  folder?: string | null
+  notes?: string | null
 }
 
 export type Clip = {

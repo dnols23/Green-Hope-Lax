@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import styles from './VideoBoard.module.css'
 import { Panel } from './Panel'
 import { FilmEditor } from './FilmEditor'
+import { FilmDetailsDialog, foldersOf, type DetailsTarget } from './FilmDetailsDialog'
+import type { FilmDetails, FilmGame } from './filmMeta'
 import {
   IconClose,
   IconCompress,
@@ -59,6 +61,9 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
   const [editing, setEditing] = useState(false)
   const [editFrom, setEditFrom] = useState<number | null>(null)
   const [uploads, setUploads] = useState<UploadItem[]>([])
+  const [games, setGames] = useState<FilmGame[]>([])
+  // The details popup: open over the uploads it's about.
+  const [details, setDetails] = useState<DetailsTarget | null>(null)
   // Deep link from the Library page: <basePath>?v=<id> or ?clip=<id>
   const [autoLoad, setAutoLoad] = useState<{ videoId: number; clip?: Clip } | null>(null)
 
@@ -72,6 +77,11 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
   const urlsRef = useRef<Set<string>>(new Set())
   const videoElsRef = useRef<Map<number, HTMLVideoElement>>(new Map())
   const panelFilmRef = useRef<Map<number, number | null>>(new Map())
+  // Per upload: the details given for it, and its library id once recorded.
+  // Either can come first — the popup can be saved before or after the
+  // upload finishes.
+  const upDetailsRef = useRef<Map<number, FilmDetails>>(new Map())
+  const upVideoRef = useRef<Map<number, number>>(new Map())
 
   const notify = useCallback((msg: string) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
@@ -103,6 +113,7 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
         setConfigured(true)
         setCanManage(!!d.canManage)
         setCanEdit(!!d.canEdit)
+        setGames((d.games ?? []) as FilmGame[])
         setVideos((local) => [...(d.videos as LibVideo[]), ...local])
         setClips((local) => [...(d.clips as Clip[]), ...local])
         // Honor a Library deep link once the team film list is in.
@@ -127,9 +138,29 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
     setUploads((us) => (patch === null ? us.filter((u) => u.key !== key) : us.map((u) => (u.key === key ? { ...u, ...patch } : u))))
   }, [])
 
+  const putDetails = useCallback(
+    async (id: number, d: FilmDetails) => {
+      try {
+        const res = await fetch(`/api/film/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(d),
+        })
+        const j = await res.json()
+        if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`)
+        const video = j.video as LibVideo
+        setVideos((vs) => vs.map((v) => (v.id === video.id ? { ...v, ...video, duration: v.duration } : v)))
+        return true
+      } catch {
+        notify('Could not save the film details — try again from the Library.')
+        return false
+      }
+    },
+    [notify]
+  )
+
   const cloudUpload = useCallback(
-    async (file: File) => {
-      const key = nextUploadKeyRef.current++
+    async (file: File, key: number) => {
       const sizeMB = file.size / (1024 * 1024)
       setUploads((us) => [...us, { key, name: file.name, sizeMB, pct: 0 }])
       try {
@@ -154,15 +185,21 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
           }).start()
         })
 
+        const sent = upDetailsRef.current.get(key)
         const recRes = await fetch('/api/film', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: urlJson.uid, name: file.name }),
+          body: JSON.stringify({ name: baseName(file.name), ...sent, uid: urlJson.uid }),
         })
         const recJson = await recRes.json()
         if (!recRes.ok) throw new Error(recJson.error || `HTTP ${recRes.status}`)
 
-        setVideos((v) => [...v, recJson.video as LibVideo])
+        const video = recJson.video as LibVideo
+        setVideos((v) => [...v, video])
+        upVideoRef.current.set(key, video.id)
+        // Details saved while this was being recorded go on now.
+        const later = upDetailsRef.current.get(key)
+        if (later && later !== sent) void putDetails(video.id, later)
         patchUpload(key, { done: true, pct: 1 })
         setTimeout(() => patchUpload(key, null), 2500)
         notify('Film saved to the team library')
@@ -170,22 +207,53 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
         patchUpload(key, { error: e instanceof Error ? e.message : 'Upload failed' })
       }
     },
-    [notify, patchUpload]
+    [notify, patchUpload, putDetails]
   )
+
+  function saveDetails(names: Map<number, string>, shared: Omit<FilmDetails, 'name'>) {
+    const target = details
+    setDetails(null)
+    if (!target) return
+    let saving = 0
+    for (const [key, name] of names) {
+      const d: FilmDetails = { ...shared, name }
+      if (target.mode === 'edit') {
+        void putDetails(key, d)
+        continue
+      }
+      upDetailsRef.current.set(key, d)
+      const id = upVideoRef.current.get(key)
+      if (id != null) void putDetails(id, d)
+      saving++
+    }
+    if (saving) notify('Details saved — the film is filed when it finishes uploading')
+  }
 
   // ── Library ───────────────────────────────────────────────────────────────
   const addFiles = useCallback(
     (files: Iterable<File>): LibVideo[] => {
       const added: LibVideo[] = []
+      const uploading: { key: number; name: string }[] = []
       for (const file of Array.from(files)) {
         if (!file.type.startsWith('video/')) continue
         if (configuredRef.current && canManageRef.current) {
-          void cloudUpload(file) // lands in the team library when the upload finishes
+          const key = nextUploadKeyRef.current++
+          void cloudUpload(file, key) // lands in the team library when the upload finishes
+          uploading.push({ key, name: baseName(file.name) })
           continue
         }
         const url = URL.createObjectURL(file)
         urlsRef.current.add(url)
         added.push({ id: nextLocalVidRef.current--, name: file.name, url })
+      }
+      // Name it and file it while it uploads.
+      if (uploading.length) {
+        setDetails({
+          films: uploading,
+          start: { category: 'game', gameId: null, folder: null, notes: null },
+          at: Date.now(),
+          mode: 'upload',
+        })
       }
       if (!added.length) return added
       setVideos((v) => [...v, ...added])
@@ -529,6 +597,16 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
             </div>
           ))}
         </div>
+      )}
+
+      {details && (
+        <FilmDetailsDialog
+          target={details}
+          games={games}
+          folders={foldersOf(videos)}
+          onSave={saveDetails}
+          onClose={() => setDetails(null)}
+        />
       )}
 
       {toast && (

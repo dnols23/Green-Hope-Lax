@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 import { VIDEO_COLUMNS, cfStreamApi, getCfConfig, getFilmAccess, mapVideoRow } from '@/lib/film'
 import { normCuts } from '@/components/videoboard/cuts'
+import { detailColumns } from '@/components/videoboard/filmMeta'
 
 // DELETE /api/film/:id — remove a film from the team library. Coach only.
 // Its clips cascade in the database, and the underlying Cloudflare video is
@@ -40,12 +41,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   return NextResponse.json({ ok: true })
 }
 
-// PATCH /api/film/:id { name?, cuts? } — the head coach's edit of a film: its
-// name, and the stretches cut out of it. Head coach only.
+// PATCH /api/film/:id { name?, category?, gameId?, folder?, notes?, cuts? } —
+// a film's details, which any coach may set (whoever uploaded it fills them
+// in), and its edit — the stretches cut out of it — which only the head coach
+// may change.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const access = await getFilmAccess(req)
-  if (!access.edit) {
-    return NextResponse.json({ error: 'Only the head coach can edit film.' }, { status: 403 })
+  if (!access.manage) {
+    return NextResponse.json({ error: 'Coach sign-in required.' }, { status: 403 })
   }
   const cf = getCfConfig()
   if (!cf) return NextResponse.json({ error: 'Film storage is not configured.' }, { status: 503 })
@@ -55,19 +58,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: 'Invalid id.' }, { status: 400 })
   }
-  let body: { name?: unknown; cuts?: unknown }
+  let body: Record<string, unknown>
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 })
   }
-  const patch: { name?: string; cuts?: unknown } = {}
-  if (typeof body.name === 'string') {
-    const name = body.name.trim().slice(0, 120)
-    if (!name) return NextResponse.json({ error: 'The film needs a name.' }, { status: 400 })
-    patch.name = name
+  if (typeof body.name === 'string' && !body.name.trim()) {
+    return NextResponse.json({ error: 'The film needs a name.' }, { status: 400 })
   }
-  if (body.cuts !== undefined) patch.cuts = normCuts(body.cuts)
+  const patch: Record<string, unknown> = detailColumns(body)
+  if (body.cuts !== undefined) {
+    if (!access.edit) return NextResponse.json({ error: 'Only the head coach can edit film.' }, { status: 403 })
+    patch.cuts = normCuts(body.cuts)
+  }
   if (!Object.keys(patch).length) return NextResponse.json({ error: 'Nothing to save.' }, { status: 400 })
 
   const { data, error } = await createServiceClient()
@@ -77,7 +81,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .select(VIDEO_COLUMNS)
     .maybeSingle()
   if (error || !data) {
-    return NextResponse.json({ error: 'Could not save the edit.' }, { status: 500 })
+    return NextResponse.json({ error: 'Could not save.' }, { status: 500 })
   }
   return NextResponse.json({ video: mapVideoRow(data, cf.customerCode) })
 }
