@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import styles from './VideoBoard.module.css'
 import { Panel } from './Panel'
+import { FilmEditor } from './FilmEditor'
 import {
   IconClose,
   IconCompress,
@@ -13,6 +14,7 @@ import {
   IconLayout,
   IconPause,
   IconPlay,
+  IconScissors,
   IconTrash,
   IconUpload,
 } from './icons'
@@ -54,6 +56,10 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
   const [toast, setToast] = useState<{ msg: string; show: boolean } | null>(null)
   const [configured, setConfigured] = useState(false)
   const [canManage, setCanManage] = useState(false)
+  // The head coach alone cuts and edits the film itself.
+  const [canEdit, setCanEdit] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editFrom, setEditFrom] = useState<number | null>(null)
   const [uploads, setUploads] = useState<UploadItem[]>([])
   // Deep link from the Library page: <basePath>?v=<id> or ?clip=<id>
   const [autoLoad, setAutoLoad] = useState<{ videoId: number; clip?: Clip } | null>(null)
@@ -67,6 +73,7 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const urlsRef = useRef<Set<string>>(new Set())
   const videoElsRef = useRef<Map<number, HTMLVideoElement>>(new Map())
+  const panelFilmRef = useRef<Map<number, number | null>>(new Map())
 
   const notify = useCallback((msg: string) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
@@ -97,6 +104,7 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
         canManageRef.current = !!d.canManage
         setConfigured(true)
         setCanManage(!!d.canManage)
+        setCanEdit(!!d.canEdit)
         setVideos((local) => [...(d.videos as LibVideo[]), ...local])
         setClips((local) => [...(d.clips as Clip[]), ...local])
         // Honor a Library deep link once the team film list is in.
@@ -289,6 +297,27 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
 
   const anyPlaying = playingPanels.size > 0
 
+  const onFilmChange = useCallback((index: number, id: number | null) => {
+    panelFilmRef.current.set(index, id)
+  }, [])
+
+  // The panels stay mounted under the editor, paused, so the board comes
+  // back exactly as it was left.
+  function openEditor() {
+    videoElsRef.current.forEach((v) => v.pause())
+    setShortcutsOpen(false)
+    setEditFrom(panelFilmRef.current.get(0) ?? null)
+    setEditing(true)
+  }
+
+  const onEdited = useCallback((video: LibVideo) => {
+    setVideos((vs) => vs.map((v) => (v.id === video.id ? { ...v, ...video, duration: v.duration } : v)))
+  }, [])
+
+  const onExported = useCallback((made: LibVideo[]) => {
+    setVideos((vs) => [...vs, ...made])
+  }, [])
+
   function toggleAll() {
     const els = [...videoElsRef.current.values()]
     if (!els.length) return
@@ -432,7 +461,7 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
           </button>
         )}
 
-        {panelCount > 1 && (
+        {panelCount > 1 && !editing && (
           <button
             type="button"
             className={`${styles.iconBtn} ${anyPlaying ? styles.iconBtnOn : ''}`}
@@ -444,7 +473,7 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
           </button>
         )}
 
-        <div className={styles.segmented} title="Panel layout">
+        <div className={styles.segmented} title="Panel layout" hidden={editing}>
           {([1, 2, 3, 4] as const).map((n) => (
             <button
               key={n}
@@ -459,6 +488,19 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
         </div>
 
         <div className={styles.toolGroup}>
+          {configured && canEdit && (
+            <button
+              type="button"
+              className={`${styles.iconBtn} ${editing ? styles.iconBtnOn : ''}`}
+              title="Edit mode: split, cut and trim the team's film"
+              onClick={() => {
+                if (!editing) openEditor()
+              }}
+              aria-pressed={editing}
+            >
+              <IconScissors size={14} /> Edit
+            </button>
+          )}
           {configured && (
             <Link href={`${basePath}/library`} className={styles.iconBtn} title="Browse the team library">
               <IconFilm size={15} /> Library
@@ -498,8 +540,19 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
         </div>
       </div>
 
+      {editing && (
+        <FilmEditor
+          videos={videos.filter((v) => v.remote && v.id > 0)}
+          initialId={editFrom}
+          onSaved={onEdited}
+          onExported={onExported}
+          onClose={() => setEditing(false)}
+          notify={notify}
+        />
+      )}
+
       {/* ── Panel grid ── */}
-      <div className={styles.grid} data-count={panelCount}>
+      <div className={styles.grid} data-count={panelCount} hidden={editing}>
         {Array.from({ length: panelCount }, (_, i) => (
           <Panel
             key={i === 0 && autoLoad ? `p0-${autoLoad.videoId}-${autoLoad.clip?.id ?? 'v'}` : i}
@@ -514,6 +567,7 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
             addFiles={addFiles}
             registerVideo={registerVideo}
             onPlayingChange={onPlayingChange}
+            onFilmChange={onFilmChange}
             notify={notify}
           />
         ))}

@@ -1,3 +1,5 @@
+import type { Cut } from './cuts'
+
 export type LibVideo = {
   /** Positive = team library row id (Supabase); negative = local session file. */
   id: number
@@ -14,6 +16,8 @@ export type LibVideo = {
   thumb?: string
   /** ISO timestamp for team film — drives the Library's month grouping. */
   createdAt?: string
+  /** The head coach's edit: stretches skipped when anyone plays it. */
+  cuts?: Cut[]
 }
 
 export type Clip = {

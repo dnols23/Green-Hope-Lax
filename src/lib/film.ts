@@ -3,6 +3,8 @@
 // clip records. Never import this into a client component.
 
 import type { Clip, LibVideo } from '@/components/videoboard/types'
+import { normCuts } from '@/components/videoboard/cuts'
+import { getViewer } from './permissions'
 import { createClient } from './supabase-server'
 import { isTeamRequest } from './teamAuth'
 
@@ -11,14 +13,15 @@ import { isTeamRequest } from './teamAuth'
 //    team film and manage shared clips.
 //  - view: a coach OR anyone signed into the Team Hub — can watch the team
 //    library and play its clips.
+//  - edit: the head coach only — cuts and edits the film itself.
 export async function getFilmAccess(req: {
   cookies: { get(name: string): { value: string } | undefined }
-}): Promise<{ view: boolean; manage: boolean }> {
+}): Promise<{ view: boolean; manage: boolean; edit: boolean }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (user) return { view: true, manage: true }
+  if (user) return { view: true, manage: true, edit: !!(await getViewer())?.isOwner }
   const team = await isTeamRequest(req)
-  return { view: team, manage: false }
+  return { view: team, manage: false, edit: false }
 }
 
 export type CfConfig = {
@@ -51,7 +54,7 @@ export function filmThumbUrl(customerCode: string, uid: string): string {
 
 // ── Row → client shape mappers ───────────────────────────────────────────────
 
-type VideoRow = { id: number; uid: string; name: string; created_at?: string }
+type VideoRow = { id: number; uid: string; name: string; created_at?: string; cuts?: unknown }
 type ClipRow = { id: number; video_id: number; name: string; start_time: number; end_time: number; created_at?: string }
 
 export function mapVideoRow(row: VideoRow, customerCode: string): LibVideo {
@@ -63,8 +66,12 @@ export function mapVideoRow(row: VideoRow, customerCode: string): LibVideo {
     hls: true,
     remote: true,
     createdAt: row.created_at,
+    cuts: normCuts(row.cuts),
   }
 }
+
+/** The columns mapVideoRow reads. */
+export const VIDEO_COLUMNS = 'id, uid, name, created_at, cuts'
 
 export function mapClipRow(row: ClipRow): Clip {
   return {

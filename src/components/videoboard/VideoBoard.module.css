@@ -274,6 +274,7 @@
   gap: 8px;
   padding: 8px;
 }
+.grid[hidden], .segmented[hidden] { display: none; }
 .grid[data-count="1"] { grid-template-columns: 1fr; }
 .grid[data-count="2"] { grid-template-columns: 1fr 1fr; }
 .grid[data-count="3"] { grid-template-columns: 1fr 1fr 1fr; }
@@ -1092,4 +1093,273 @@
   }
   .drawer.drawerOpen { transform: translateY(0); }
   .clipAct { width: 40px; height: 40px; }
+}
+
+/* ── Cuts on a panel's seek bar: the head coach's edit, skipped in playback ── */
+.seekCut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(135deg, rgba(224, 82, 82, 0.75) 0 3px, rgba(224, 82, 82, 0.35) 3px 6px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Edit mode (head coach) ── */
+.editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  outline: none;
+  background: var(--vb-bg);
+}
+.editHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vb-line-soft);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.editHead .videoSelect { flex: 0 1 220px; }
+.editBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--vb-danger);
+  border-radius: 999px;
+  padding: 3px 9px;
+  flex-shrink: 0;
+}
+.editName {
+  flex: 0 1 260px;
+  min-width: 120px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--vb-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+}
+.editName:hover { border-color: var(--vb-line); }
+.editName:focus { outline: none; border-color: var(--vb-accent-dk); background: var(--vb-raise-2); }
+.editSummary {
+  font-size: 0.74rem;
+  color: var(--vb-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.editSummary em { font-style: normal; color: #d7a34a; font-weight: 700; }
+
+.editStage {
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+  background: #000;
+  cursor: pointer;
+}
+.editPlayBadge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.editTransport {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--vb-raise);
+  border-top: 1px solid var(--vb-line-soft);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.editCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--vb-dim);
+  margin-right: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.editCheck input { accent-color: var(--vb-accent); }
+.zoomLabel {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--vb-dim);
+  min-width: 26px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.segBtn:disabled { opacity: 0.35; cursor: default; }
+
+/* Timeline */
+.tlScroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--vb-raise);
+  padding: 0 12px 8px;
+  flex-shrink: 0;
+}
+.tlInner {
+  position: relative;
+  min-width: 100%;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.tlInner.tlScrubbing { cursor: grabbing; }
+.tlRuler {
+  position: relative;
+  height: 18px;
+}
+.tlRuler span {
+  position: absolute;
+  top: 3px;
+  font-size: 0.62rem;
+  color: var(--vb-faint);
+  font-variant-numeric: tabular-nums;
+  padding-left: 3px;
+  border-left: 1px solid var(--vb-line);
+  line-height: 1;
+  white-space: nowrap;
+}
+.tlTrack {
+  position: relative;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: repeating-linear-gradient(90deg, #1c211e 0 48px, #181c1a 48px 96px);
+}
+.tlThumb {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.tlSeg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid rgba(0, 0, 0, 0.6);
+  background: rgba(24, 184, 119, 0.12);
+  box-shadow: inset 0 -3px 0 var(--vb-accent);
+  pointer-events: none;
+}
+.tlSegCut {
+  background: repeating-linear-gradient(135deg, rgba(224, 82, 82, 0.62) 0 6px, rgba(20, 8, 8, 0.78) 6px 12px);
+  box-shadow: inset 0 -3px 0 var(--vb-danger);
+}
+.tlSegOn { outline: 2px solid #fff; outline-offset: -2px; z-index: 1; }
+.tlSplit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #fff;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 2;
+}
+.tlMark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.22);
+  border-left: 2px solid #ffd76a;
+  border-right: 2px solid #ffd76a;
+  pointer-events: none;
+  z-index: 2;
+}
+.tlHead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #ffd76a;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  z-index: 3;
+}
+.tlHead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -5px;
+  border: 6px solid transparent;
+  border-top: 7px solid #ffd76a;
+}
+
+/* Tools */
+.editTools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--vb-raise);
+  border-top: 1px solid var(--vb-line-soft);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.editTool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 11px;
+  background: var(--vb-raise-2);
+  border: 1px solid var(--vb-line);
+  border-radius: 8px;
+  color: var(--vb-text);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.editTool:hover:not(:disabled) { border-color: #3a423c; }
+.editTool:disabled { opacity: 0.4; cursor: default; }
+.editTool em { font-style: normal; color: var(--vb-dim); font-weight: 600; }
+.editToolCut { border-color: rgba(224, 82, 82, 0.6); color: #ff9a9a; }
+.editToolKeep { border-color: var(--vb-accent-dk); color: var(--vb-accent); }
+.editDivider { width: 1px; height: 20px; background: var(--vb-line); margin: 0 2px; }
+.editEmpty {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--vb-dim);
+  text-align: center;
+  padding: 24px;
+}
+
+@media (max-width: 760px) {
+  .editStage { min-height: 32vh; flex: 0 0 auto; aspect-ratio: 16 / 9; }
+  .editName { flex: 1 1 100%; order: 5; }
+  .editSummary { order: 6; }
+  .editor { overflow-y: auto; }
 }

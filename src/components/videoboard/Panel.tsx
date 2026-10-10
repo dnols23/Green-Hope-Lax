@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type Hls from 'hls.js'
 import styles from './VideoBoard.module.css'
 import { ClipsDrawer } from './ClipsDrawer'
 import {
@@ -17,6 +16,8 @@ import {
 } from './icons'
 import { PLAYBACK_SPEEDS, type Clip, type LibVideo } from './types'
 import { fmtDuration, fmtTime, shortName } from './utils'
+import { skipFrom, type Cut } from './cuts'
+import { useFilmSource } from './useFilmSource'
 
 const FRAME = 1 / 30 // one step of frame-by-frame review
 
@@ -35,6 +36,8 @@ export type PanelProps = {
   addFiles: (files: Iterable<File>) => LibVideo[]
   registerVideo: (index: number, el: HTMLVideoElement | null) => void
   onPlayingChange: (index: number, playing: boolean) => void
+  /** Which film is up in this panel — edit mode opens on Panel 1's. */
+  onFilmChange?: (index: number, id: number | null) => void
   notify: (msg: string) => void
 }
 
@@ -50,6 +53,7 @@ export function Panel({
   addFiles,
   registerVideo,
   onPlayingChange,
+  onFilmChange,
   notify,
 }: PanelProps) {
   // A Library deep link mounts the panel with its film (and queued clip)
@@ -83,73 +87,25 @@ export function Panel({
   const pendingAutoplayRef = useRef(!autoLoad?.clip)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hlsRef = useRef<Hls | null>(null)
 
   // Derived: a removed library video empties the panel (the <video> unmounts).
   const vid = videoId != null ? videos.find((v) => v.id === videoId) : undefined
   const loadedId = vid ? videoId : null
 
-  // ── HLS attach for team-library film (Cloudflare Stream) ─────────────────
-  // Safari plays HLS natively; everyone else gets hls.js, loaded on demand so
-  // it never weighs down the page for local-file review. A 404/500 on the
-  // manifest means Cloudflare is still transcoding a fresh upload — retry for
-  // a couple of minutes before giving up.
-  const vidId = vid?.id
-  const vidUrl = vid?.url
-  const vidHls = vid?.hls
   useEffect(() => {
-    const video = videoRef.current
-    if (!video || vidId == null || !vidUrl || !vidHls) return
-    let cancelled = false
-    let retryTimer: ReturnType<typeof setTimeout> | null = null
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = vidUrl
-    } else {
-      import('hls.js').then(({ default: HlsMod }) => {
-        if (cancelled) return
-        if (!HlsMod.isSupported()) {
-          video.src = vidUrl
-          return
-        }
-        const hls = new HlsMod({ maxBufferLength: 30 })
-        hlsRef.current = hls
-        let processingTries = 0
-        hls.on(HlsMod.Events.ERROR, (_evt, data) => {
-          if (!data?.fatal) return
-          const code = data.response?.code ?? 0
-          const stillProcessing =
-            data.type === HlsMod.ErrorTypes.NETWORK_ERROR &&
-            (code === 404 || code === 500 || data.details === 'manifestLoadError')
-          if (stillProcessing && processingTries < 20) {
-            processingTries++
-            notify('Cloudflare is still processing this film — retrying…')
-            retryTimer = setTimeout(() => {
-              try {
-                hls.loadSource(vidUrl)
-                hls.startLoad()
-              } catch {}
-            }, 8000)
-          } else if (data.type === HlsMod.ErrorTypes.MEDIA_ERROR) {
-            try {
-              hls.recoverMediaError()
-            } catch {}
-          } else {
-            notify('Could not load this film — it may still be processing. Try again shortly.')
-          }
-        })
-        hls.loadSource(vidUrl)
-        hls.attachMedia(video)
-      })
-    }
-    return () => {
-      cancelled = true
-      if (retryTimer) clearTimeout(retryTimer)
-      if (hlsRef.current) {
-        hlsRef.current.destroy()
-        hlsRef.current = null
-      }
-    }
-  }, [vidId, vidUrl, vidHls, notify])
+    onFilmChange?.(index, loadedId)
+  }, [onFilmChange, index, loadedId])
+
+  // Team film streams from Cloudflare; local files play straight from the device.
+  useFilmSource(videoRef, vid, notify)
+
+  // The head coach's edit: skipped for everyone, except while a saved clip
+  // plays (a clip is a stretch somebody chose on purpose).
+  const cuts = vid?.cuts
+  const cutsRef = useRef<Cut[]>([])
+  useEffect(() => {
+    cutsRef.current = cuts ?? []
+  }, [cuts])
 
   // ── Progress engine ───────────────────────────────────────────────────────
   // The seek bar and clock update via requestAnimationFrame writing straight
@@ -159,6 +115,10 @@ export function Panel({
     const video = videoRef.current
     if (!video) return
     const dur = video.duration || 0
+    if (!video.paused && endWatcherRef.current == null) {
+      const to = skipFrom(cutsRef.current, video.currentTime)
+      if (to != null) video.currentTime = dur && to >= dur - 0.05 ? dur : to
+    }
     const pct = dur ? (video.currentTime / dur) * 100 : 0
     if (fillRef.current) fillRef.current.style.width = pct + '%'
     if (handleRef.current) handleRef.current.style.left = pct + '%'
@@ -537,6 +497,15 @@ export function Panel({
             onPointerCancel={() => setSeekDragging(false)}
           >
             <div className={styles.seekTrack}>
+              {/* Stretches the head coach cut — skipped when it plays */}
+              {duration > 0 &&
+                cuts?.map(([a, b]) => (
+                  <div
+                    key={a}
+                    className={styles.seekCut}
+                    style={{ left: `${(a / duration) * 100}%`, width: `${((b - a) / duration) * 100}%` }}
+                  />
+                ))}
               <div ref={fillRef} className={styles.seekFill} />
               {/* Marked in/out region for the clip being built — above the fill */}
               {isSource && rangeLeft != null && rangeRight != null && rangeRight > rangeLeft && (

@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
-import { getCfConfig, getFilmAccess, mapClipRow, mapVideoRow } from '@/lib/film'
+import { VIDEO_COLUMNS, getCfConfig, getFilmAccess, mapClipRow, mapVideoRow } from '@/lib/film'
 
 // GET /api/film — the shared team film library + clips.
 // Returns { configured: false } when Cloudflare env vars aren't set, which
 // tells the board to run in local, session-only mode. `canManage` is true for
-// a signed-in coach; team members get a watch-only library.
+// a signed-in coach; team members get a watch-only library. `canEdit` is the
+// head coach alone, who may cut the film itself.
 export async function GET(req: NextRequest) {
   const access = await getFilmAccess(req)
   if (!access.view) {
@@ -13,12 +14,12 @@ export async function GET(req: NextRequest) {
   }
   const cf = getCfConfig()
   if (!cf) {
-    return NextResponse.json({ configured: false, canManage: access.manage, videos: [], clips: [] })
+    return NextResponse.json({ configured: false, canManage: access.manage, canEdit: false, videos: [], clips: [] })
   }
 
   const sb = createServiceClient()
   const [videosRes, clipsRes] = await Promise.all([
-    sb.from('team_videos').select('id, uid, name, created_at').order('created_at', { ascending: true }),
+    sb.from('team_videos').select(VIDEO_COLUMNS).order('created_at', { ascending: true }),
     sb.from('team_clips').select('id, video_id, name, start_time, end_time, created_at').order('created_at', { ascending: true }),
   ])
   if (videosRes.error || clipsRes.error) {
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     configured: true,
     canManage: access.manage,
+    canEdit: access.edit,
     videos: videosRes.data.map((row) => mapVideoRow(row, cf.customerCode)),
     clips: clipsRes.data.map(mapClipRow),
   })
@@ -61,7 +63,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await sb
     .from('team_videos')
     .insert({ uid, name })
-    .select('id, uid, name, created_at')
+    .select(VIDEO_COLUMNS)
     .single()
   if (error || !data) {
     return NextResponse.json({ error: 'Could not save to the team library.' }, { status: 500 })
