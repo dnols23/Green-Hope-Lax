@@ -15,11 +15,10 @@ import {
   IconPause,
   IconPlay,
   IconScissors,
-  IconTrash,
   IconUpload,
 } from './icons'
 import type { Clip, LibVideo } from './types'
-import { baseName, fmtTime, shortName } from './utils'
+import { baseName, shortName } from './utils'
 
 const SHORTCUTS: Array<[string[], string]> = [
   [['Space', 'K'], 'Play / pause'],
@@ -46,7 +45,6 @@ type UploadItem = {
 export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } = {}) {
   const [videos, setVideos] = useState<LibVideo[]>([])
   const [clips, setClips] = useState<Clip[]>([])
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [panelCount, setPanelCount] = useState(1)
   const [dragOver, setDragOver] = useState(false)
   const [boardPseudoFs, setBoardPseudoFs] = useState(false)
@@ -206,39 +204,6 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
     },
     [cloudUpload]
   )
-
-  function removeVideos(ids: Set<number>) {
-    // Team film is coach-managed; non-coaches can only drop their local files.
-    if (!canManageRef.current) {
-      ids = new Set([...ids].filter((id) => id < 0))
-      if (!ids.size) return
-    }
-    const removedRemote = videos.filter((v) => ids.has(v.id) && v.remote)
-    setVideos((vs) =>
-      vs.filter((v) => {
-        if (!ids.has(v.id)) return true
-        if (!v.remote) {
-          URL.revokeObjectURL(v.url)
-          urlsRef.current.delete(v.url)
-        }
-        return false
-      })
-    )
-    // Clips go with their film (the server cascades team clips the same way).
-    setClips((cs) => cs.filter((c) => !ids.has(c.videoId)))
-    setSelectedIds((sel) => {
-      const next = new Set(sel)
-      ids.forEach((id) => next.delete(id))
-      return next
-    })
-    removedRemote.forEach((v) => {
-      fetch(`/api/film/${v.id}`, { method: 'DELETE' })
-        .then((r) => {
-          if (!r.ok) throw new Error()
-        })
-        .catch(() => notify(`Could not delete “${shortName(baseName(v.name), 18)}” from the team library`))
-    })
-  }
 
   // ── Clips ─────────────────────────────────────────────────────────────────
   const saveClip = useCallback(
@@ -405,8 +370,10 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
           </span>
         )}
 
+        {/* The film itself is picked in each panel and kept in the Library —
+            no row of file names up here. Only a word while there's none yet. */}
         <div className={styles.libraryStrip}>
-          {videos.length === 0 ? (
+          {videos.length === 0 && (
             <span className={styles.libEmpty}>
               {configured
                 ? canManage
@@ -414,52 +381,8 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
                   : 'No team film yet — your coach can upload film here. Load Film plays files from this device.'
                 : 'No film loaded — stays on this device, this session only.'}
             </span>
-          ) : (
-            videos.map((v) => (
-              <div
-                key={v.id}
-                className={`${styles.chip} ${selectedIds.has(v.id) ? styles.chipSel : ''}`}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('application/x-vb-video', String(v.id))
-                  e.dataTransfer.effectAllowed = 'copy'
-                }}
-                onClick={() => {
-                  if (v.remote && !canManage) return // selection is for batch delete
-                  setSelectedIds((sel) => {
-                    const next = new Set(sel)
-                    if (next.has(v.id)) next.delete(v.id)
-                    else next.add(v.id)
-                    return next
-                  })
-                }}
-                title={`${v.name} — drag onto a panel to load it`}
-              >
-                <span className={styles.chipName}>{shortName(baseName(v.name), 20)}</span>
-                {v.duration != null && <span className={styles.chipDur}>{fmtTime(v.duration)}</span>}
-                {(!v.remote || canManage) && (
-                  <button
-                    type="button"
-                    className={styles.chipX}
-                    title={v.remote ? 'Delete from the team library' : 'Remove from library'}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeVideos(new Set([v.id]))
-                    }}
-                  >
-                    <IconClose size={11} />
-                  </button>
-                )}
-              </div>
-            ))
           )}
         </div>
-
-        {selectedIds.size > 0 && (
-          <button type="button" className={styles.deleteSelBtn} onClick={() => removeVideos(selectedIds)}>
-            <IconTrash size={13} /> Delete {selectedIds.size}
-          </button>
-        )}
 
         {panelCount > 1 && !editing && (
           <button

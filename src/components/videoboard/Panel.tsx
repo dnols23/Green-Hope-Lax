@@ -471,7 +471,7 @@ export function Panel({
             <div>
               {videos.length === 0
                 ? 'Load game film with the button above,\nor drop video files anywhere.'
-                : 'Choose film from the menu above,\nor drag a clip chip onto this panel.'}
+                : 'Choose film from the menu above.'}
             </div>
           </div>
         )}
