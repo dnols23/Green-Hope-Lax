@@ -18,6 +18,8 @@ export interface HubLink {
   icon: string
   /** Which heading it sits under. */
   group: string
+  /** Something new waiting behind it — the row pulses and shows how many. */
+  pulse?: number
 }
 
 const ORDER_KEY = 'gh-hub-order-v1'
@@ -355,7 +357,7 @@ function Rail({
                     return (
                       <div
                         data-tour-mode={l.key}
-                        className="flex items-center gap-1 rounded-lg"
+                        className={`flex items-center gap-1 rounded-lg ${l.pulse && !on ? 'film-new' : ''}`}
                         style={{ background: on ? 'var(--gh-green)' : 'transparent' }}
                       >
                         {rowGrip ? (
@@ -375,10 +377,15 @@ function Rail({
                           // for is what fills the screen.
                           onClick={() => setDrawer(false)}
                           className="flex-1 min-w-0 flex items-center gap-2 py-2 pr-2 text-sm font-semibold rounded-lg"
-                          style={{ color: on ? '#fff' : 'var(--color-gray-700, #374151)' }}
+                          style={{ color: on || l.pulse ? '#fff' : 'var(--color-gray-700, #374151)' }}
                         >
                           <span aria-hidden>{l.icon}</span>
                           <span className="truncate">{l.label}</span>
+                          {!!l.pulse && !on && (
+                            <span className="film-new-count ml-auto" aria-label={`${l.pulse} new`}>
+                              {l.pulse}
+                            </span>
+                          )}
                         </Link>
                       </div>
                     )

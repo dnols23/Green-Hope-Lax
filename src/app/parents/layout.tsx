@@ -5,6 +5,8 @@ import { FalconHead } from '@/components/Logo'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { PARENT_COOKIE } from '@/lib/parentAccess.edge'
 import { signOutParent } from '@/lib/hubAccountActions'
+import { filmViewerFor, newForViewer } from '@/lib/clipShareData'
+import { ParentHubNav } from '@/components/team/ParentHubNav'
 
 export const metadata: Metadata = {
   title: 'Parent Hub | Green Hope Falcons Lacrosse',
@@ -13,6 +15,9 @@ export const metadata: Metadata = {
 
 export default async function ParentsLayout({ children }: { children: React.ReactNode }) {
   const signedIn = !!(await cookies()).get(PARENT_COOKIE)?.value
+  // Film they haven't seen yet makes the Film Room tab pulse.
+  const viewer = signedIn ? await filmViewerFor('parents') : null
+  const fresh = viewer ? await newForViewer(viewer) : 0
   return (
     <div className="app-theme min-h-screen" style={{ background: 'var(--surface-2)' }}>
       <header className="shadow-sm" style={{ background: '#004D2E' }}>
@@ -35,6 +40,7 @@ export default async function ParentsLayout({ children }: { children: React.Reac
             </form>
           )}
         </div>
+        {viewer && <ParentHubNav fresh={fresh} />}
       </header>
       <main className="max-w-screen-xl mx-auto px-4 py-5">{children}</main>
     </div>

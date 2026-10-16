@@ -7,6 +7,7 @@ import { isPageOn } from '@/lib/pages'
 import { readModesOff } from '@/lib/hubSettings'
 import { HUB_MODES, isModeOn } from '@/lib/hubModes'
 import { TEAMS, withTeam } from '@/lib/teams'
+import { filmViewerFor, newForViewer, unreadReplies } from '@/lib/clipShareData'
 
 /**
  * The Coaches Hub and the tools that belong to it.
@@ -59,6 +60,17 @@ export default async function HubLayout({ children }: { children: React.ReactNod
      which every write checks for itself. */
   const teams = TEAMS
 
+  /* The Film Room pulses while something is waiting, and goes straight to it:
+     replies for the head coach, film sent to a coach that he hasn't watched. */
+  const [replies, filmViewer] = await Promise.all([viewer?.isOwner ? unreadReplies() : 0, filmViewerFor('admin')])
+  const freshFilm = filmViewer ? await newForViewer(filmViewer) : 0
+  const film =
+    replies > 0
+      ? { href: '/admin/film/replies', pulse: replies }
+      : freshFilm > 0
+        ? { href: '/admin/film/watch', pulse: freshFilm }
+        : null
+
   const links: HubLink[] = [
     // The War Room, the planner, the priorities and the shed — one of each per
     // team, in the team's own group.
@@ -81,9 +93,15 @@ export default async function HubLayout({ children }: { children: React.ReactNod
         key: m.key,
         label: m.label,
         // Roster opens on Rosters, or on Players for a coach without the rosters grant.
-        href: m.key === 'rosters' && !canSee(viewer, 'rosters') ? '/admin/hub/players' : m.href,
+        href:
+          m.key === 'rosters' && !canSee(viewer, 'rosters')
+            ? '/admin/hub/players'
+            : m.key === 'film' && film
+              ? film.href
+              : m.href,
         icon: m.icon,
         group: 'Program',
+        ...(m.key === 'film' && film ? { pulse: film.pulse } : {}),
       })),
   ]
 

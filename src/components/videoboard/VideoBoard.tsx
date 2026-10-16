@@ -5,6 +5,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import styles from './VideoBoard.module.css'
 import { Panel } from './Panel'
 import { FilmEditor } from './FilmEditor'
+import { ASK_AFTER_CLIP_KEY, SendClipDialog } from './SendClipDialog'
+import { loadSharing, sendClip } from '@/lib/clipShareActions'
+import type { ClipShareInfo } from '@/lib/clipShareData'
+import { shareSummary, type Recipient, type Share } from '@/lib/clipShare'
 import { FilmDetailsDialog, foldersOf, type DetailsTarget } from './FilmDetailsDialog'
 import type { FilmDetails, FilmGame } from './filmMeta'
 import {
@@ -62,6 +66,12 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
   const [editFrom, setEditFrom] = useState<number | null>(null)
   const [uploads, setUploads] = useState<UploadItem[]>([])
   const [games, setGames] = useState<FilmGame[]>([])
+  // What's waiting: film sent to this coach, replies for the head coach.
+  const [forYou, setForYou] = useState(0)
+  const [replies, setReplies] = useState(0)
+  // The head coach's sending: who can get clips, and who each clip went to.
+  const [sharing, setSharing] = useState<{ recipients: Recipient[]; info: Record<number, ClipShareInfo> } | null>(null)
+  const [sendFor, setSendFor] = useState<{ clipId: number; afterSave: boolean } | null>(null)
   // The details popup: open over the uploads it's about.
   const [details, setDetails] = useState<DetailsTarget | null>(null)
   // Deep link from the Library page: <basePath>?v=<id> or ?clip=<id>
@@ -73,6 +83,8 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
   const nextUploadKeyRef = useRef(1)
   const configuredRef = useRef(false)
   const canManageRef = useRef(false)
+  const canEditRef = useRef(false)
+  const recipientsRef = useRef<Recipient[]>([])
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const urlsRef = useRef<Set<string>>(new Set())
   const videoElsRef = useRef<Map<number, HTMLVideoElement>>(new Map())
@@ -113,7 +125,19 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
         setConfigured(true)
         setCanManage(!!d.canManage)
         setCanEdit(!!d.canEdit)
+        canEditRef.current = !!d.canEdit
         setGames((d.games ?? []) as FilmGame[])
+        setForYou(Number(d.forYou) || 0)
+        setReplies(Number(d.replies) || 0)
+        if (d.canEdit) {
+          loadSharing()
+            .then((r) => {
+              if (cancelled || !r.ok) return
+              recipientsRef.current = r.recipients
+              setSharing({ recipients: r.recipients, info: r.info })
+            })
+            .catch(() => {})
+        }
         setVideos((local) => [...(d.videos as LibVideo[]), ...local])
         setClips((local) => [...(d.clips as Clip[]), ...local])
         // Honor a Library deep link once the team film list is in.
@@ -287,6 +311,12 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
           if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`)
           setClips((cs) => [...cs, j.clip as Clip])
           notify('Clip saved to the team library')
+          // Straight on to sending it, unless he's asked not to be asked.
+          let ask = true
+          try {
+            ask = localStorage.getItem(ASK_AFTER_CLIP_KEY) !== 'off'
+          } catch {}
+          if (ask && canEditRef.current) setSendFor({ clipId: (j.clip as Clip).id, afterSave: true })
         } catch {
           notify('Could not save the clip — check your connection and try again.')
         }
@@ -352,6 +382,32 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
     },
     [notify]
   )
+
+  const openSend = useCallback((clipId: number) => setSendFor({ clipId, afterSave: false }), [])
+  const closeSend = useCallback(() => setSendFor(null), [])
+
+  const sendNow = useCallback(async (clipId: number, input: { name: string; notes: string; prompt: string; shares: Share[] }) => {
+    const r = await sendClip({ clipId, ...input })
+    if (!r.ok) {
+      notify(r.error)
+      return false
+    }
+    setClips((cs) =>
+      cs.map((c) => (c.id === clipId ? { ...c, name: input.name, notes: input.notes.trim() || null, prompt: input.prompt.trim() || null } : c))
+    )
+    setSharing((s) =>
+      s
+        ? {
+            ...s,
+            info: { ...s.info, [clipId]: { ...(s.info[clipId] ?? { watched: 0, unread: 0, threads: 0 }), shares: r.shares } },
+          }
+        : s
+    )
+    notify(r.shares.length ? `Sent to ${shareSummary(r.shares, recipientsRef.current)}` : 'Saved')
+    return true
+  }, [notify])
+
+  const sending = sendFor && sharing ? clips.find((c) => c.id === sendFor.clipId) ?? null : null
 
   // ── Panel registry: lets the toolbar drive all panels at once ────────────
   const registerVideo = useCallback((index: number, el: HTMLVideoElement | null) => {
@@ -532,6 +588,24 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
               <IconScissors size={14} /> Edit
             </button>
           )}
+          {configured && canManage && basePath.startsWith('/admin') && (
+            <Link
+              href="/admin/film/watch"
+              className={`${styles.iconBtn} ${styles.waitBtn} ${forYou > 0 ? 'film-new' : ''}`}
+              title="Clips sent to you"
+            >
+              For you{forYou > 0 && <span className="film-new-count">{forYou}</span>}
+            </Link>
+          )}
+          {configured && canEdit && basePath.startsWith('/admin') && (
+            <Link
+              href="/admin/film/replies"
+              className={`${styles.iconBtn} ${styles.waitBtn} ${replies > 0 ? 'film-new' : ''}`}
+              title="What players, parents and coaches wrote back"
+            >
+              Replies{replies > 0 && <span className="film-new-count">{replies}</span>}
+            </Link>
+          )}
           {configured && (
             <Link href={`${basePath}/library`} className={styles.iconBtn} title="Browse the team library">
               <IconFilm size={15} /> Library
@@ -597,6 +671,8 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
             onDeleteClip={deleteClip}
             onUpdateClip={updateClip}
             onReorderClips={reorderClips}
+            sharing={sharing}
+            onSendClip={canEdit && sharing ? openSend : undefined}
             addFiles={addFiles}
             registerVideo={registerVideo}
             onPlayingChange={onPlayingChange}
@@ -639,6 +715,18 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
             </div>
           ))}
         </div>
+      )}
+
+      {sending && sendFor && sharing && (
+        <SendClipDialog
+          key={sending.id}
+          clip={sending}
+          recipients={sharing.recipients}
+          shares={sharing.info[sending.id]?.shares ?? []}
+          afterSave={sendFor.afterSave}
+          onClose={closeSend}
+          onSend={sendNow}
+        />
       )}
 
       {details && (

@@ -1558,3 +1558,88 @@ select.dlgInput option, select.dlgInput optgroup { background: #1a1e1b; color: #
   line-height: 1.3;
   word-break: break-word;
 }
+
+/* ── Send a clip ── */
+.sendDlg { width: min(560px, 100%); }
+.pickWrap { position: relative; margin-top: 8px; }
+.pickList {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  background: #1a1e1b;
+  border: 1px solid #262b27;
+  border-radius: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.pickItem {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: #e8ebe9;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.pickItem:hover { background: rgba(24, 184, 119, 0.14); }
+.pickName { font-weight: 700; }
+.pickDetail { font-size: 0.75rem; color: #9aa39d; }
+.pickNone { margin: 6px 2px 0; font-size: 0.76rem; color: #59635d; }
+.personChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 11px;
+  border-radius: 999px;
+  background: rgba(24, 184, 119, 0.16);
+  border: 1px solid #0e7a50;
+  color: #e8ebe9;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.personKind { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #7fcfab; }
+.personChip button {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8ebe9;
+  cursor: pointer;
+  line-height: 1;
+}
+.personChip button:hover { background: rgba(224, 82, 82, 0.4); }
+.askAfter {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #9aa39d;
+  cursor: pointer;
+}
+.askAfter input { accent-color: #18b877; }
+
+/* Who a clip went to, and how it's landing — under its name in the list. */
+.clipSent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #7fcfab;
+}
+.clipSent em { font-style: normal; color: var(--vb-faint); font-weight: 600; }
+.clipSent strong { color: #fff; background: #228b22; border-radius: 999px; padding: 0 6px; }
+.clipActSend { color: var(--vb-accent); border-color: var(--vb-accent-dk); }
+.clipActSend:hover { background: var(--vb-accent-soft); }
+
+/* "For you" and "Replies" in the toolbar pulse while something waits. */
+.waitBtn { text-decoration: none; }

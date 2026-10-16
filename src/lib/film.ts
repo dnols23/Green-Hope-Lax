@@ -74,10 +74,11 @@ type ClipRow = {
   end_time: number
   created_at?: string
   notes?: string | null
+  prompt?: string | null
 }
 
 /** The columns mapClipRow reads. */
-export const CLIP_COLUMNS = 'id, video_id, name, start_time, end_time, created_at, notes'
+export const CLIP_COLUMNS = 'id, video_id, name, start_time, end_time, created_at, notes, prompt'
 
 export function mapVideoRow(row: VideoRow, customerCode: string): LibVideo {
   return {
@@ -126,5 +127,6 @@ export function mapClipRow(row: ClipRow): Clip {
     remote: true,
     createdAt: row.created_at,
     notes: row.notes ?? null,
+    prompt: row.prompt ?? null,
   }
 }

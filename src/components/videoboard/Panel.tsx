@@ -18,6 +18,8 @@ import { PLAYBACK_SPEEDS, type Clip, type LibVideo } from './types'
 import { fmtDuration, fmtTime, shortName } from './utils'
 import { skipFrom, type Cut } from './cuts'
 import { useFilmSource } from './useFilmSource'
+import type { ClipShareInfo } from '@/lib/clipShareData'
+import type { Recipient } from '@/lib/clipShare'
 
 const FRAME = 1 / 30 // one step of frame-by-frame review
 
@@ -34,6 +36,9 @@ export type PanelProps = {
   onDeleteClip: (id: number) => void
   onUpdateClip: (id: number, patch: { name?: string; notes?: string | null }) => void
   onReorderClips: (ids: number[]) => void
+  /** The head coach's sending: who each clip went to, and who can get one. */
+  sharing?: { recipients: Recipient[]; info: Record<number, ClipShareInfo> } | null
+  onSendClip?: (id: number) => void
   /** Add dropped files to the shared library; returns the created entries. */
   addFiles: (files: Iterable<File>) => LibVideo[]
   registerVideo: (index: number, el: HTMLVideoElement | null) => void
@@ -54,6 +59,8 @@ export function Panel({
   onDeleteClip,
   onUpdateClip,
   onReorderClips,
+  sharing,
+  onSendClip,
   addFiles,
   registerVideo,
   onPlayingChange,
@@ -632,6 +639,8 @@ export function Panel({
         onDelete={onDeleteClip}
         onUpdate={onUpdateClip}
         onReorder={onReorderClips}
+        sharing={sharing ?? null}
+        onSend={onSendClip}
       />
     </div>
   )

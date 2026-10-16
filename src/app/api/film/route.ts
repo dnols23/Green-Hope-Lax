@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 import { CLIP_COLUMNS, VIDEO_COLUMNS, getCfConfig, getFilmAccess, listFilmGames, mapClipRow, mapVideoRow } from '@/lib/film'
 import { detailColumns } from '@/components/videoboard/filmMeta'
+import { filmViewerFor, newForViewer, unreadReplies } from '@/lib/clipShareData'
 
 // GET /api/film — the shared team film library + clips.
 // Returns { configured: false } when Cloudflare env vars aren't set, which
@@ -19,7 +20,14 @@ export async function GET(req: NextRequest) {
   }
 
   const sb = createServiceClient()
-  const [videosRes, clipsRes, games] = await Promise.all([
+  // What's waiting for this coach: film sent to him, and (for the head coach) replies.
+  const waiting = async () => {
+    if (!access.manage) return { forYou: 0, replies: 0 }
+    const me = await filmViewerFor('admin')
+    const [forYou, replies] = await Promise.all([me ? newForViewer(me) : 0, access.edit ? unreadReplies() : 0])
+    return { forYou, replies }
+  }
+  const [videosRes, clipsRes, games, counts] = await Promise.all([
     sb.from('team_videos').select(VIDEO_COLUMNS).order('created_at', { ascending: true }),
     sb
       .from('team_clips')
@@ -27,6 +35,7 @@ export async function GET(req: NextRequest) {
       .order('position', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true }),
     listFilmGames(sb),
+    waiting(),
   ])
   if (videosRes.error || clipsRes.error) {
     return NextResponse.json(
@@ -41,6 +50,7 @@ export async function GET(req: NextRequest) {
     videos: videosRes.data.map((row) => mapVideoRow(row, cf.customerCode)),
     clips: clipsRes.data.map(mapClipRow),
     games,
+    ...counts,
   })
 }
 

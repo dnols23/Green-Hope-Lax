@@ -2,14 +2,21 @@ import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { FalconHead } from '@/components/Logo'
 import { teamLogout } from '@/lib/actions'
+import { filmViewerFor, newForViewer } from '@/lib/clipShareData'
 
 const TABS = [
   { key: 'war-room', label: 'War Room', href: '/team' },
   { key: 'calendar', label: 'Calendar', href: '/team/calendar' },
+  { key: 'film', label: 'Film Room', href: '/team/film' },
 ] as const
 
-/** The Team Hub's header and its one menu: the War Room and the calendar. */
-export function TeamHubShell({ tab, children }: { tab: (typeof TABS)[number]['key']; children: React.ReactNode }) {
+/**
+ * The Team Hub's header and its menu: the War Room, the calendar and the Film
+ * Room — which pulses forest green while there's film the player hasn't seen.
+ */
+export async function TeamHubShell({ tab, children }: { tab: (typeof TABS)[number]['key']; children: React.ReactNode }) {
+  const viewer = await filmViewerFor('team')
+  const fresh = viewer ? await newForViewer(viewer) : 0
   return (
     <>
       <header className="text-white" style={{ background: '#004D2E' }}>
@@ -32,18 +39,24 @@ export function TeamHubShell({ tab, children }: { tab: (typeof TABS)[number]['ke
             </form>
           </div>
         </div>
-        <nav className="max-w-screen-xl mx-auto px-4 flex gap-1" aria-label="Team Hub">
+        <nav className="max-w-screen-xl mx-auto px-4 flex gap-1 overflow-x-auto" aria-label="Team Hub">
           {TABS.map((t) => {
             const on = t.key === tab
+            const pulse = t.key === 'film' && fresh > 0 && !on
             return (
               <Link
                 key={t.key}
                 href={t.href}
                 aria-current={on ? 'page' : undefined}
-                className="px-4 py-2.5 text-sm font-bold rounded-t-lg transition-colors"
+                className={`shrink-0 px-4 py-2.5 text-sm font-bold rounded-t-lg transition-colors inline-flex items-center ${pulse ? 'film-new' : ''}`}
                 style={on ? { background: 'var(--surface-2)', color: 'var(--gh-green)' } : { color: 'rgba(255,255,255,.75)' }}
               >
                 {t.label}
+                {pulse && (
+                  <span className="film-new-count" aria-label={`${fresh} new`}>
+                    {fresh}
+                  </span>
+                )}
               </Link>
             )
           })}

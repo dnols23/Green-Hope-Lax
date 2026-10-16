@@ -6,6 +6,8 @@ import { IconClose, IconPlay, IconTrash } from './icons'
 import type { Clip, LibVideo } from './types'
 import { baseName, fmtDuration, fmtTime, shortName } from './utils'
 import { GripDots, SortableList } from '@/components/admin/SortableList'
+import { shareSummary, type Recipient } from '@/lib/clipShare'
+import type { ClipShareInfo } from '@/lib/clipShareData'
 
 type ClipsDrawerProps = {
   open: boolean
@@ -18,6 +20,10 @@ type ClipsDrawerProps = {
   onDelete: (id: number) => void
   onUpdate: (id: number, patch: { name?: string; notes?: string | null }) => void
   onReorder: (ids: number[]) => void
+  /** The head coach's view: who each clip went to and how it's landing. */
+  sharing: { recipients: Recipient[]; info: Record<number, ClipShareInfo> } | null
+  /** Open the send popup — the head coach only. */
+  onSend?: (id: number) => void
 }
 
 /**
@@ -37,6 +43,8 @@ export function ClipsDrawer({
   onDelete,
   onUpdate,
   onReorder,
+  sharing,
+  onSend,
 }: ClipsDrawerProps) {
   const [openNotes, setOpenNotes] = useState<Set<number>>(new Set())
   const [renaming, setRenaming] = useState<number | null>(null)
@@ -128,7 +136,26 @@ export function ClipsDrawer({
                         {fmtTime(clip.start)}–{fmtTime(clip.end)} · {fmtDuration(clip.end - clip.start)}
                         {source ? ` · ${shortName(baseName(source.name), 16)}` : ''}
                       </div>
+                      {sharing && clip.remote && (sharing.info[clip.id]?.shares.length ?? 0) > 0 && (
+                        <div className={styles.clipSent}>
+                          <span>➤ {shareSummary(sharing.info[clip.id].shares, sharing.recipients)}</span>
+                          <em>{sharing.info[clip.id].watched} watched</em>
+                          {sharing.info[clip.id].unread > 0 && <strong>{sharing.info[clip.id].unread} new</strong>}
+                        </div>
+                      )}
                     </div>
+                    {onSend && clip.remote && (
+                      <button
+                        type="button"
+                        className={`${styles.clipAct} ${styles.clipActSend}`}
+                        title="Send to players, parents or coaches"
+                        onClick={() => onSend(clip.id)}
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round">
+                          <path d="M4 12 20 4l-5 16-3.5-6.5z" />
+                        </svg>
+                      </button>
+                    )}
                     <button
                       type="button"
                       className={`${styles.clipAct} ${styles.clipActPlay}`}
@@ -161,7 +188,7 @@ export function ClipsDrawer({
                       <span className={`${styles.clipChevron} ${notesOpen ? styles.clipChevronOpen : ''}`} aria-hidden>
                         ›
                       </span>
-                      Notes
+                      Coach’s notes
                       {!notesOpen && clip.notes && <span className={styles.clipNotesPeek}>{clip.notes}</span>}
                     </button>
                   )}
