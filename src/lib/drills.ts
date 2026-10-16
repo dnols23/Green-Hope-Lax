@@ -28,6 +28,7 @@ export const DRILL_CATEGORIES: DrillCategory[] = [
   { key: 'individualdefense',label: 'Individual defense', tag: 'individual',   icon: '🧱' },
   { key: 'dmid',            label: 'D-mids & poles',      tag: 'unit',         icon: '🪝' },
   { key: 'transition',      label: 'Transition',          tag: 'team',         icon: '↔️' },
+  { key: 'subgame',         label: 'Sub game',            tag: 'team',         icon: '🔄' },
   { key: 'ridecrear',       label: 'Riding & clearing',   tag: 'team',         icon: '🔁' },
   { key: 'sixes',           label: '6v6 & skeleton',      tag: 'team',         icon: '🔷' },
   { key: 'mandown',         label: 'Man-down',            tag: 'specials',     icon: '➖' },
