@@ -31,7 +31,7 @@ export function SendClipDialog({
   /** Opened by saving the clip — offers to stop opening by itself. */
   afterSave: boolean
   onClose: () => void
-  onSend: (clipId: number, input: { name: string; notes: string; prompt: string; shares: Share[] }) => Promise<boolean>
+  onSend: (clipId: number, input: { name: string; notes: string; prompt: string; shares: Share[]; notify: boolean }) => Promise<boolean>
 }) {
   const [name, setName] = useState(clip.name)
   const [notes, setNotes] = useState(clip.notes ?? '')
@@ -48,6 +48,8 @@ export function SendClipDialog({
     }
   })
   const nameRef = useRef<HTMLInputElement>(null)
+  // Email whoever it newly reaches — the usual way they find out.
+  const [notify, setNotify] = useState(true)
 
   useEffect(() => {
     nameRef.current?.focus()
@@ -92,7 +94,7 @@ export function SendClipDialog({
     e.preventDefault()
     if (!name.trim() || busy) return
     setBusy(true)
-    const ok = await onSend(clip.id, { name: name.trim(), notes, prompt, shares })
+    const ok = await onSend(clip.id, { name: name.trim(), notes, prompt, shares, notify })
     setBusy(false)
     if (ok) onClose()
   }
@@ -228,6 +230,13 @@ export function SendClipDialog({
               )
             })}
           </div>
+        )}
+
+        {newCount > 0 && (
+          <label className={styles.askAfter} style={{ marginTop: 12 }}>
+            <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+            Email them that it’s waiting
+          </label>
         )}
 
         <div className={styles.dlgFoot}>

@@ -386,7 +386,7 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
   const openSend = useCallback((clipId: number) => setSendFor({ clipId, afterSave: false }), [])
   const closeSend = useCallback(() => setSendFor(null), [])
 
-  const sendNow = useCallback(async (clipId: number, input: { name: string; notes: string; prompt: string; shares: Share[] }) => {
+  const sendNow = useCallback(async (clipId: number, input: { name: string; notes: string; prompt: string; shares: Share[]; notify: boolean }) => {
     const r = await sendClip({ clipId, ...input })
     if (!r.ok) {
       notify(r.error)
@@ -403,7 +403,11 @@ export function VideoBoard({ basePath = '/team/video' }: { basePath?: string } =
           }
         : s
     )
-    notify(r.shares.length ? `Sent to ${shareSummary(r.shares, recipientsRef.current)}` : 'Saved')
+    notify(
+      r.shares.length
+        ? `Sent to ${shareSummary(r.shares, recipientsRef.current)}${r.emailed ? ` · emailed ${r.emailed}` : ''}`
+        : 'Saved'
+    )
     return true
   }, [notify])
 

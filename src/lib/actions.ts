@@ -1163,6 +1163,18 @@ export async function setCoachAccess(formData: FormData) {
   revalidatePath('/admin/access')
 }
 
+// Where a coach's emails go — clips sent to him, and the like. Blank clears it.
+export async function setCoachNotifyEmail(formData: FormData) {
+  await requireOwner()
+  const email = str(formData.get('email')).toLowerCase()
+  const existing = email ? await readStaff(email) : null
+  if (!existing) return
+  const typed = str(formData.get('notify_email')).toLowerCase()
+  if (typed && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typed)) return
+  await writeStaff({ ...existing, notifyEmail: typed || null })
+  revalidatePath('/admin/access')
+}
+
 // Claim ownership, so the first-run stand-in ends and everyone else is a coach.
 export async function claimOwnership() {
   const me = await requireOwner()

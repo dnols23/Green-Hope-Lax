@@ -20,6 +20,17 @@ export interface StaffRecord {
   permissions: string[]
   /** Varsity, JV, or both. Older records have none, which reads as both. */
   team: StaffTeam
+  /**
+   * Where emails to him go. Most logins are made-up usernames
+   * (coachsmith@ghfalcons.local) that can't receive mail.
+   */
+  notifyEmail?: string | null
+}
+
+/** A coach's real inbox: the one on file, else his login if it's a real address. */
+export function staffMailbox(rec: Pick<StaffRecord, 'email' | 'notifyEmail'>): string | null {
+  if (rec.notifyEmail) return rec.notifyEmail
+  return rec.email.endsWith('.local') ? null : rec.email
 }
 
 const keyFor = (email: string) => `${PREFIX}${email.toLowerCase().trim()}`
@@ -34,6 +45,7 @@ function parse(key: string, value: string): StaffRecord | null {
       isOwner: raw.isOwner === true,
       permissions: Array.isArray(raw.permissions) ? raw.permissions.map(String) : [],
       team: isStaffTeam(raw.team) ? raw.team : 'all',
+      notifyEmail: typeof raw.notifyEmail === 'string' && raw.notifyEmail ? raw.notifyEmail : null,
     }
   } catch {
     return null
@@ -61,6 +73,8 @@ export async function listStaff(): Promise<StaffRecord[]> {
 export async function writeStaff(rec: StaffRecord): Promise<void> {
   const svc = createServiceClient()
   const { email, ...rest } = rec
+  // A rewrite that doesn't mention the notification email keeps the one on file.
+  if (rest.notifyEmail === undefined) rest.notifyEmail = (await readStaff(email))?.notifyEmail ?? null
   await svc
     .from('app_settings')
     .upsert({ key: keyFor(email), value: JSON.stringify(rest) }, { onConflict: 'key' })

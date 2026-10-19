@@ -5,6 +5,7 @@ import { createServiceClient } from './supabase-server'
 import { getViewer } from './permissions'
 import { clipReaches, filmViewerFor, listRecipients, shareInfo, type ClipMessage, type ClipShareInfo, type FilmHub } from './clipShareData'
 import { isShareGroup, isSharePerson, type Recipient, type Share } from './clipShare'
+import { emailClipSent } from './clipEmail'
 
 /**
  * Sending clips, and everything a viewer does with one.
@@ -57,7 +58,9 @@ export async function sendClip(input: {
   notes: string
   prompt: string
   shares: Share[]
-}): Promise<Result<{ shares: Share[] }>> {
+  /** Email everyone it newly reaches. On unless he turns it off. */
+  notify?: boolean
+}): Promise<Result<{ shares: Share[]; emailed: number }>> {
   const v = await headCoach()
   if (!v) return { ok: false, error: 'Only the head coach sends clips.' }
   const clipId = clipIdOf(input.clipId)
@@ -108,7 +111,18 @@ export async function sendClip(input: {
     if (error) return { ok: false, error: 'Could not send it.' }
   }
   revalidateFeeds()
-  return { ok: true, shares }
+  const emailed =
+    input.notify === false
+      ? 0
+      : await emailClipSent({
+          added: add,
+          kept: shares.filter((s) => had.some((r) => r.target === s.target && r.target_id === s.targetId)),
+          sender: { email: v.email, name: v.name || 'Coach' },
+          clipName: name,
+          notes: String(input.notes ?? '').trim() || null,
+          prompt: String(input.prompt ?? '').trim() || null,
+        })
+  return { ok: true, shares, emailed }
 }
 
 /** The head coach answers someone. Their side of the conversation counts as read. */

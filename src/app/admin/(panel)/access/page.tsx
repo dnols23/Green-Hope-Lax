@@ -1,6 +1,6 @@
 import { requireOwner, GRANTABLE, STAFF_TEAMS, STAFF_ROLES } from '@/lib/permissions'
 import { listStaff, staffStatuses } from '@/lib/staff'
-import { setCoachAccess, removeCoachAccount, claimOwnership, setCoachPassword } from '@/lib/actions'
+import { setCoachAccess, removeCoachAccount, claimOwnership, setCoachPassword, setCoachNotifyEmail } from '@/lib/actions'
 import { PasswordField } from '@/components/PasswordField'
 import { AddCoachForm } from './AddCoachForm'
 
@@ -101,6 +101,9 @@ export default async function CoachAccessPage() {
                         ? 'Coaches Hub and Film Room only'
                         : `Plus ${granted.join(', ')}`}
                   </div>
+                  <div className="text-xs ml-5 mt-0.5" style={{ color: c.notifyEmail || !c.email.endsWith('.local') ? 'var(--color-gray-500, #6b7280)' : 'var(--gh-maroon)' }}>
+                    {c.notifyEmail ? `📧 ${c.notifyEmail}` : c.email.endsWith('.local') ? '📧 No email — open to add one' : `📧 ${c.email}`}
+                  </div>
                   {!c.isOwner && (c.role === 'head' || c.role === 'jv-head') && (
                     <div className="text-xs font-bold ml-5 mt-0.5" style={{ color: 'var(--gh-maroon)' }}>
                       {c.role === 'jv-head' ? 'JV head coach' : 'Head coach'}
@@ -115,6 +118,22 @@ export default async function CoachAccessPage() {
               </summary>
 
               <div className="mt-4 pt-4 border-t border-gray-100">
+              <form action={setCoachNotifyEmail} className="flex items-end gap-3 flex-wrap mb-4 pb-4 border-b border-gray-100">
+                <input type="hidden" name="email" value={c.email} />
+                <div className="min-w-[240px] flex-1 max-w-sm">
+                  <label className="field-label" htmlFor={`notify-${c.email}`}>Email for notifications</label>
+                  <input
+                    id={`notify-${c.email}`}
+                    name="notify_email"
+                    type="email"
+                    defaultValue={c.notifyEmail ?? ''}
+                    placeholder="their real email"
+                    className="field"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Where clips you send {c.isOwner ? 'you' : 'them'} are emailed. Their login can’t receive mail.</p>
+                </div>
+                <button type="submit" className="btn btn-ghost text-sm">Save email</button>
+              </form>
               {!c.isOwner && (
                 <form action={removeCoachAccount} className="flex justify-end -mt-1 mb-3">
                   <input type="hidden" name="email" value={c.email} />
