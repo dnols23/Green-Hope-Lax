@@ -28,6 +28,7 @@ import { addDaysYmd, daysBetweenYmd, hmOf, ymdOf, zonedToUtc, zoneParts } from '
 import { randomUUID } from 'node:crypto'
 import { readRepeat, repeatDates } from './eventRepeat'
 import { revalidatePath } from 'next/cache'
+import { emailScheduleChange } from './staffNotify'
 import { createServiceClient } from './supabase-server'
 import { canSee, canTeam, isSandboxed } from './sections'
 import { withTeam } from './teams'
@@ -168,12 +169,37 @@ export async function saveCalEvent(input: EventInput): Promise<CalResult> {
     const days = repeatDates(ymdOf(write.startsAt), repeat)
     const made = await insertSeries(days.map((d) => onDay(d, write)), write, viewer.name || viewer.email, randomUUID())
     if ('error' in made) return { ok: false, error: /series_id/i.test(made.error) ? NEEDS_0047 : 'Couldn’t save them.' }
+    await tellStaff('added', write, viewer, days.length > 1 ? `Repeats — ${days.length} dates` : null)
     return { ok: true, id: made.id }
   }
 
   const id = await insertEvent(write, viewer.name || viewer.email)
   if (!id) return { ok: false, error: 'Couldn’t save — has supabase/migrations/0039_calendar.sql been run?' }
+  await tellStaff('added', write, viewer, null)
   return { ok: true, id }
+}
+
+/**
+ * The staff hear when something goes onto or comes off the calendar — not
+ * for open field slots, and not for things already in the past.
+ */
+async function tellStaff(
+  change: 'added' | 'removed',
+  ev: { title: string; team: string; kind: string; startsAt: string; endsAt: string; allDay: boolean; location?: string | null },
+  viewer: { email: string; name: string },
+  extra: string | null
+) {
+  if (ev.kind === 'open' || new Date(ev.endsAt) < new Date()) return
+  await emailScheduleChange({
+    change,
+    what: ev.title,
+    team: ev.team === 'jv' ? 'jv' : ev.team === 'varsity' ? 'varsity' : 'program',
+    start: new Date(ev.startsAt),
+    end: new Date(ev.endsAt),
+    allDay: ev.allDay,
+    detail: [ev.location, extra].filter(Boolean).join(' · ') || null,
+    actor: { email: viewer.email, name: viewer.name || viewer.email },
+  })
 }
 
 /** A drag or a resize: the same event, new times. */
@@ -258,9 +284,11 @@ export async function deleteCalEvent(id: string, scope: 'one' | 'later' = 'one')
   if (scope === 'later' && existing.seriesId) {
     const later = await listSeriesFrom(existing.seriesId, existing.startsAt)
     await removeEvents(later.map((e) => e.id))
+    await tellStaff('removed', existing, viewer, later.length > 1 ? `And the ${later.length - 1} after it` : null)
     return { ok: true }
   }
   await removeEvent(id)
+  await tellStaff('removed', existing, viewer, null)
   return { ok: true }
 }
 

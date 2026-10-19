@@ -42,6 +42,18 @@ export const NOTIFY_EVENTS: NotifyEvent[] = [
     label: 'Contact messages',
     description: 'Someone sends a message from the Contact page.',
   },
+  {
+    key: 'practice-posted',
+    label: 'Practice plans — to the staff',
+    description:
+      'A practice plan is saved with a date and its drills. Emails every coach with an email in Coach Access, except whoever posted it and anyone marked out in the calendar then.',
+  },
+  {
+    key: 'schedule-change',
+    label: 'Schedule changes — to the staff',
+    description:
+      'A game or calendar event is added or removed. Emails every coach with an email in Coach Access, except whoever changed it and anyone marked out in the calendar then.',
+  },
 ]
 
 export interface NotifySettings {

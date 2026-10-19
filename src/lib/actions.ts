@@ -1,6 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { zonedToUtc } from './zoned'
+import { emailPracticePosted, emailScheduleChange } from './staffNotify'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient, createServiceClient } from './supabase-server'
@@ -780,9 +782,34 @@ export async function upsertGame(formData: FormData) {
       ? await supabase.from('games').update(row).eq('id', id)
       : await supabase.from('games').insert(row)
 
+  let saved = false
   for (const row of attempts) {
     const { error } = await save(row)
-    if (!error) break
+    if (!error) {
+      saved = true
+      break
+    }
+  }
+  // A new boys' game tells the staff.
+  if (saved && !id && payload.gender === 'boys') {
+    const { data: made } = await createServiceClient()
+      .from('games')
+      .select('game_date, opponent, home_away, location')
+      .eq('opponent', payload.opponent)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const g = made as { game_date: string; opponent: string; home_away: string; location: string | null } | null
+    if (g) {
+      await emailScheduleChange({
+        change: 'added',
+        what: `${level === 'jv' ? 'JV ' : ''}Game ${g.home_away === 'away' ? '@' : 'vs'} ${g.opponent}`,
+        team: level,
+        start: new Date(g.game_date),
+        detail: g.location,
+        actor: { email: viewer?.email ?? null, name: viewer?.name || 'A coach' },
+      })
+    }
   }
   revalidatePath('/schedule')
   revalidatePath('/team')
@@ -797,12 +824,23 @@ function id0(formData: FormData): string {
 export async function deleteGame(id: string) {
   const viewer = await requireSection('schedule')
   const { data: existing } = await createServiceClient()
-    .from('games').select('level').eq('id', id).maybeSingle()
+    .from('games').select('level, game_date, opponent, home_away, gender, status').eq('id', id).maybeSingle()
   const level = (existing as { level?: string } | null)?.level === 'jv' ? 'jv' : 'varsity'
   if (!canTeam(viewer, level)) return
 
   const supabase = await createClient()
-  await supabase.from('games').delete().eq('id', id)
+  const { error: gone } = await supabase.from('games').delete().eq('id', id)
+  // An upcoming boys' game coming off the schedule tells the staff.
+  const g = existing as { game_date: string; opponent: string; home_away: string; gender: string; status: string } | null
+  if (!gone && g && g.gender === 'boys' && g.status === 'scheduled' && new Date(g.game_date) > new Date()) {
+    await emailScheduleChange({
+      change: 'removed',
+      what: `${level === 'jv' ? 'JV ' : ''}Game ${g.home_away === 'away' ? '@' : 'vs'} ${g.opponent}`,
+      team: level,
+      start: new Date(g.game_date),
+      actor: { email: viewer?.email ?? null, name: viewer?.name || 'A coach' },
+    })
+  }
   revalidatePath('/schedule')
   revalidatePath('/admin/schedule')
 }
@@ -2202,6 +2240,29 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
       .eq('id', id)
     if (calError && /on_calendar/i.test(calError.message)) {
       warning = 'Saved, but not the calendar switch — run supabase/migrations/0046_plan_calendar.sql in the Supabase SQL editor.'
+    }
+  }
+
+  /* The first time a practice is saved ready to run — a date and its drills,
+     shared with the staff — the coaches hear about it. Once only. */
+  if (existing?.kind === 'practice' && !draft && common.publish_coaches && common.plan_date && blocksOut.length) {
+    const { data: sent } = await svc
+      .from('plans')
+      .update({ coaches_emailed_at: new Date().toISOString() })
+      .eq('id', id)
+      .is('coaches_emailed_at', null)
+      .select('id')
+    if (sent && sent.length) {
+      const startHm = typeof common.start_time === 'string' && common.start_time ? common.start_time.slice(0, 5) : '16:00'
+      await emailPracticePosted({
+        planId: id,
+        team: existing.team === 'jv' ? 'jv' : 'varsity',
+        title: String(common.title),
+        start: zonedToUtc(String(common.plan_date), startHm),
+        minutes: blocksOut.reduce((t, b) => t + (Number(b.minutes) || 0), 0),
+        blocks: blocksOut.map((b) => `${b.title || 'Untitled'} · ${b.minutes}m`),
+        actor: { email: viewer?.email ?? null, name: viewer?.name || 'A coach' },
+      })
     }
   }
 
