@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import { addGearInterest, type GearResult } from '@/lib/gearActions'
-import { GEAR } from '@/lib/gearInterest'
+import { GEAR } from '@/lib/gearItems'
 
 /** Tick what you want, the size, who it's for. One form for both items. */
 export function GearForm() {
