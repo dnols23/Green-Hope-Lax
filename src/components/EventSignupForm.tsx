@@ -166,8 +166,8 @@ export function EventSignupForm({
       </div>
 
       <div>
-        <label className="field-label">Player school email (optional)</label>
-        <input name="player_email" type="email" className="field" />
+        <label className="field-label">Player school email *</label>
+        <input name="player_email" type="email" required className="field" />
         <p className="text-xs text-gray-500 mt-1">The email their school gave them — not a personal Gmail or iCloud.</p>
       </div>
 

@@ -6,6 +6,7 @@ import { MoveSubmission } from '@/components/admin/MoveSubmission'
 import { PublishToggle } from '@/components/admin/PublishToggle'
 import { SignupStatusControls } from '@/components/admin/SignupStatusControls'
 import { SweepLegacyButton } from '@/components/admin/SweepLegacyButton'
+import { CopyEmails } from '@/components/admin/CopyEmails'
 import {
   deleteInterestSubmission,
   deleteContactSubmission,
@@ -30,6 +31,28 @@ import { readEvents, signupFee } from '@/lib/signups'
 export const metadata = { title: 'Submissions' }
 
 const fmt = formatDateTime
+
+/**
+ * Everyone to reach about one sign-up, stacked in one column so the table
+ * fits: the parent, their email and phone, and the player's school email.
+ */
+function Contact({ parent, email, phone, player }: { parent: string; email: string; phone: string; player: string | null }) {
+  return (
+    <div className="text-sm leading-relaxed min-w-[14rem]">
+      <div className="font-semibold">{parent}</div>
+      <a href={`mailto:${email}`} className="block text-[var(--gh-green)] break-all">{email}</a>
+      <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="block text-gray-600 whitespace-nowrap">{phone}</a>
+      <div className="mt-1 pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
+        <span className="text-[0.65rem] font-black uppercase tracking-wide text-gray-400">Player </span>
+        {player ? (
+          <a href={`mailto:${player}`} className="text-[var(--gh-green)] break-all">{player}</a>
+        ) : (
+          <span className="text-gray-400">no email given</span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const TABS = [
   { key: 'barton-playday', label: 'Barton + Trey Ennis' },
@@ -176,6 +199,9 @@ function PlayerTable({ rows, collection, title, csvName, showProgram, onDelete }
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <h2 className="text-lg font-black">{title}</h2>
         {rows.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+          <CopyEmails emails={rows.map((r) => r.player_email ?? '')} label="Copy player emails" />
+          <CopyEmails emails={rows.map((r) => r.parent_email)} label="Copy parent emails" />
           <ExportCsvButton
             rows={rows.map((r) => ({
               submitted: fmt(r.created_at),
@@ -192,6 +218,7 @@ function PlayerTable({ rows, collection, title, csvName, showProgram, onDelete }
             }))}
             filename={csvName}
           />
+          </div>
         )}
       </div>
       {rows.length === 0 ? (
@@ -201,8 +228,8 @@ function PlayerTable({ rows, collection, title, csvName, showProgram, onDelete }
           <table className="data-table">
             <thead>
               <tr>
-                <th>Submitted</th><th>Player</th>{showProgram && <th>Program</th>}<th>Grad</th><th>Experience</th>
-                <th>Parent</th><th>Email</th><th>Phone</th><th>Notes</th>
+                <th>Submitted</th><th>Player</th>{showProgram && <th>Program</th>}
+                <th>Contact</th><th>Notes</th>
                 <th className="col-actions">Actions</th>
               </tr>
             </thead>
@@ -210,13 +237,16 @@ function PlayerTable({ rows, collection, title, csvName, showProgram, onDelete }
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td className="whitespace-nowrap text-gray-500">{fmt(r.created_at)}</td>
-                  <td className="font-semibold whitespace-nowrap">{r.player_first} {r.player_last}</td>
+                  <td className="whitespace-nowrap">
+                    <div className="font-semibold">{r.player_first} {r.player_last}</div>
+                    <div className="text-xs text-gray-500">
+                      {[r.grad_year && `Class of ${r.grad_year}`, EXPERIENCE_LABELS[r.experience]].filter(Boolean).join(' · ')}
+                    </div>
+                  </td>
                   {showProgram && <td className="capitalize">{(r as InterestSubmission).program}</td>}
-                  <td>{r.grad_year ?? '—'}</td>
-                  <td>{EXPERIENCE_LABELS[r.experience]}</td>
-                  <td className="whitespace-nowrap">{r.parent_name}</td>
-                  <td><a href={`mailto:${r.parent_email}`} className="text-[var(--gh-green)]">{r.parent_email}</a></td>
-                  <td className="whitespace-nowrap">{r.parent_phone}</td>
+                  <td>
+                    <Contact parent={r.parent_name} email={r.parent_email} phone={r.parent_phone} player={r.player_email} />
+                  </td>
                   <td className="max-w-xs text-gray-600">{r.notes || '—'}</td>
                   <td className="col-actions">
                     <div className="flex items-center gap-2">
@@ -254,6 +284,9 @@ function EventTable({ rows, title, csvName }: {
           </span>
         </h2>
         {rows.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+          <CopyEmails emails={rows.map((r) => r.player_email ?? '')} label="Copy player emails" />
+          <CopyEmails emails={rows.map((r) => r.parent_email)} label="Copy parent emails" />
           <ExportCsvButton
             rows={rows.map((r) => ({
               submitted: fmt(r.created_at),
@@ -271,6 +304,7 @@ function EventTable({ rows, title, csvName }: {
             }))}
             filename={csvName}
           />
+          </div>
         )}
       </div>
       {rows.length === 0 ? (
@@ -280,8 +314,8 @@ function EventTable({ rows, title, csvName }: {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Submitted</th><th>Player</th><th>Grad</th><th>Position</th>{anyEvents && <><th>Events</th><th>Owes</th></>}<th>Paid</th>
-                <th>Parent</th><th>Email</th><th>Phone</th><th>Notes</th>
+                <th>Submitted</th><th>Player</th>{anyEvents && <><th>Events</th><th>Owes</th></>}<th>Paid</th>
+                <th>Contact</th><th>Notes</th>
                 <th className="col-actions">Actions</th>
               </tr>
             </thead>
@@ -289,9 +323,12 @@ function EventTable({ rows, title, csvName }: {
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td className="whitespace-nowrap text-gray-500">{fmt(r.created_at)}</td>
-                  <td className="font-semibold whitespace-nowrap">{r.player_first} {r.player_last}</td>
-                  <td>{r.grad_year ?? '—'}</td>
-                  <td>{r.position ?? '—'}</td>
+                  <td className="whitespace-nowrap">
+                    <div className="font-semibold">{r.player_first} {r.player_last}</div>
+                    <div className="text-xs text-gray-500">
+                      {[r.grad_year && `Class of ${r.grad_year}`, r.position].filter(Boolean).join(' · ') || '—'}
+                    </div>
+                  </td>
                   {anyEvents && (
                     <>
                       <td className="whitespace-nowrap">{read(r).events.join(', ') || '—'}</td>
@@ -309,9 +346,9 @@ function EventTable({ rows, title, csvName }: {
                       offTitle="Not paid yet — click when the Venmo lands"
                     />
                   </td>
-                  <td className="whitespace-nowrap">{r.parent_name}</td>
-                  <td><a href={`mailto:${r.parent_email}`} className="text-[var(--gh-green)]">{r.parent_email}</a></td>
-                  <td className="whitespace-nowrap">{r.parent_phone}</td>
+                  <td>
+                    <Contact parent={r.parent_name} email={r.parent_email} phone={r.parent_phone} player={r.player_email} />
+                  </td>
                   <td className="max-w-xs text-gray-600">{read(r).notes || '—'}</td>
                   <td className="col-actions">
                     <DeleteButton id={r.id} action={deleteEventSignup} />

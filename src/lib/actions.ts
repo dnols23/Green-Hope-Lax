@@ -467,10 +467,10 @@ export async function submitEventSignup(
     return { ok: false, error: 'Please enter a valid parent email address.' }
   if (data.parent_phone.replace(/\D/g, '').length < 10)
     return { ok: false, error: 'Please enter a valid phone number.' }
-  if (data.player_email && !EMAIL_RE.test(data.player_email))
-    return { ok: false, error: 'Player email looks invalid \u2014 leave it blank or fix it.' }
-  if (data.player_email && isPersonalEmail(data.player_email))
-    return { ok: false, error: PERSONAL_EMAIL_ERROR }
+  if (!data.player_email || !EMAIL_RE.test(data.player_email))
+    return { ok: false, error: 'Please enter the player\u2019s school email.' }
+  if (isPersonalEmail(data.player_email))
+    return { ok: false, error: 'Please use the player\u2019s school email, not a personal one like Gmail.' }
 
   const supabase = createServiceClient()
   const { error } = await supabase.from('event_signups').insert(data)
