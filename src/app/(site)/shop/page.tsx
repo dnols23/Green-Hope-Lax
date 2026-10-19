@@ -36,6 +36,8 @@ export const metadata: Metadata = {
   title: 'Team Store',
   description: 'Official Green Hope Falcons Lacrosse spirit wear. Every purchase supports the team.',
 }
+// The head count moves as families sign up, so the page is read fresh each time.
+export const dynamic = 'force-dynamic'
 
 // Order categories by the preferred list, then any extras in first-seen order.
 function groupByCategory(products: Product[]): [string, Product[]][] {
