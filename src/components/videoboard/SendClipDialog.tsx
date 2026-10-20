@@ -252,7 +252,7 @@ export function SendClipDialog({
                   } catch {}
                 }}
               />
-              Ask after every clip
+              Open this after every saved clip
             </label>
           )}
           <button type="button" className={styles.dlgLink} onClick={onClose}>
