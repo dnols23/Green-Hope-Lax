@@ -2,8 +2,8 @@
 // something added to or taken off the schedule. Server only.
 //
 // Who gets it: every coach with a real inbox on file (Coach Access), on the
-// side of the program it's about, except whoever made the change — and
-// except anyone who has said in the calendar they're out at that time. Each
+// side of the program it's about — except anyone who has said in the
+// calendar they're out at that time. Whoever made the change gets a copy. Each
 // kind can be switched off in Admin → Notifications. Never throws: the change
 // is saved either way.
 
@@ -47,13 +47,14 @@ function card(a: { kicker: string; title: string; lines: string[]; list?: string
 }
 
 /**
- * The coaches to tell: a real inbox, on this side of the program, not the one
- * who made the change, and not out at that time.
+ * The coaches to tell: a real inbox, on this side of the program, and not out
+ * at that time — plus whoever made the change, as a copy.
  */
 async function staffToTell(a: { team: 'varsity' | 'jv' | 'program'; actorEmail: string | null; start: Date | null; end: Date | null }) {
+  // Whoever made the change gets a copy too, whatever the calendar says.
   const actor = (a.actorEmail ?? '').toLowerCase()
   const staff = (await listStaff()).filter(
-    (s) => s.email.toLowerCase() !== actor && (a.team === 'program' || s.team === 'all' || s.team === a.team) && staffMailbox(s)
+    (s) => (s.email.toLowerCase() === actor || a.team === 'program' || s.team === 'all' || s.team === a.team) && staffMailbox(s)
   )
   if (!staff.length || !a.start) return staff
   const end = a.end && a.end > a.start ? a.end : new Date(a.start.getTime() + 2 * 3_600_000)
@@ -67,7 +68,7 @@ async function staffToTell(a: { team: 'varsity' | 'jv' | 'program'; actorEmail: 
     const av = readAvailability(row)
     if (expandAvailability(av, a.start, end).length) out.add(av.coachEmail.toLowerCase())
   }
-  return staff.filter((s) => !out.has(s.email.toLowerCase()))
+  return staff.filter((s) => s.email.toLowerCase() === actor || !out.has(s.email.toLowerCase()))
 }
 
 async function send(event: StaffNotice, who: Awaited<ReturnType<typeof staffToTell>>, subject: string, html: string) {

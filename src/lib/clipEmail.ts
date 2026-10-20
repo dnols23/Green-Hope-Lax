@@ -22,7 +22,7 @@ interface Mailbox {
 }
 
 /** Everyone these share lines reach who has an inbox, keyed by who they are. */
-async function mailboxesFor(shares: Share[], senderEmail: string): Promise<Map<string, Mailbox>> {
+async function mailboxesFor(shares: Share[]): Promise<Map<string, Mailbox>> {
   const out = new Map<string, Mailbox>()
   if (!shares.length) return out
   const svc = createServiceClient()
@@ -42,10 +42,8 @@ async function mailboxesFor(shares: Share[], senderEmail: string): Promise<Map<s
   )
   const playerRows = (players.data ?? []) as { id: string; team: string | null; is_active: boolean | null }[]
   const parentRows = (parents.data ?? []) as { id: string; email: string | null }[]
-  const sender = senderEmail.toLowerCase()
-
+  // The head coach sending is a coach too: "All coaches" emails him a copy.
   const addCoach = (email: string) => {
-    if (email.toLowerCase() === sender) return
     const rec = staff.find((s) => s.email.toLowerCase() === email.toLowerCase())
     const box = rec ? staffMailbox(rec) : null
     if (box) out.set(`coach:${rec!.email.toLowerCase()}`, { kind: 'coach', email: box })
@@ -108,8 +106,8 @@ export async function emailClipSent(a: {
   try {
     if (!a.added.length) return 0
     const [now, before] = await Promise.all([
-      mailboxesFor([...a.added, ...a.kept], a.sender.email),
-      mailboxesFor(a.kept, a.sender.email),
+      mailboxesFor([...a.added, ...a.kept]),
+      mailboxesFor(a.kept),
     ])
     const fresh = [...now.entries()].filter(([k]) => !before.has(k)).map(([, m]) => m)
     if (!fresh.length) return 0

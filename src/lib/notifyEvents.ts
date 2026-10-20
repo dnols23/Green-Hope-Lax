@@ -46,13 +46,13 @@ export const NOTIFY_EVENTS: NotifyEvent[] = [
     key: 'practice-posted',
     label: 'Practice plans — to the staff',
     description:
-      'A practice plan is saved with a date and its drills. Emails every coach with an email in Coach Access, except whoever posted it and anyone marked out in the calendar then.',
+      'A practice plan is saved with a date and its drills. Emails every coach with an email in Coach Access (a copy to whoever posted it), except anyone marked out in the calendar then.',
   },
   {
     key: 'schedule-change',
     label: 'Schedule changes — to the staff',
     description:
-      'A game or calendar event is added or removed. Emails every coach with an email in Coach Access, except whoever changed it and anyone marked out in the calendar then.',
+      'A game or calendar event is added or removed. Emails every coach with an email in Coach Access (a copy to whoever changed it), except anyone marked out in the calendar then.',
   },
 ]
 
