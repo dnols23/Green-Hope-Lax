@@ -26,6 +26,8 @@ export interface CalPayload {
   me: { email: string; name: string; isOwner: boolean }
   /** What each calendar shares with each hub — sent to the owner only. */
   share?: CalendarShare | null
+  /** This coach has the volunteer sign-ups layer. */
+  seesVolunteers?: boolean
 }
 
 // ── The time grid's scale ───────────────────────────────────────────────────
@@ -66,6 +68,9 @@ export function layerOf(item: Pick<CalItem, 'source'>): CalLayer {
 
 export const isAvailability = (item: Pick<CalItem, 'source'>) => item.source === 'availability'
 
+/** A game's volunteer sign-up, on the coaches' calendar. */
+export const isSignup = (item: Pick<CalItem, 'source'>) => item.source === 'signup'
+
 /** An open field or weight-room slot: room to schedule into, not something happening. */
 export const isFieldTime = (item: Pick<CalItem, 'source' | 'kind'>) => item.source === 'event' && item.kind === 'open'
 
@@ -104,6 +109,7 @@ export function teamLabel(team: CalTeam): string {
 export function kindMeta(item: Pick<CalItem, 'source' | 'kind'>): { icon: string; label: string } {
   if (item.source === 'game') return { icon: '🏟', label: 'Game' }
   if (item.source === 'practice') return { icon: '📋', label: 'Practice plan' }
+  if (item.source === 'signup') return { icon: '🙋', label: 'Volunteers' }
   if (item.source === 'availability') {
     return item.kind === 'available' ? { icon: '✅', label: 'Available' } : { icon: '⛔', label: 'Out' }
   }
@@ -117,7 +123,7 @@ export function kindMeta(item: Pick<CalItem, 'source' | 'kind'>): { icon: string
  * and their parents both.
  */
 export function whoSees(item: Pick<CalItem, 'source' | 'audience'>): string {
-  if (item.source === 'availability') return 'Coaches only'
+  if (item.source === 'availability' || item.source === 'signup') return 'Coaches only'
   if (item.source === 'game' && item.audience === 'team') return 'Coaches, players & parents'
   return audienceLabel(item.audience)
 }

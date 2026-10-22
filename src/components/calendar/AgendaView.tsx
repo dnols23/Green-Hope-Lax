@@ -206,6 +206,11 @@ function AgendaRow({ item, day, onOpen }: { item: CalItem; day: Date; onOpen: (i
             <span className="badge" style={{ background: tone.bg, color: tone.fg }} title="Who sees this">
               {audienceBadge(item)}
             </span>
+            {item.source === 'game' && item.volunteers && item.volunteers.filled < item.volunteers.needed && (
+              <span className="badge" style={{ background: '#fdf2e0', color: '#7a4f00' }}>
+                🙋 Volunteers needed
+              </span>
+            )}
           </span>
         </span>
       </button>

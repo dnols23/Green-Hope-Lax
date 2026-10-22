@@ -133,7 +133,7 @@ export interface Availability {
  * each into one of these, so the screen never has to know where a block came
  * from except to decide what clicking it does.
  */
-export type CalItemSource = 'event' | 'game' | 'practice' | 'availability'
+export type CalItemSource = 'event' | 'game' | 'practice' | 'availability' | 'signup'
 
 export interface CalItem {
   /** Unique across sources, e.g. `event:<uuid>`, `game:<uuid>`, `avail:<uuid>:<n>`. */
@@ -168,6 +168,11 @@ export interface CalItem {
   mayPlan?: boolean
   /** Event only: the repeating series it is one of. */
   seriesId?: string | null
+  /**
+   * A game's volunteer sign-up — spots taken of spots needed. On a game in
+   * the Parent Hub once sign-ups are open, and on a coach's sign-up item.
+   */
+  volunteers?: { filled: number; needed: number } | null
 }
 
 // ── Colour ───────────────────────────────────────────────────────────────────
@@ -192,11 +197,13 @@ export const KIND_COLORS: Record<string, { bg: string; fg: string; border: strin
   open: { bg: '#dcf2e4', fg: '#00512F', border: '#6fbf8f' },
   unavailable: { bg: '#fde8ea', fg: '#7A1F2B', border: '#f3b8bf' },
   available: { bg: '#e3f4ea', fg: '#00512F', border: '#a9d8bd' },
+  volunteers: { bg: '#fdf2e0', fg: '#7a4f00', border: '#eda100' },
 }
 
 export function colorFor(item: Pick<CalItem, 'source' | 'kind'>) {
   if (item.source === 'game') return KIND_COLORS.game
   if (item.source === 'practice') return KIND_COLORS.practice
+  if (item.source === 'signup') return KIND_COLORS.volunteers
   return KIND_COLORS[item.kind] ?? KIND_COLORS.event
 }
 

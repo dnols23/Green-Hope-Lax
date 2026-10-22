@@ -73,6 +73,8 @@ export async function listSheets(includeClosed = false): Promise<SignupSheet[]> 
   let q = createServiceClient()
     .from('signup_sheets')
     .select('*')
+    // A game's sign-up lives with the game, on the calendar.
+    .is('game_id', null)
     .order('event_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
   if (!includeClosed) q = q.eq('is_open', true)

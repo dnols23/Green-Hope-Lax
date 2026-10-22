@@ -70,6 +70,8 @@ export interface CalPrefs {
   layers: CalLayer[]
   /** Field Availability — the open slots — drawn or not. */
   fields: boolean
+  /** Volunteer sign-ups for games, drawn or not. */
+  volunteers: boolean
 }
 
 const PREFS_KEY = 'gh-calendar-prefs-v1'
@@ -111,6 +113,7 @@ function parsePrefs(raw: string): CalPrefs {
     teams: Array.isArray(o.teams) ? o.teams.filter(isCalTeam) : ALL_TEAMS,
     layers: Array.isArray(o.layers) ? (o.layers.filter((l) => ALL_LAYERS.includes(l as CalLayer)) as CalLayer[]) : ALL_LAYERS,
     fields: o.fields !== false,
+    volunteers: o.volunteers !== false,
   }
 }
 

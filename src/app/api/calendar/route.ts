@@ -9,6 +9,7 @@ import {
   postableTeams,
   readCalendarShare,
 } from '@/lib/calendarData'
+import { readVolunteerSettings } from '@/lib/gameVolunteers'
 
 /**
  * GET /api/calendar?from=<ISO>&to=<ISO>
@@ -35,11 +36,12 @@ export async function GET(request: NextRequest) {
   }
 
   const [ready, availReady] = await Promise.all([calendarReady(), availabilityReady()])
-  const [items, mine, share] = await Promise.all([
-    listCalendarItems({ from, to, surface: 'coach', viewer, withFieldTimes: true }),
+  const [items, mine, share, volunteers] = await Promise.all([
+    listCalendarItems({ from, to, surface: 'coach', viewer, withFieldTimes: true, withVolunteers: true }),
     availReady ? listMyAvailability(viewer.email) : Promise.resolve([]),
     // The share settings are the owner's to change, so only he is sent them.
     viewer.isOwner ? readCalendarShare() : Promise.resolve(null),
+    readVolunteerSettings(),
   ])
 
   return NextResponse.json({
@@ -51,5 +53,7 @@ export async function GET(request: NextRequest) {
     canPlan: canSee(viewer, 'planner'),
     me: { email: viewer.email, name: viewer.name, isOwner: viewer.isOwner },
     share,
+    // Whether this coach has the volunteer sign-ups layer to switch.
+    seesVolunteers: viewer.isOwner || !!volunteers.viewers[viewer.email.toLowerCase()],
   })
 }

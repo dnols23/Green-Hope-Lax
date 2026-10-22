@@ -16,6 +16,7 @@ export interface ExportChoice {
 export function pickForExport(items: CalItem[], c: ExportChoice): CalItem[] {
   return items
     .filter((it) => {
+      if (it.source === 'signup') return false
       if (it.source === 'availability') return c.layers.includes('availability') && it.kind === 'unavailable'
       if (isFieldTime(it)) return c.fields && c.teams.includes(it.team)
       return c.layers.includes(layerOf(it)) && c.teams.includes(it.team)

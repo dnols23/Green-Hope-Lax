@@ -6,6 +6,8 @@ import { normalizeAudience as gameAudience } from './schedule'
 import { isTeam, withTeam } from './teams'
 import { CALENDAR_SHARE_KEY, parseCalendarShare, shares, type CalendarShare, type ShareHub, type ShareLayer } from './calendarShare'
 import { addDaysYmd, daysBetweenYmd, hmOf, ymdOf, zonedToUtc } from './zoned'
+import { readVolunteerSettings, volunteerCounts } from './gameVolunteers'
+import { seesLevel, type VolSee } from './gameVolunteerModel'
 import {
   GAME_MINUTES,
   SURFACE_SEES,
@@ -176,6 +178,8 @@ export interface CalendarQuery {
    * anything happening, so only the coaches' calendar itself asks for them.
    */
   withFieldTimes?: boolean
+  /** Volunteer sign-ups, for the coaches who see them — the coaches' calendar itself. */
+  withVolunteers?: boolean
 }
 
 /**
@@ -326,6 +330,45 @@ export async function listCalendarItems(q: CalendarQuery): Promise<CalItem[]> {
           editable: false,
           homeAway: ha,
           result: final ? `${g.team_score}–${g.opp_score}` : null,
+        })
+      }
+    }
+  }
+
+  // Volunteer sign-ups: a layer on the coaches' calendar for whoever the
+  // owner shares them with, and the way in for parents once they're open.
+  const games = items.filter((i) => i.source === 'game')
+  const wantVolunteers = (coach && q.withVolunteers && q.viewer) || q.surface === 'parents'
+  if (games.length && wantVolunteers) {
+    const settings = await readVolunteerSettings()
+    const see: VolSee = coach && q.viewer ? (q.viewer.isOwner ? 'all' : (settings.viewers[q.viewer.email.toLowerCase()] ?? 'none')) : 'none'
+    if (coach ? see !== 'none' : settings.open) {
+      const counts = await volunteerCounts(games.map((g) => g.id))
+      for (const g of games) {
+        const c = counts.get(g.id)
+        if (!c?.needed) continue
+        if (!coach) {
+          g.volunteers = c
+          continue
+        }
+        if (g.team === 'program' || !seesLevel(see, g.team)) continue
+        const day = ymdOf(new Date(g.startsAt))
+        items.push({
+          key: `signup:${g.id}`,
+          source: 'signup',
+          id: g.id,
+          title: `Volunteers ${c.filled}/${c.needed} · ${g.title}`,
+          startsAt: zonedToUtc(day, '00:00').toISOString(),
+          endsAt: zonedToUtc(addDaysYmd(day, 1), '00:00').toISOString(),
+          allDay: true,
+          team: g.team,
+          audience: 'coaches',
+          location: g.location,
+          notes: null,
+          kind: 'volunteers',
+          href: null,
+          editable: false,
+          volunteers: c,
         })
       }
     }

@@ -37,7 +37,7 @@ import { ExportPanel } from './ExportPanel'
 import { MonthView } from './MonthView'
 import { TimeGrid } from './TimeGrid'
 import { MiniMonth, YearView, dayLoad } from './YearView'
-import { CAL_LAYERS, coachLabel, isAvailability, isFieldTime, layerOf, type CalLayer, type CalPayload } from './calShared'
+import { CAL_LAYERS, coachLabel, isAvailability, isFieldTime, isSignup, layerOf, type CalLayer, type CalPayload } from './calShared'
 import { savePrefs, useHydrated, useNarrow, useNowMinute, usePrefs } from './calHooks'
 
 /**
@@ -170,7 +170,7 @@ export function CalendarApp({
       .map((it) => (moved[it.key] ? { ...it, ...moved[it.key] } : it))
       .filter(
         (it) =>
-          (isFieldTime(it) ? prefs.fields : prefs.layers.includes(layerOf(it))) &&
+          (isFieldTime(it) ? prefs.fields : isSignup(it) ? prefs.volunteers : prefs.layers.includes(layerOf(it))) &&
           // Availability is the staff's, not a team's, so the team chips leave it be.
           (isAvailability(it) || prefs.teams.includes(it.team)),
       )
@@ -500,30 +500,20 @@ export function CalendarApp({
           <div className="flex items-center gap-1.5 w-max sm:w-auto sm:flex-wrap">
             {!hub && (
             <>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={prefs.fields}
+            <LayerSwitch
+              on={prefs.fields}
               onClick={() => savePrefs({ fields: !prefs.fields })}
-              className="min-h-8 pl-1.5 pr-3 rounded-full border text-xs font-bold inline-flex items-center gap-2 transition-colors"
-              style={
-                prefs.fields
-                  ? { background: 'var(--open-bg, #e9f6ee)', color: 'var(--open-fg, #00512F)', borderColor: '#6fbf8f' }
-                  : { background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
-              }
-            >
-              <span
-                aria-hidden
-                className="relative w-7 h-4 rounded-full transition-colors"
-                style={{ background: prefs.fields ? '#00693E' : 'var(--color-gray-300, #d1d5db)' }}
-              >
-                <span
-                  className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all"
-                  style={{ left: prefs.fields ? 14 : 2 }}
-                />
-              </span>
-              Field Availability
-            </button>
+              label="Field Availability"
+              tone={{ bg: 'var(--open-bg, #e9f6ee)', fg: 'var(--open-fg, #00512F)', border: '#6fbf8f', knob: '#00693E' }}
+            />
+            {data?.seesVolunteers && (
+              <LayerSwitch
+                on={prefs.volunteers}
+                onClick={() => savePrefs({ volunteers: !prefs.volunteers })}
+                label="🙋 Volunteers"
+                tone={{ bg: '#fdf2e0', fg: '#7a4f00', border: '#eda100', knob: '#c48400' }}
+              />
+            )}
             <span aria-hidden className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
             </>
             )}
@@ -726,6 +716,7 @@ export function CalendarApp({
           <EventDetail
             target={detail}
             myEmail={data.me.email}
+            hub={hub}
             onClose={() => setDetail(null)}
             onEdit={editEvent}
             onPlanHere={canCreate ? planInSlot : undefined}
@@ -860,5 +851,42 @@ function Skeleton({ view }: { view: CalView }) {
         ))}
       </div>
     </div>
+  )
+}
+
+/** An on/off pill for a layer that isn't a kind of event — open field time, volunteer sign-ups. */
+function LayerSwitch({
+  on,
+  onClick,
+  label,
+  tone,
+}: {
+  on: boolean
+  onClick: () => void
+  label: string
+  tone: { bg: string; fg: string; border: string; knob: string }
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={onClick}
+      className="min-h-8 pl-1.5 pr-3 rounded-full border text-xs font-bold inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+      style={
+        on
+          ? { background: tone.bg, color: tone.fg, borderColor: tone.border }
+          : { background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
+      }
+    >
+      <span
+        aria-hidden
+        className="relative w-7 h-4 rounded-full transition-colors"
+        style={{ background: on ? tone.knob : 'var(--color-gray-300, #d1d5db)' }}
+      >
+        <span className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all" style={{ left: on ? 14 : 2 }} />
+      </span>
+      {label}
+    </button>
   )
 }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { zonedToUtc } from './zoned'
+import { ensureGameSignup } from './gameVolunteers'
 import { emailPracticePosted, emailScheduleChange } from './staffNotify'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -790,16 +791,19 @@ export async function upsertGame(formData: FormData) {
       break
     }
   }
-  // A new boys' game tells the staff.
+  // A boys' game keeps its volunteer sign-up in step.
+  if (saved && id && payload.gender === 'boys') await ensureGameSignup(id)
+  // A new boys' game tells the staff, and gets its sign-up.
   if (saved && !id && payload.gender === 'boys') {
     const { data: made } = await createServiceClient()
       .from('games')
-      .select('game_date, opponent, home_away, location')
+      .select('id, game_date, opponent, home_away, location')
       .eq('opponent', payload.opponent)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-    const g = made as { game_date: string; opponent: string; home_away: string; location: string | null } | null
+    const g = made as { id: string; game_date: string; opponent: string; home_away: string; location: string | null } | null
+    if (g) await ensureGameSignup(g.id)
     if (g) {
       await emailScheduleChange({
         change: 'added',

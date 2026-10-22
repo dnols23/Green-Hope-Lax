@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { requireSection } from '@/lib/permissions'
+import { loadVolunteerSetup } from '@/lib/gameVolunteerActions'
+import { VolunteerSetup } from '@/components/volunteers/VolunteerSetup'
 import { ensureJoinToken, listParents, parentHubReady } from '@/lib/parentAccess'
 import { getSheet, listSheets, spotsLeft } from '@/lib/signupSheets'
 import { NewSheetForm } from '@/components/parents/NewSheetForm'
@@ -12,7 +14,7 @@ export const metadata = { title: 'Parent Hub' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminParentsPage() {
-  await requireSection('parents')
+  const viewer = await requireSection('parents')
 
   if (!(await parentHubReady())) {
     return (
@@ -26,7 +28,12 @@ export default async function AdminParentsPage() {
     )
   }
 
-  const [token, parents, sheets] = await Promise.all([ensureJoinToken(), listParents(), listSheets(true)])
+  const [token, parents, sheets, volunteers] = await Promise.all([
+    ensureJoinToken(),
+    listParents(),
+    listSheets(true),
+    viewer.isOwner ? loadVolunteerSetup() : null,
+  ])
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://greenhopelacrosse.com'
   const joinUrl = token ? `${base}/parents/join/${token}` : ''
 
@@ -53,9 +60,11 @@ export default async function AdminParentsPage() {
           <Link href="/parents" target="_blank" className="text-[var(--gh-green)] font-semibold">
             /parents ↗
           </Link>
-          . Sign-up sheets, and nothing else for now.
+          . Game volunteers and sign-up sheets.
         </p>
       </div>
+
+      {volunteers?.ok && <VolunteerSetup initial={volunteers.settings} coaches={volunteers.coaches} />}
 
       {/* ── The link that goes in the team email ── */}
       <section className="card p-5">

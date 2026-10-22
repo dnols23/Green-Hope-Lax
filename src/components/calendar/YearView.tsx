@@ -30,7 +30,7 @@ export function dayLoad(items: CalItem[], from: Date, to: Date): DayLoad {
       const cur = load.get(k) ?? { count: 0, game: false, out: false }
       if (isAvailability(it)) {
         if (it.kind === 'unavailable') cur.out = true
-      } else if (!isFieldTime(it)) {
+      } else if (!isFieldTime(it) && it.source !== 'signup') {
         cur.count += 1
         if (it.source === 'game') cur.game = true
       }

@@ -7,6 +7,8 @@ import { deleteAvailability, deleteCalEvent, planFromEvent } from '@/lib/calenda
 import { CAL_AUDIENCES, colorFor, type CalItem } from '@/lib/calendarModel'
 import { MONTH_NAMES, WEEKDAY_NAMES, formatRange, isAllDayish, sameDay } from '@/lib/calendarMath'
 import { AUDIENCE_TONE, isFieldTime, itemTitle, kindMeta, teamLabel, whoSees } from './calShared'
+import { VolunteerRoster } from '@/components/volunteers/VolunteerRoster'
+import { VolunteerSignup } from '@/components/volunteers/VolunteerSignup'
 
 /**
  * What a block on the calendar is, when it is tapped.
@@ -24,6 +26,8 @@ export type DetailTarget = { type: 'item'; item: CalItem } | { type: 'out'; day:
 type Props = {
   target: DetailTarget
   myEmail: string
+  /** The Parent Hub's copy, where a game opens its volunteer sign-up. */
+  hub?: 'team' | 'parents'
   onClose: () => void
   /** Open the editor on this event. */
   onEdit: (item: CalItem) => void
@@ -57,8 +61,9 @@ export function whenText(item: Pick<CalItem, 'startsAt' | 'endsAt' | 'allDay'>):
   return range
 }
 
-export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailability, onPlanHere, onOpen, onChanged }: Props) {
+export function EventDetail({ target, myEmail, hub, onClose, onEdit, onEditAvailability, onPlanHere, onOpen, onChanged }: Props) {
   const [confirming, setConfirming] = useState(false)
+  const [volunteering, setVolunteering] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -66,7 +71,13 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
   if (target.type === 'out') return <OutList target={target} onClose={onClose} onOpen={onOpen} />
 
   const item = target.item
+  if (item.source === 'signup') {
+    return <VolunteerRoster gameId={item.id} onClose={onClose} onChanged={() => onChanged('Volunteer positions saved.')} />
+  }
+  if (volunteering) return <VolunteerSignup gameId={item.id} onBack={() => setVolunteering(false)} onClose={onClose} />
   const avail = item.source === 'availability'
+  const vol = hub === 'parents' && item.source === 'game' ? item.volunteers : null
+  const volOpen = vol ? Math.max(0, vol.needed - vol.filled) : 0
   const mine = avail && (item.coachEmail ?? '').toLowerCase() === myEmail.toLowerCase()
   const meta = kindMeta(item)
   const c = colorFor(item)
@@ -171,6 +182,28 @@ export function EventDetail({ target, myEmail, onClose, onEdit, onEditAvailabili
             )}
           </span>
         </div>
+
+        {vol && (
+          <button
+            type="button"
+            onClick={() => setVolunteering(true)}
+            className="w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors hover:brightness-[0.98]"
+            style={{ background: '#fdf2e0', borderColor: '#eda100', color: '#7a4f00' }}
+          >
+            <span aria-hidden className="text-xl">
+              🙋
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-black">{volOpen ? 'Volunteers needed' : 'Volunteer sign-up'}</span>
+              <span className="block text-xs font-semibold opacity-80">
+                {volOpen ? `${volOpen} of ${vol.needed} ${vol.needed === 1 ? 'spot' : 'spots'} open — tap to sign up` : 'Every spot is filled — see who’s on it'}
+              </span>
+            </span>
+            <span aria-hidden className="text-2xl leading-none">
+              &rsaquo;
+            </span>
+          </button>
+        )}
 
         {item.location && (
           <p className="flex gap-2">
