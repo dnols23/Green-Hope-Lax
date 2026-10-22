@@ -36,6 +36,7 @@ function shape(row: Record<string, unknown>): Plan {
     // Older rows predate the column; a plan without it behaves as it always did.
     publish_coaches: row.publish_coaches !== false,
     private: row.private === true,
+    published_at: (row.coaches_emailed_at as string) ?? null,
     review_requested_at: (row.review_requested_at as string) ?? null,
     // Plans from before 0046 were all on the calendar.
     on_calendar: row.on_calendar !== false,

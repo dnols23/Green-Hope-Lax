@@ -112,6 +112,8 @@ export interface Plan {
   publish_players: boolean
   /** In the coaches' War Room. A plan starts as the author's working document. */
   publish_coaches: boolean
+  /** When it was last published — the staff emailed (0068). Null until then. */
+  published_at: string | null
   /** A draft only its author sees (0043) — never in a War Room, the calendar or the Team Hub. */
   private: boolean
   /** When the author sent the draft to the head coaches; null when not sent. */

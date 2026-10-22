@@ -113,6 +113,9 @@ export function PlanEditor({
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const data = new FormData(e.currentTarget)
+    // Publish says so; Save and the autosave never do.
+    const by = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null
+    if (by?.name === 'intent') data.set('intent', by.value)
     startSave(() => save(data))
   }
   const [title, setTitle] = useState(plan.title)
@@ -143,6 +146,9 @@ export function PlanEditor({
   const leader = leaderOf(totals)
   const [toPlayers, setToPlayers] = useState(plan.publish_players)
   const [toCoaches, setToCoaches] = useState(plan.publish_coaches)
+  // A practice is published — and the staff emailed — only by its Publish button.
+  const mayPublish = canWrite && !plan.private && plan.kind === 'practice'
+  const published = !!plan.published_at || (state.ok && !!state.message?.startsWith('Published'))
   const [onCalendar, setOnCalendar] = useState(plan.on_calendar)
   /* Putting a practice on the calendar (or taking it off) saves the plan there
      and then, so the button does what it says. */
@@ -601,10 +607,23 @@ export function PlanEditor({
             type="submit"
             disabled={saving || !canWrite}
             title={canWrite ? undefined : 'This is the other team\u2019s plan.'}
-            className="btn btn-primary !py-1.5 disabled:opacity-60"
+            className={`btn !py-1.5 disabled:opacity-60 ${mayPublish ? 'btn-ghost' : 'btn-primary'}`}
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
+          {mayPublish && (
+            <button
+              type="submit"
+              name="intent"
+              value="publish"
+              disabled={saving || !date || blocks.length === 0}
+              onClick={() => setToCoaches(true)}
+              title={!date || blocks.length === 0 ? 'Give it a date and a block first' : 'Into the War Room, and an email to the staff with every drill'}
+              className="btn btn-primary !py-1.5 disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : published ? '📣 Publish update' : '📣 Publish'}
+            </button>
+          )}
         </div>
 
         {/* Who this is for. A plan is the author's working document until it is
@@ -612,7 +631,7 @@ export function PlanEditor({
         {/* A draft goes nowhere until a head coach takes it in. */}
         {!plan.private && (
           <div className="flex items-center gap-4 mt-2 pt-2 border-t border-gray-100 flex-wrap">
-            <span className="text-xs font-bold tracking-wide uppercase text-gray-400">Publish to</span>
+            <span className="text-xs font-bold tracking-wide uppercase text-gray-400">Shows in</span>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
@@ -663,6 +682,13 @@ export function PlanEditor({
         {calWaiting && !date && <p className="text-sm font-semibold text-[var(--gh-green)] mt-2">Pick a date — it goes on the calendar.</p>}
         {state.error && <p className="text-sm text-red-700 mt-2">{state.error}</p>}
         {state.ok && state.message && !saving && <p className="text-sm text-green-700 mt-2">{state.message}</p>}
+        {mayPublish && !saving && !(state.ok && state.message) && (
+          <p className="text-xs text-gray-400 mt-2">
+            {published
+              ? `✓ Published ${new Date(plan.published_at!).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} — Save keeps changes to yourself; Publish update emails them.`
+              : 'Not published — Save keeps it to yourself. Publish emails the staff the whole practice.'}
+          </p>
+        )}
       </div>
 
       <SlideList

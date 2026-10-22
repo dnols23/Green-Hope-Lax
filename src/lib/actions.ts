@@ -2126,6 +2126,10 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   }
   // A draft stays off the War Room and away from the players until a head coach takes it in.
   const draft = existing?.private === true
+  // Publish is the head of it: the War Room, and the staff's inboxes.
+  const publishing = str(formData.get('intent')) === 'publish'
+  if (publishing && existing?.kind !== 'practice') return { ok: false, error: 'Only practice plans are published.' }
+  if (publishing && draft) return { ok: false, error: 'A draft is published when a head coach takes it in.' }
 
   let blocks: unknown = []
   let content: unknown = []
@@ -2156,9 +2160,12 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     blocks: blocksOut,
     sides,
     publish_players: !draft && str(formData.get('publish_players')) === 'true',
-    publish_coaches: !draft && str(formData.get('publish_coaches')) === 'true',
+    publish_coaches: !draft && (publishing || str(formData.get('publish_coaches')) === 'true'),
     updated_at: new Date().toISOString(),
   }
+
+  if (publishing && (!common.plan_date || !blocksOut.length))
+    return { ok: false, error: 'Give it a date and at least one block, then publish.' }
 
   let { error } = await svc
     .from('plans')
@@ -2247,24 +2254,27 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
     }
   }
 
-  /* The first time a practice is saved ready to run — a date and its drills,
-     shared with the staff — the coaches hear about it. Once only. */
-  if (existing?.kind === 'practice' && !draft && common.publish_coaches && common.plan_date && blocksOut.length) {
-    const { data: sent } = await svc
+  /* Publish — never Save, never an autosave, never a copy — is what tells the
+     staff: the plan as it stands now, into the War Room, and an email. Doing
+     it again after a change sends the update. */
+  let emailed: number | null = null
+  if (publishing) {
+    const { data: was } = await svc.from('plans').select('coaches_emailed_at').eq('id', id).maybeSingle()
+    const { error: pubError } = await svc
       .from('plans')
       .update({ coaches_emailed_at: new Date().toISOString() })
       .eq('id', id)
-      .is('coaches_emailed_at', null)
-      .select('id')
-    if (sent && sent.length) {
+    if (!pubError) {
       const startHm = typeof common.start_time === 'string' && common.start_time ? common.start_time.slice(0, 5) : '16:00'
-      await emailPracticePosted({
+      emailed = await emailPracticePosted({
+        updated: !!(was as { coaches_emailed_at: string | null } | null)?.coaches_emailed_at,
         planId: id,
-        team: existing.team === 'jv' ? 'jv' : 'varsity',
+        team: existing?.team === 'jv' ? 'jv' : 'varsity',
         title: String(common.title),
         start: zonedToUtc(String(common.plan_date), startHm),
-        minutes: blocksOut.reduce((t, b) => t + (Number(b.minutes) || 0), 0),
-        blocks: blocksOut.map((b) => `${b.title || 'Untitled'} · ${b.minutes}m`),
+        startHm,
+        summary: typeof common.summary === 'string' ? common.summary : null,
+        blocks: blocksOut,
         actor: { email: viewer?.email ?? null, name: viewer?.name || 'A coach' },
       })
     }
@@ -2276,6 +2286,8 @@ export async function savePlan(_prev: FormState, formData: FormData): Promise<Fo
   revalidatePath('/admin/hub')
   revalidatePath('/team/me')
   if (warning) return { ok: false, error: warning }
+  if (emailed !== null)
+    return { ok: true, message: emailed ? `Published — emailed ${emailed} ${emailed === 1 ? 'coach' : 'coaches'}.` : 'Published.' }
   return { ok: true, message: 'Saved.' }
 }
 
@@ -2333,14 +2345,14 @@ export async function duplicatePlan(formData: FormData) {
   // A copied game plan is a starting point for another game, not a second plan for this one.
   if (o.kind === 'game' && row.details) row.details = { ...readGamePlan(row.details), gameId: null }
   if (o.kind === 'scout' && row.details) row.details = { ...readScout(row.details), gameId: null }
-  /* A sandboxed coach's copy is his draft — the way he starts from one of the
-     staff's plans. A coach copying his own draft keeps it a draft. */
+  /* A copy is never published: it reaches the War Room, the players and the
+     staff's inboxes when somebody presses Publish on it. A sandboxed coach's
+     copy is his draft — the way he starts from one of the staff's plans. A
+     coach copying his own draft keeps it a draft. */
+  row.publish_coaches = false
+  row.publish_players = false
   const keepPrivate = isSandboxed(viewer) || (source.private && isAuthor(viewer, source))
-  if (keepPrivate) {
-    row.private = true
-    row.publish_coaches = false
-    row.publish_players = false
-  }
+  if (keepPrivate) row.private = true
   let { data: copy, error } = await svc.from('plans').insert(row).select('id').single()
   if (error && keepPrivate && /private/i.test(error.message ?? '')) {
     redirect(withTeam('/admin/planner?error=drafts', team))
